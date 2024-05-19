@@ -1,0 +1,7 @@
+streamlit
+pandas
+numpy
+datetime
+scipy.signal
+plotly.graph_objects
+vectorbt
