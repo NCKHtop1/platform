@@ -281,6 +281,53 @@ with tab5:
     st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
                 providing a holistic view of the strategy's performance.")
     st.plotly_chart(fig, use_container_width=True)
+# Function to plot technical indicators
+def plot_technical_indicators(df, indicators):
+    fig = go.Figure()
+
+    # Plot closing price
+    fig.add_trace(go.Scatter(x=df.index, y=df['close'], mode='lines', name='Close'))
+
+    # Plot selected technical indicators
+    for indicator in indicators:
+        if indicator == 'MACD':
+            fig.add_trace(go.Scatter(x=df.index, y=df['MACD Line'], mode='lines', name='MACD Line'))
+            fig.add_trace(go.Scatter(x=df.index, y=df['Signal Line'], mode='lines', name='Signal Line'))
+        elif indicator == 'Supertrend':
+            fig.add_trace(go.Scatter(x=df.index, y=df['Supertrend'], mode='lines', name='Supertrend'))
+        elif indicator == 'Stochastic':
+            fig.add_trace(go.Scatter(x=df.index, y=df['Stochastic K'], mode='lines', name='Stochastic K'))
+            fig.add_trace(go.Scatter(x=df.index, y=df['Stochastic D'], mode='lines', name='Stochastic D'))
+        elif indicator == 'RSI':
+            fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI'))
+
+    # Customize layout
+    fig.update_layout(
+        title='Technical Indicators',
+        xaxis_title='Date',
+        yaxis_title='Price/Value',
+        width=800,
+        height=600
+    )
+
+    return fig
+
+# New tab for plotting technical indicators
+with st.sidebar.expander("Technical Indicators", expanded=True):
+    selected_indicators = st.multiselect("Select Indicators to Plot", ["MACD", "Supertrend", "Stochastic", "RSI"])
+
+# Streamlit app logic continues
+# Create a new tab for plotting technical indicators
+with st.tab("Technical Indicators"):
+    if start_date < end_date:
+        # Filter data for the selected date range
+        filtered_data = symbol_data.loc[start_date:end_date]
+
+        # Calculate technical indicators for the filtered data
+        filtered_data = calculate_indicators_and_crashes(filtered_data, selected_indicators)
+
+        # Plot technical indicators
+        st.plotly_chart(plot_technical_indicators(filtered_data, selected_indicators))
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
