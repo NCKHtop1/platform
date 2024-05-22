@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
 from tensorflow.keras import layers, models, losses, optimizers
+import tensorflow as tf
 from scipy.stats import chi2
 
 SECTOR_FILES = {
