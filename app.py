@@ -207,34 +207,6 @@ if start_date < end_date:
     tab_labels = ["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot"]
     active_tab = st.sidebar.radio("Select View", tab_labels)
 
-    if active_tab == "Backtesting Stats":
-        st.markdown("**Backtesting Stats:**")
-        st.info("This tab displays statistics related to the backtesting results.")
-
-        stats_df = pd.DataFrame(portfolio.stats(), columns=['Value'])
-        stats_df.index.name = 'Metric'
-        st.dataframe(stats_df, height=800)
-
-    elif active_tab == "List of Trades":
-        st.markdown("**List of Trades:**")
-        st.info("This tab shows a list of trades executed during the backtesting period.")
-
-        trades_df = portfolio.trades.records_readable
-        trades_df = trades_df.round(2)
-        trades_df.index.name = 'Trade No'
-        trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
-        st.dataframe(trades_df, width=800, height=600)
-
-        equity_fig = go.Figure(data=[equity_trace])
-        equity_fig.update_layout(
-            title='Equity Curve',
-            xaxis_title='Date',
-            yaxis_title='Equity',
-            width=800,
-            height=600
-        )
-        st.plotly_chart(equity_fig)
-
 if active_tab == "Backtesting Stats":
     st.markdown("**Backtesting Stats:**")
     st.info("This tab displays statistics related to the backtesting results.")
