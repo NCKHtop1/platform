@@ -180,10 +180,45 @@ stop_loss_percentage = st.sidebar.number_input('Stop Loss (%)', min_value=0.0, m
 trailing_take_profit_percentage = st.sidebar.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
 trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
-# (Continue with your existing sidebar and logic here)
+# New tab for technical indicators
+with st.sidebar.expander("Technical Indicators", expanded=False):
+    selected_indicators = st.multiselect("Select Technical Indicators", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD"])
 
-# Sidebar: Choose the strategies to apply
-strategies = st.sidebar.multiselect("Select Strategies", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
+# Streamlit app logic continues
+if start_date < end_date:
+    symbol_data = symbol_data.loc[start_date:end_date]
+
+    # Calculate MACD, Ichimoku, and crash signals
+    symbol_data = calculate_indicators_and_crashes(symbol_data, strategies)
+
+    # Plot technical indicators
+    if selected_indicators:
+        for indicator in selected_indicators:
+            if indicator == "MACD":
+                # Plot MACD
+                fig_macd = go.Figure()
+                fig_macd.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['MACD Line'], mode='lines', name='MACD Line'))
+                fig_macd.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['Signal Line'], mode='lines', name='Signal Line'))
+                st.plotly_chart(fig_macd, use_container_width=True)
+
+            elif indicator == "Supertrend":
+                # Plot Supertrend
+                fig_supertrend = go.Figure()
+                fig_supertrend.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['Supertrend'], mode='lines', name='Supertrend'))
+                st.plotly_chart(fig_supertrend, use_container_width=True)
+
+            elif indicator == "Stochastic":
+                # Plot Stochastic
+                fig_stochastic = go.Figure()
+                fig_stochastic.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['Stochastic K'], mode='lines', name='Stochastic K'))
+                fig_stochastic.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['Stochastic D'], mode='lines', name='Stochastic D'))
+                st.plotly_chart(fig_stochastic, use_container_width=True)
+
+            elif indicator == "RSI":
+                # Plot RSI
+                fig_rsi = go.Figure()
+                fig_rsi.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['RSI'], mode='lines', name='RSI'))
+                st.plotly_chart(fig_rsi, use_container_width=True)
 
 # Filter data for the selected stock symbol
 symbol_data = df_full[df_full['StockSymbol'] == selected_stock_symbol]
