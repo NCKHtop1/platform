@@ -180,6 +180,8 @@ stop_loss_percentage = st.sidebar.number_input('Stop Loss (%)', min_value=0.0, m
 trailing_take_profit_percentage = st.sidebar.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
 trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
+# (Continue with your existing sidebar and logic here)
+
 # Sidebar: Choose the strategies to apply
 strategies = st.sidebar.multiselect("Select Strategies", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
@@ -204,111 +206,26 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
     # Create tabs for different views
-    tab_labels = ["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot"]
-    active_tab = st.sidebar.radio("Select View", tab_labels)
-
-if active_tab == "Backtesting Stats":
-    st.markdown("**Backtesting Stats:**")
-    st.info("This tab displays statistics related to the backtesting results.")
-
-    stats_df = pd.DataFrame(portfolio.stats(), columns=['Value'])
-    stats_df.index.name = 'Metric'
-    st.dataframe(stats_df, height=800)
-
-elif active_tab == "List of Trades":
-    st.markdown("**List of Trades:**")
-    st.info("This tab shows a list of trades executed during the backtesting period.")
-
-    trades_df = portfolio.trades.records_readable
-    trades_df = trades_df.round(2)
-    trades_df.index.name = 'Trade No'
-    trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
-    st.dataframe(trades_df, width=800, height=600)
-
-elif active_tab == "Equity Curve":
-    st.info("This tab displays the equity curve of the backtested portfolio.")
-
-    equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Equity', line=dict(color='green'))
-    equity_fig = go.Figure(data=[equity_trace])
-    equity_fig.update_layout(
-        title='Equity Curve',
-        xaxis_title='Date',
-        yaxis_title='Equity',
-        width=800,
-        height=600
-    )
-    st.plotly_chart(equity_fig)
-
-elif active_tab == "Drawdown":
-    st.info("This tab shows the drawdown curve of the backtested portfolio.")
-
-    drawdown_trace = go.Scatter(
-        x=drawdown_data.index,
-        y=drawdown_data,
-        mode='lines',
-        name='Drawdown',
-        fill='tozeroy',
-        line=dict(color='red')
-    )
-    drawdown_fig = go.Figure(data=[drawdown_trace])
-    drawdown_fig.update_layout(
-        title='Drawdown Curve',
-        xaxis_title='Date',
-        yaxis_title='% Drawdown',
-        template='plotly_white',
-        width=800,
-        height=600
-    )
-    st.plotly_chart(drawdown_fig)
-
-elif active_tab == "Portfolio Plot":
-    st.info("This tab displays the portfolio plot along with any detected market crashes.")
-
-    fig = portfolio.plot()
-    crash_df = symbol_data[symbol_data['Crash']]
-    fig.add_scatter(
-        x=crash_df.index,
-        y=crash_df['close'],
-        mode='markers',
-        marker=dict(color='orange', size=10, symbol='triangle-down'),
-        name='Crash'
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-# Streamlit app logic continues
-if start_date < end_date:
-    symbol_data = symbol_data.loc[start_date:end_date]
-
-    # Calculate MACD, Ichimoku, and crash signals
-    symbol_data = calculate_indicators_and_crashes(symbol_data, strategies)
-
-    # Run backtest
-    portfolio = run_backtest(symbol_data, init_cash, fees, direction)
-
-    # Create tabs for different views
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot"])
 
     with tab1:
         st.markdown("**Backtesting Stats:**")
-        st.info("This tab displays statistics related to the backtesting results.")
-
         stats_df = pd.DataFrame(portfolio.stats(), columns=['Value'])
         stats_df.index.name = 'Metric'
         st.dataframe(stats_df, height=800)
 
     with tab2:
         st.markdown("**List of Trades:**")
-        st.info("This tab shows a list of trades executed during the backtesting period.")
-
         trades_df = portfolio.trades.records_readable
         trades_df = trades_df.round(2)
         trades_df.index.name = 'Trade No'
         trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
         st.dataframe(trades_df, width=800, height=600)
 
-    with tab3:
-        st.info("This tab displays the equity curve of the backtested portfolio.")
+    equity_data = portfolio.value()
+    drawdown_data = portfolio.drawdown() * 100
 
+    with tab3:
         equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Equity', line=dict(color='green'))
         equity_fig = go.Figure(data=[equity_trace])
         equity_fig.update_layout(
@@ -321,8 +238,6 @@ if start_date < end_date:
         st.plotly_chart(equity_fig)
 
     with tab4:
-        st.info("This tab shows the drawdown curve of the backtested portfolio.")
-
         drawdown_trace = go.Scatter(
             x=drawdown_data.index,
             y=drawdown_data,
@@ -343,8 +258,6 @@ if start_date < end_date:
         st.plotly_chart(drawdown_fig)
 
     with tab5:
-        st.info("This tab displays the portfolio plot along with any detected market crashes.")
-
         fig = portfolio.plot()
         crash_df = symbol_data[symbol_data['Crash']]
         fig.add_scatter(
@@ -354,6 +267,7 @@ if start_date < end_date:
             marker=dict(color='orange', size=10, symbol='triangle-down'),
             name='Crash'
         )
+        st.markdown("**Portfolio Plot:**")
         st.plotly_chart(fig, use_container_width=True)
 
 # If the end date is before the start date, show an error
