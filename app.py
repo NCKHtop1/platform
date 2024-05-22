@@ -348,5 +348,6 @@ with tab5:
     st.plotly_chart(fig, use_container_width=True)
 
 # If the end date is before the start date, show an error
-else:
+if start_date > end_date:
     st.error('Error: End Date must fall after Start Date.')
+
