@@ -205,8 +205,11 @@ if start_date < end_date:
     # Run backtest
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
-# Create tabs for different views
-with st.container():
+# Create columns for tabs
+col1, col2, col3, col4, col5 = st.columns(5)
+
+# Tab 1: Backtesting Stats
+with col1:
     st.markdown("**Backtesting Stats:**")
     st.markdown("This tab displays the overall performance of the selected trading strategy. \
                 You'll find key metrics such as total return, profit/loss, and other relevant statistics.")
@@ -214,7 +217,8 @@ with st.container():
     stats_df.index.name = 'Metric'
     st.dataframe(stats_df, height=800)
 
-with st.container():
+# Tab 2: List of Trades
+with col2:
     st.markdown("**List of Trades:**")
     st.markdown("This tab provides a detailed list of all trades executed by the strategy. \
                 You can analyze the entry and exit points of each trade, along with the profit or loss incurred.")
@@ -224,7 +228,8 @@ with st.container():
     trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
     st.dataframe(trades_df, width=800, height=600)
 
-with st.container():
+# Tab 3: Equity Curve
+with col3:
     st.markdown("**Equity Curve:**")
     st.markdown("This chart visualizes the growth of your portfolio value over time, \
                 allowing you to see how the strategy performs in different market conditions.")
@@ -239,7 +244,8 @@ with st.container():
     )
     st.plotly_chart(equity_fig)
 
-with st.container():
+# Tab 4: Drawdown Curve
+with col4:
     st.markdown("**Drawdown Curve:**")
     st.markdown("This chart illustrates the peak-to-trough decline of your portfolio, \
                 giving you insights into the strategy's potential for losses.")
@@ -262,7 +268,8 @@ with st.container():
     )
     st.plotly_chart(drawdown_fig)
 
-with st.container():
+# Tab 5: Portfolio Plot
+with col5:
     st.markdown("**Portfolio Plot:**")
     st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
                 providing a holistic view of the strategy's performance.")
