@@ -269,6 +269,77 @@ if start_date < end_date:
         )
         st.markdown("**Portfolio Plot:**")
         st.plotly_chart(fig, use_container_width=True)
+# Create tabs for different views
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot"])
+
+with tab1:
+    st.markdown("**Backtesting Stats:**")
+    st.markdown("Tổng quan về hiệu suất của chiến lược giao dịch, bao gồm lợi nhuận, thua lỗ, và các chỉ số khác.")
+    stats_df = pd.DataFrame(portfolio.stats(), columns=['Value'])
+    stats_df.index.name = 'Metric'
+    st.dataframe(stats_df, height=800)
+
+with tab2:
+    st.markdown("**List of Trades:**")
+    st.markdown("Liệt kê chi tiết từng lệnh giao dịch, bao gồm thời điểm vào lệnh, thoát lệnh, và lợi nhuận/thua lỗ.")
+    trades_df = portfolio.trades.records_readable
+    trades_df = trades_df.round(2)
+    trades_df.index.name = 'Trade No'
+    trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
+    st.dataframe(trades_df, width=800, height=600)
+
+equity_data = portfolio.value()
+drawdown_data = portfolio.drawdown() * 100
+
+with tab3:
+    equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Equity', line=dict(color='green'))
+    equity_fig = go.Figure(data=[equity_trace])
+    equity_fig.update_layout(
+        title='Equity Curve',
+        xaxis_title='Date',
+        yaxis_title='Equity',
+        width=800,
+        height=600
+    )
+    st.plotly_chart(equity_fig)
+    st.markdown("**Equity Curve:**")
+    st.markdown("Biểu đồ thể hiện sự thay đổi của vốn theo thời gian.")
+
+with tab4:
+    drawdown_trace = go.Scatter(
+        x=drawdown_data.index,
+        y=drawdown_data,
+        mode='lines',
+        name='Drawdown',
+        fill='tozeroy',
+        line=dict(color='red')
+    )
+    drawdown_fig = go.Figure(data=[drawdown_trace])
+    drawdown_fig.update_layout(
+        title='Drawdown Curve',
+        xaxis_title='Date',
+        yaxis_title='% Drawdown',
+        template='plotly_white',
+        width=800,
+        height=600
+    )
+    st.plotly_chart(drawdown_fig)
+    st.markdown("**Drawdown Curve:**")
+    st.markdown("Biểu đồ thể hiện mức độ giảm sút của vốn so với đỉnh cao nhất.")
+
+with tab5:
+    fig = portfolio.plot()
+    crash_df = symbol_data[symbol_data['Crash']]
+    fig.add_scatter(
+        x=crash_df.index,
+        y=crash_df['close'],
+        mode='markers',
+        marker=dict(color='orange', size=10, symbol='triangle-down'),
+        name='Crash'
+    )
+    st.markdown("**Portfolio Plot:**")
+    st.markdown("Biểu đồ tổng quan về hiệu suất danh mục đầu tư, bao gồm cả điểm mua/bán và cảnh báo sụp đổ.")
+    st.plotly_chart(fig, use_container_width=True)
 
 # If the end date is before the start date, show an error
 else:
