@@ -6,10 +6,6 @@ from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
-streamlit==1.17.0
-pandas==1.5.3
-numpy==1.23.5
-datetime==5.5
 
 SECTOR_FILES = {
     'Banking': 'data_nganh/Banking.csv',
