@@ -5,3 +5,4 @@ datetime
 scipy
 plotly
 vectorbt
+pandas-ta
