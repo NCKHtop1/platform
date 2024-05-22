@@ -8,17 +8,17 @@ import vectorbt as vbt
 import pandas_ta as ta
 
 SECTOR_FILES = {
-    'Banking': 'data_nganh/Banking.csv',
-    'Building Material': 'data_nganh/Building Material.csv',
-    'Chemical': 'data_nganh/Chemical.csv',
-    'Financial Services': 'data_nganh/Financial Services.csv',
-    'Food and Beverage': 'data_nganh/Food and Beverage.csv',
-    'Industrial Services': 'data_nganh/Industrial Services.csv',
-    'Information Technology': 'data_nganh/Information Technology.csv',
-    'Mineral': 'data_nganh/Mineral.csv',
-    'Oil and Gas': 'data_nganh/Oil and Gas.csv',
-    'Real Estate': 'data_nganh/Real Estate.csv',
-    'Vnindex': 'data_nganh/Vnindex.csv'
+    'Banking': 'Banking.csv',
+    'Building Material': 'Building Material.csv',
+    'Chemical': 'Chemical.csv',
+    'Financial Services': 'Financial Services.csv',
+    'Food and Beverage': 'Food and Beverage.csv',
+    'Industrial Services': 'Industrial Services.csv',
+    'Information Technology': 'Information Technology.csv',
+    'Mineral': 'Mineral.csv',
+    'Oil and Gas': 'Oil and Gas.csv',
+    'Real Estate': 'Real Estate.csv',
+    'Vnindex': 'Vnindex.csv'
 }
 
 # Load the dataset with conditional date parsing
