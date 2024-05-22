@@ -6,10 +6,6 @@ from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
-from scipy.stats import chi2
-import tensorflow as tf
-from tensorflow.keras import layers, models, optimizers
-from tensorflow.keras.losses import MeanSquaredError
 
 SECTOR_FILES = {
     'Banking': 'Banking.csv',
@@ -37,6 +33,14 @@ def load_data(sector):
         df['Datetime'] = pd.to_datetime(df['Datetime'], format='%d/%m/%Y', dayfirst=True)
     df.set_index('Datetime', inplace=True)
     return df
+
+# Load unique stock symbols
+@st.cache_data
+def load_stock_symbols(sector):
+    file_path = SECTOR_FILES[sector]
+    df = pd.read_csv(file_path)
+    stock_symbols_df = df.drop_duplicates(subset='StockSymbol')
+    return stock_symbols_df['StockSymbol'].tolist()
 
 # Load unique stock symbols
 @st.cache_data
@@ -88,6 +92,9 @@ def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
     return macd_line, signal_line, histogram
 
 # Function to calculate buy/sell signals and crashes
+import pandas as pd
+import pandas_ta as ta
+
 def calculate_indicators_and_crashes(df, strategies):
     if "MACD" in strategies:
         macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
@@ -122,8 +129,9 @@ def calculate_indicators_and_crashes(df, strategies):
     peak_prices = df['close'].where(df['Peaks']).ffill()
     drawdowns = (peak_prices - df['close']) / peak_prices
 
-    # Identify crashes using VAE anomaly detection
-    df['Crash'] = identify_anomalies(df['close'])
+    # Mark significant drawdowns as crashes
+    crash_threshold = 0.175
+    df['Crash'] = drawdowns >= crash_threshold
 
     # Adjust buy and sell signals based on crashes
     df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
@@ -147,135 +155,133 @@ def run_backtest(df, init_cash, fees, direction):
     )
     return portfolio
 
-# Custom Sampling layer for VAE
-class VAE(models.Model):
-    def __init__(self, latent_dim, input_shape):
-        super(VAE, self).__init__()
-        self.latent_dim = latent_dim
-        self.encoder = models.Sequential([
-            layers.InputLayer(input_shape=input_shape),
-            layers.Dense(128, activation='relu'),
-            layers.Dense(latent_dim * 2),  # Outputs for mean and log variance
-        ])
-        self.decoder = models.Sequential([
-            layers.InputLayer(input_shape=(latent_dim,)),
-            layers.Dense(128, activation='relu'),
-            layers.Dense(input_shape[0]),  # Output same as input shape
-        ])
-        self.sampling = Sampling()
+## Streamlit App
+st.title('Backtesting Stock and Index with Early Warning Model')
+st.write('This application analyzes stocks with buy/sell signals, Early warning signals of stock before the market crashes on HOSE and VNINDEX.')
 
-    def encode(self, x):
-        z_mean_log_var = self.encoder(x)
-        z_mean, z_log_var = tf.split(z_mean_log_var, num_or_size_splits=2, axis=1)
-        return z_mean, z_log_var
+# Sidebar: Sector selection
+selected_sector = st.sidebar.selectbox('Select Sector', list(SECTOR_FILES.keys()))
 
-    def decode(self, z):
-        logits = self.decoder(z)
-        return logits
+# Load stock symbols and filter data
+df_full = load_data(selected_sector)
+stock_symbols = load_stock_symbols(selected_sector)
+selected_stock_symbol = st.sidebar.selectbox('Select Stock Symbol', stock_symbols)
 
-    def call(self, inputs):
-        z_mean, z_log_var = self.encode(inputs)
-        z = self.sampling((z_mean, z_log_var))
-        reconstructed = self.decode(z)
-        return reconstructed
+# Sidebar: Backtesting parameters
+st.sidebar.header('Backtesting Parameters')
+init_cash = st.sidebar.number_input('Initial Cash ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
+fees = st.sidebar.number_input('Transaction Fees (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
+direction = st.sidebar.selectbox("Direction", ["longonly", "shortonly", "both"], index=0)
+t_plus = st.sidebar.selectbox("T+ Settlement Days", [0, 1, 2.5, 3], index=0)  # Adding the T+ selection
 
-    def compute_loss(self, x):
-        z_mean, z_log_var = self.encode(x)
-        z = self.sampling((z_mean, z_log_var))
-        x_logit = self.decode(z)
+# New trading parameters
+take_profit_percentage = st.sidebar.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
+stop_loss_percentage = st.sidebar.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
+trailing_take_profit_percentage = st.sidebar.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
+trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
-        reconstruction_loss = tf.reduce_mean(
-            tf.keras.losses.mse(x, x_logit))
-        kl_loss = -0.5 * tf.reduce_sum(
-            z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1, axis=1)
-        total_loss = tf.reduce_mean(reconstruction_loss + kl_loss)
-        return total_loss
+# (Continue with your existing sidebar and logic here)
 
-# Anomaly detection using VAE
-def identify_anomalies(series):
-    # Normalize data
-    series = (series - series.min()) / (series.max() - series.min())
+# Sidebar: Choose the strategies to apply
+strategies = st.sidebar.multiselect("Select Strategies", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
-    # Prepare data for VAE
-    series = series.values.reshape(-1, 1).astype('float32')
-    input_shape = series.shape[1:]
-    latent_dim = 2
+# Filter data for the selected stock symbol
+symbol_data = df_full[df_full['StockSymbol'] == selected_stock_symbol]
+symbol_data.sort_index(inplace=True)
 
-    vae = VAE(latent_dim, input_shape)
-    vae.compile(optimizer=optimizers.Adam())
+# Automatically set the start date to the earliest available date for the selected symbol
+first_available_date = symbol_data.index.min()
+default_start_date = first_available_date.date() if first_available_date is not None else datetime(2000, 1, 1).date()
+start_date = st.sidebar.date_input('Start Date', default_start_date)
+end_date = st.sidebar.date_input('End Date', datetime.today().date())
 
-    # Custom training loop to use `compute_loss`
-    @tf.function
-    def train_step(x):
-        with tf.GradientTape() as tape:
-            loss = vae.compute_loss(x)
-        gradients = tape.gradient(loss, vae.trainable_variables)
-        vae.optimizer.apply_gradients(zip(gradients, vae.trainable_variables))
-        return loss
+# Streamlit app logic continues
+if start_date < end_date:
+    symbol_data = symbol_data.loc[start_date:end_date]
 
-    # Train VAE
-    for epoch in range(50):
-        train_step(series)
+    # Calculate MACD, Ichimoku, and crash signals
+    symbol_data = calculate_indicators_and_crashes(symbol_data, strategies)
 
-    # Get reconstruction errors
-    reconstructed = vae.predict(series)
-    reconstruction_errors = np.mean(np.square(series - reconstructed), axis=1)
+    # Run backtest
+    portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
-    # Chi-squared test for anomaly detection
-    threshold = chi2.ppf(0.99, df=latent_dim)
-    anomalies = reconstruction_errors > threshold
+# Create tabs for different views
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot"])
 
-    return anomalies
+with tab1:
+    st.markdown("**Backtesting Stats:**")
+    st.markdown("This tab displays the overall performance of the selected trading strategy. \
+                You'll find key metrics such as total return, profit/loss, and other relevant statistics.")
+    stats_df = pd.DataFrame(portfolio.stats(), columns=['Value'])
+    stats_df.index.name = 'Metric'
+    st.dataframe(stats_df, height=800)
 
-# Streamlit App
-st.set_page_config(page_title="Stock Market Analysis App", layout="wide")
+with tab2:
+    st.markdown("**List of Trades:**")
+    st.markdown("This tab provides a detailed list of all trades executed by the strategy. \
+                You can analyze the entry and exit points of each trade, along with the profit or loss incurred.")
+    trades_df = portfolio.trades.records_readable
+    trades_df = trades_df.round(2)
+    trades_df.index.name = 'Trade No'
+    trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
+    st.dataframe(trades_df, width=800, height=600)
 
-st.title("Stock Market Analysis App")
+equity_data = portfolio.value()
+drawdown_data = portfolio.drawdown() * 100
 
-sector = st.sidebar.selectbox("Select Sector", list(SECTOR_FILES.keys()))
+with tab3:
+    equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Equity', line=dict(color='green'))
+    equity_fig = go.Figure(data=[equity_trace])
+    equity_fig.update_layout(
+        title='Equity Curve',
+        xaxis_title='Date',
+        yaxis_title='Equity',
+        width=800,
+        height=600
+    )
+    st.plotly_chart(equity_fig)
+    st.markdown("**Equity Curve:**")
+    st.markdown("This chart visualizes the growth of your portfolio value over time, \
+                allowing you to see how the strategy performs in different market conditions.")
 
-df = load_data(sector)
-stock_symbols = load_stock_symbols(sector)
+with tab4:
+    drawdown_trace = go.Scatter(
+        x=drawdown_data.index,
+        y=drawdown_data,
+        mode='lines',
+        name='Drawdown',
+        fill='tozeroy',
+        line=dict(color='red')
+    )
+    drawdown_fig = go.Figure(data=[drawdown_trace])
+    drawdown_fig.update_layout(
+        title='Drawdown Curve',
+        xaxis_title='Date',
+        yaxis_title='% Drawdown',
+        template='plotly_white',
+        width=800,
+        height=600
+    )
+    st.plotly_chart(drawdown_fig)
+    st.markdown("**Drawdown Curve:**")
+    st.markdown("This chart illustrates the peak-to-trough decline of your portfolio, \
+                giving you insights into the strategy's potential for losses.")
 
-stock = st.sidebar.selectbox("Select Stock", stock_symbols)
+with tab5:
+    fig = portfolio.plot()
+    crash_df = symbol_data[symbol_data['Crash']]
+    fig.add_scatter(
+        x=crash_df.index,
+        y=crash_df['close'],
+        mode='markers',
+        marker=dict(color='orange', size=10, symbol='triangle-down'),
+        name='Crash'
+    )
+    st.markdown("**Portfolio Plot:**")
+    st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
+                providing a holistic view of the strategy's performance.")
+    st.plotly_chart(fig, use_container_width=True)
 
-strategies = st.sidebar.multiselect(
-    "Select Strategies",
-    ["MACD", "Supertrend", "Stochastic", "RSI"],
-    default=["MACD", "Supertrend", "Stochastic", "RSI"]
-)
-
-df_stock = df[df['StockSymbol'] == stock]
-
-ichimoku = IchimokuOscillator()
-df_stock = ichimoku.calculate(df_stock)
-
-df_stock = calculate_indicators_and_crashes(df_stock, strategies)
-
-initial_cash = st.sidebar.number_input("Initial Cash", min_value=1000, max_value=1000000, value=10000)
-fees = st.sidebar.number_input("Fees (%)", min_value=0.0, max_value=1.0, value=0.1) / 100
-direction = st.sidebar.selectbox("Trade Direction", ["longonly", "shortonly", "both"], index=0)
-
-portfolio = run_backtest(df_stock, initial_cash, fees, direction)
-
-st.subheader(f"{stock} Stock Data")
-st.write(df_stock)
-
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=df_stock.index, y=df_stock['close'], mode='lines', name='Close'))
-fig.add_trace(go.Scatter(x=df_stock.index, y=df_stock['cloud_min'], mode='lines', name='Cloud Min', line=dict(dash='dot')))
-fig.add_trace(go.Scatter(x=df_stock.index, y=df_stock['cloud_max'], mode='lines', name='Cloud Max', line=dict(dash='dot')))
-
-buy_signals = df_stock[df_stock['Adjusted Buy']]
-sell_signals = df_stock[df_stock['Adjusted Sell']]
-
-fig.add_trace(go.Scatter(x=buy_signals.index, y=buy_signals['close'], mode='markers', name='Buy Signal', marker=dict(symbol='triangle-up', color='green', size=10)))
-fig.add_trace(go.Scatter(x=sell_signals.index, y=sell_signals['close'], mode='markers', name='Sell Signal', marker=dict(symbol='triangle-down', color='red', size=10)))
-
-st.plotly_chart(fig)
-
-st.subheader("Backtest Results")
-st.write(portfolio.stats())
-
-fig2 = portfolio.plot().update_layout(title_text='Portfolio Performance')
-st.plotly_chart(fig2)
+# If the end date is before the start date, show an error
+if start_date > end_date:
+    st.error('Error: End Date must fall after Start Date.')
