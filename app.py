@@ -9,7 +9,7 @@ import pandas_ta as ta
 from scipy.stats import chi2
 import tensorflow as tf
 from tensorflow.keras import layers, models, optimizers
-
+from tensorflow.keras.losses import MeanSquaredError
 
 SECTOR_FILES = {
     'Banking': 'Banking.csv',
@@ -148,15 +148,6 @@ def run_backtest(df, init_cash, fees, direction):
     return portfolio
 
 # Custom Sampling layer for VAE
-class Sampling(layers.Layer):
-    def call(self, inputs):
-        z_mean, z_log_var = inputs
-        batch = tf.shape(z_mean)[0]
-        dim = tf.shape(z_mean)[1]
-        epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
-        return z_mean + tf.exp(0.5 * z_log_var) * epsilon
-
-# Variational Autoencoder (VAE) model
 class VAE(models.Model):
     def __init__(self, latent_dim, input_shape):
         super(VAE, self).__init__()
@@ -194,7 +185,7 @@ class VAE(models.Model):
         x_logit = self.decode(z)
 
         reconstruction_loss = tf.reduce_mean(
-            tf.keras.losses.mean_squared_error(x, x_logit))
+            tf.keras.losses.mse(x, x_logit))
         kl_loss = -0.5 * tf.reduce_sum(
             z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1, axis=1)
         total_loss = tf.reduce_mean(reconstruction_loss + kl_loss)
@@ -211,10 +202,20 @@ def identify_anomalies(series):
     latent_dim = 2
 
     vae = VAE(latent_dim, input_shape)
-    vae.compile(optimizer=optimizers.Adam(), loss=vae.compute_loss)
+    vae.compile(optimizer=optimizers.Adam())
+
+    # Custom training loop to use `compute_loss`
+    @tf.function
+    def train_step(x):
+        with tf.GradientTape() as tape:
+            loss = vae.compute_loss(x)
+        gradients = tape.gradient(loss, vae.trainable_variables)
+        vae.optimizer.apply_gradients(zip(gradients, vae.trainable_variables))
+        return loss
 
     # Train VAE
-    vae.fit(series, series, epochs=50, batch_size=32, validation_split=0.1, verbose=1)
+    for epoch in range(50):
+        train_step(series)
 
     # Get reconstruction errors
     reconstructed = vae.predict(series)
