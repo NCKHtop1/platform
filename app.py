@@ -206,7 +206,7 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
 # Create tabs for different views
-with st.beta_container():
+with st.container():
     st.markdown("**Backtesting Stats:**")
     st.markdown("This tab displays the overall performance of the selected trading strategy. \
                 You'll find key metrics such as total return, profit/loss, and other relevant statistics.")
@@ -214,7 +214,7 @@ with st.beta_container():
     stats_df.index.name = 'Metric'
     st.dataframe(stats_df, height=800)
 
-with st.beta_container():
+with st.container():
     st.markdown("**List of Trades:**")
     st.markdown("This tab provides a detailed list of all trades executed by the strategy. \
                 You can analyze the entry and exit points of each trade, along with the profit or loss incurred.")
@@ -224,7 +224,7 @@ with st.beta_container():
     trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
     st.dataframe(trades_df, width=800, height=600)
 
-with st.beta_container():
+with st.container():
     st.markdown("**Equity Curve:**")
     st.markdown("This chart visualizes the growth of your portfolio value over time, \
                 allowing you to see how the strategy performs in different market conditions.")
@@ -239,7 +239,7 @@ with st.beta_container():
     )
     st.plotly_chart(equity_fig)
 
-with st.beta_container():
+with st.container():
     st.markdown("**Drawdown Curve:**")
     st.markdown("This chart illustrates the peak-to-trough decline of your portfolio, \
                 giving you insights into the strategy's potential for losses.")
@@ -262,7 +262,7 @@ with st.beta_container():
     )
     st.plotly_chart(drawdown_fig)
 
-with st.beta_container():
+with st.container():
     st.markdown("**Portfolio Plot:**")
     st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
                 providing a holistic view of the strategy's performance.")
@@ -280,5 +280,3 @@ with st.beta_container():
 # If the end date is before the start date, show an error
 if start_date > end_date:
     st.error('Error: End Date must fall after Start Date.')
-
-
