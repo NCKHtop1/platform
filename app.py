@@ -232,6 +232,7 @@ end_date = st.sidebar.date_input('End Date', datetime.today().date())
 
 # Streamlit app logic continues
 if start_date < end_date:
+    # Filter data for the selected date range
     symbol_data = symbol_data.loc[start_date:end_date]
 
     # Calculate MACD, Ichimoku, and crash signals
