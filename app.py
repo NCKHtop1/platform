@@ -6,9 +6,10 @@ from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
-from tensorflow.keras import layers, models, losses, optimizers
-import tensorflow as tf
 from scipy.stats import chi2
+import tensorflow as tf
+from tensorflow.keras import layers, models, optimizers
+
 
 SECTOR_FILES = {
     'Banking': 'Banking.csv',
@@ -168,7 +169,7 @@ class VAE(models.Model):
         self.decoder = models.Sequential([
             layers.InputLayer(input_shape=(latent_dim,)),
             layers.Dense(128, activation='relu'),
-            layers.Dense(input_shape[0], activation='sigmoid'),  # Assuming output is same as input
+            layers.Dense(input_shape[0]),  # Output same as input shape
         ])
         self.sampling = Sampling()
 
@@ -177,11 +178,8 @@ class VAE(models.Model):
         z_mean, z_log_var = tf.split(z_mean_log_var, num_or_size_splits=2, axis=1)
         return z_mean, z_log_var
 
-    def decode(self, z, apply_sigmoid=False):
+    def decode(self, z):
         logits = self.decoder(z)
-        if apply_sigmoid:
-            probs = tf.sigmoid(logits)
-            return probs
         return logits
 
     def call(self, inputs):
@@ -195,10 +193,10 @@ class VAE(models.Model):
         z = self.sampling((z_mean, z_log_var))
         x_logit = self.decode(z)
 
-        reconstruction_loss = tf.reduce_sum(
-            tf.keras.losses.binary_crossentropy(x, x_logit), axis=-1)
+        reconstruction_loss = tf.reduce_mean(
+            tf.keras.losses.mean_squared_error(x, x_logit))
         kl_loss = -0.5 * tf.reduce_sum(
-            z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1, axis=-1)
+            z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1, axis=1)
         total_loss = tf.reduce_mean(reconstruction_loss + kl_loss)
         return total_loss
 
@@ -208,15 +206,15 @@ def identify_anomalies(series):
     series = (series - series.min()) / (series.max() - series.min())
 
     # Prepare data for VAE
-    series = series.values.reshape(-1, 1)
+    series = series.values.reshape(-1, 1).astype('float32')
     input_shape = series.shape[1:]
     latent_dim = 2
 
     vae = VAE(latent_dim, input_shape)
-    vae.compile(optimizer=optimizers.Adam())
+    vae.compile(optimizer=optimizers.Adam(), loss=vae.compute_loss)
 
     # Train VAE
-    vae.fit(series, series, epochs=50, batch_size=32, validation_split=0.1, verbose=0)
+    vae.fit(series, series, epochs=50, batch_size=32, validation_split=0.1, verbose=1)
 
     # Get reconstruction errors
     reconstructed = vae.predict(series)
