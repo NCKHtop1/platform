@@ -2,6 +2,6 @@ streamlit
 pandas
 numpy
 datetime
-scipy.signal
+scipy
 plotly.graph_objects
 vectorbt
