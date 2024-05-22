@@ -184,8 +184,17 @@ trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)'
 with st.sidebar.expander("Technical Indicators", expanded=False):
     selected_indicators = st.multiselect("Select Technical Indicators", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD"])
 
-# Streamlit app logic continues
+# Default date setup
+default_start_date = datetime.today().date()
+default_end_date = datetime.today().date()
+
+# Streamlit sidebar inputs to get dates
+start_date = st.sidebar.date_input('Start Date', default_start_date)
+end_date = st.sidebar.date_input('End Date', default_end_date)
+
+# Check that end_date is after start_date
 if start_date < end_date:
+    # Only if this is true, proceed with the logic that requires these dates
     symbol_data = symbol_data.loc[start_date:end_date]
 
     # Calculate MACD, Ichimoku, and crash signals
