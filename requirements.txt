@@ -3,5 +3,5 @@ pandas
 numpy
 datetime
 scipy
-plotly.graph_objects
+plotly
 vectorbt
