@@ -206,9 +206,7 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
 # Create tabs for different views
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot"])
-
-with tab1:
+with st.beta_container():
     st.markdown("**Backtesting Stats:**")
     st.markdown("This tab displays the overall performance of the selected trading strategy. \
                 You'll find key metrics such as total return, profit/loss, and other relevant statistics.")
@@ -216,7 +214,7 @@ with tab1:
     stats_df.index.name = 'Metric'
     st.dataframe(stats_df, height=800)
 
-with tab2:
+with st.beta_container():
     st.markdown("**List of Trades:**")
     st.markdown("This tab provides a detailed list of all trades executed by the strategy. \
                 You can analyze the entry and exit points of each trade, along with the profit or loss incurred.")
@@ -226,10 +224,10 @@ with tab2:
     trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
     st.dataframe(trades_df, width=800, height=600)
 
-equity_data = portfolio.value()
-drawdown_data = portfolio.drawdown() * 100
-
-with tab3:
+with st.beta_container():
+    st.markdown("**Equity Curve:**")
+    st.markdown("This chart visualizes the growth of your portfolio value over time, \
+                allowing you to see how the strategy performs in different market conditions.")
     equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Equity', line=dict(color='green'))
     equity_fig = go.Figure(data=[equity_trace])
     equity_fig.update_layout(
@@ -240,11 +238,11 @@ with tab3:
         height=600
     )
     st.plotly_chart(equity_fig)
-    st.markdown("**Equity Curve:**")
-    st.markdown("This chart visualizes the growth of your portfolio value over time, \
-                allowing you to see how the strategy performs in different market conditions.")
 
-with tab4:
+with st.beta_container():
+    st.markdown("**Drawdown Curve:**")
+    st.markdown("This chart illustrates the peak-to-trough decline of your portfolio, \
+                giving you insights into the strategy's potential for losses.")
     drawdown_trace = go.Scatter(
         x=drawdown_data.index,
         y=drawdown_data,
@@ -263,11 +261,11 @@ with tab4:
         height=600
     )
     st.plotly_chart(drawdown_fig)
-    st.markdown("**Drawdown Curve:**")
-    st.markdown("This chart illustrates the peak-to-trough decline of your portfolio, \
-                giving you insights into the strategy's potential for losses.")
 
-with tab5:
+with st.beta_container():
+    st.markdown("**Portfolio Plot:**")
+    st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
+                providing a holistic view of the strategy's performance.")
     fig = portfolio.plot()
     crash_df = symbol_data[symbol_data['Crash']]
     fig.add_scatter(
@@ -277,12 +275,10 @@ with tab5:
         marker=dict(color='orange', size=10, symbol='triangle-down'),
         name='Crash'
     )
-    st.markdown("**Portfolio Plot:**")
-    st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
-                providing a holistic view of the strategy's performance.")
     st.plotly_chart(fig, use_container_width=True)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
     st.error('Error: End Date must fall after Start Date.')
+
 
