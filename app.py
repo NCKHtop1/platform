@@ -7,6 +7,16 @@ import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
 
+# Custom CSS for better UI
+st.markdown("""
+    <style>
+    .main {background-color: #f0f2f6;}
+    .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
+    .stSidebar {background-color: #f0f2f6;}
+    .css-1aumxhk {padding: 2rem;}
+    </style>
+    """, unsafe_allow_html=True)
+
 # Add image to the landing page
 st.image('image.png', use_column_width=True)
 
