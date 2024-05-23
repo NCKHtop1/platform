@@ -6,4 +6,3 @@ scipy
 plotly
 vectorbt
 pandas-ta
-tensorflow
