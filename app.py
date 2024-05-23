@@ -263,7 +263,7 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
 # Create tabs for different views
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot", "Technical Indicators"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot"])
 
 with tab1:
     st.markdown("**Backtesting Stats:**")
@@ -338,45 +338,6 @@ with tab5:
     st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
                 providing a holistic view of the strategy's performance.")
     st.plotly_chart(fig, use_container_width=True)
-
-with tab6:
-    st.markdown("**Technical Indicators:**")
-    st.markdown("This tab displays various technical indicators for detailed analysis.")
-    
-    candlestick_fig = go.Figure(data=[go.Candlestick(x=symbol_data.index,
-                                                     open=symbol_data['open'],
-                                                     high=symbol_data['high'],
-                                                     low=symbol_data['low'],
-                                                     close=symbol_data['close'],
-                                                     name='Candlestick')])
-
-    candlestick_fig.update_layout(title='Candlestick Chart', xaxis_title='Date', yaxis_title='Price')
-    
-    st.plotly_chart(candlestick_fig)
-    
-    if 'RSI' in strategies:
-        rsi_fig = plot_rsi(symbol_data)
-        st.plotly_chart(rsi_fig)
-        
-    if 'MACD' in strategies:
-        macd_fig = plot_macd(symbol_data)
-        st.plotly_chart(macd_fig)
-        
-    if 'Stochastic' in strategies:
-        stoch_fig = plot_stochastic(symbol_data)
-        st.plotly_chart(stoch_fig)
-        
-    if 'Supertrend' in strategies:
-        # Add Supertrend plot if it's calculated separately
-        supertrend_fig = go.Figure()
-        supertrend_fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['Supertrend'], name='Supertrend', line=dict(color='purple')))
-        supertrend_fig.update_layout(title='Supertrend Indicator', xaxis_title='Date', yaxis_title='Supertrend')
-        st.plotly_chart(supertrend_fig)
-
-    if "Bollinger Bands" in strategies:
-        fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['BB Upper'], name='Upper Band', line=dict(color='blue', dash='dash')))
-        fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['BB Middle'], name='Middle Band', line=dict(color='green', dash='dash')))
-        fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['BB Lower'], name='Lower Band', line=dict(color='red', dash='dash')))
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
