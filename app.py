@@ -111,6 +111,19 @@ def calculate_indicators_and_crashes(df, strategies):
         df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
         df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
+    if "Bollinger Bands" in strategies:
+        bbands = df.ta.bbands(length=20, std=2, append=True)
+        df['BB Upper'] = bbands['BBU_20_2.0']
+        df['BB Middle'] = bbands['BBM_20_2.0']
+        df['BB Lower'] = bbands['BBL_20_2.0']
+
+    if "Ichimoku" in strategies:
+        ichimoku = df.ta.ichimoku()
+        df['Ichimoku A'] = ichimoku[0]
+        df['Ichimoku B'] = ichimoku[1]
+        df['Ichimoku Base'] = ichimoku[2]
+        df['Ichimoku Conversion'] = ichimoku[3]
+
     peaks, _ = find_peaks(df['close'])
     df['Peaks'] = df.index.isin(df.index[peaks])
 
@@ -148,6 +161,19 @@ def calculate_technical_indicators(df):
     df['Stochastic_K'] = stochastic['STOCHk_14_3_3']
     df['Stochastic_D'] = stochastic['STOCHd_14_3_3']
 
+    # Calculate Bollinger Bands
+    bbands = df.ta.bbands(length=20, std=2)
+    df['BB Upper'] = bbands['BBU_20_2.0']
+    df['BB Middle'] = bbands['BBM_20_2.0']
+    df['BB Lower'] = bbands['BBL_20_2.0']
+
+    # Calculate Ichimoku
+    ichimoku = df.ta.ichimoku()
+    df['Ichimoku A'] = ichimoku[0]
+    df['Ichimoku B'] = ichimoku[1]
+    df['Ichimoku Base'] = ichimoku[2]
+    df['Ichimoku Conversion'] = ichimoku[3]
+
     return df
 
 # Function to plot RSI
@@ -174,6 +200,27 @@ def plot_stochastic(df):
     stoch_fig.add_trace(go.Scatter(x=df.index, y=df['Stochastic_D'], name='Stochastic %D', line=dict(color='red')))
     stoch_fig.update_layout(title='Stochastic Oscillator', xaxis_title='Date', yaxis_title='Stochastic')
     return stoch_fig
+
+# Function to plot Bollinger Bands
+def plot_bbands(df):
+    bbands_fig = go.Figure()
+    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['close'], name='Close Price', line=dict(color='blue')))
+    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Upper'], name='BB Upper', line=dict(color='red')))
+    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Middle'], name='BB Middle', line=dict(color='green')))
+    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Lower'], name='BB Lower', line=dict(color='red')))
+    bbands_fig.update_layout(title='Bollinger Bands', xaxis_title='Date', yaxis_title='Price')
+    return bbands_fig
+
+# Function to plot Ichimoku
+def plot_ichimoku(df):
+    ichimoku_fig = go.Figure()
+    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['close'], name='Close Price', line=dict(color='blue')))
+    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['Ichimoku A'], name='Ichimoku A', line=dict(color='green')))
+    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['Ichimoku B'], name='Ichimoku B', line=dict(color='red')))
+    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['Ichimoku Base'], name='Ichimoku Base', line=dict(color='purple')))
+    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['Ichimoku Conversion'], name='Ichimoku Conversion', line=dict(color='orange')))
+    ichimoku_fig.update_layout(title='Ichimoku Cloud', xaxis_title='Date', yaxis_title='Price')
+    return ichimoku_fig
 
 # Function to run backtesting using vectorbt's from_signals
 def run_backtest(df, init_cash, fees, direction):
@@ -216,7 +263,7 @@ trailing_take_profit_percentage = st.sidebar.number_input('Trailing Take Profit 
 trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
 # Sidebar: Choose the strategies to apply
-strategies = st.sidebar.multiselect("Select Strategies", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
+strategies = st.sidebar.multiselect("Select Strategies", ["MACD", "Supertrend", "Stochastic", "RSI", "Bollinger Bands", "Ichimoku"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
 # Filter data for the selected stock symbol
 symbol_data = df_full[df_full['StockSymbol'] == selected_stock_symbol]
@@ -241,7 +288,7 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
 # Create tabs for different views
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot", "Technical Indicators"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot"])
 
 with tab1:
     st.markdown("**Backtesting Stats:**")
@@ -312,44 +359,27 @@ with tab5:
         marker=dict(color='orange', size=10, symbol='triangle-down'),
         name='Crash'
     )
-    st.markdown("**Portfolio Plot:**")
+    st.markdown("**Portfolio Plot and Technical Indicators:**")
     st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
                 providing a holistic view of the strategy's performance.")
     st.plotly_chart(fig, use_container_width=True)
 
-with tab6:
     st.markdown("**Technical Indicators:**")
-    st.markdown("This tab displays various technical indicators for detailed analysis.")
-    
-    candlestick_fig = go.Figure(data=[go.Candlestick(x=symbol_data.index,
-                                                     open=symbol_data['open'],
-                                                     high=symbol_data['high'],
-                                                     low=symbol_data['low'],
-                                                     close=symbol_data['close'],
-                                                     name='Candlestick')])
-
-    candlestick_fig.update_layout(title='Candlestick Chart', xaxis_title='Date', yaxis_title='Price')
-    
-    st.plotly_chart(candlestick_fig)
-    
-    if 'RSI' in strategies:
+    if "RSI" in strategies:
         rsi_fig = plot_rsi(symbol_data)
         st.plotly_chart(rsi_fig)
-        
-    if 'MACD' in strategies:
+    if "MACD" in strategies:
         macd_fig = plot_macd(symbol_data)
         st.plotly_chart(macd_fig)
-        
-    if 'Stochastic' in strategies:
+    if "Stochastic" in strategies:
         stoch_fig = plot_stochastic(symbol_data)
         st.plotly_chart(stoch_fig)
-        
-    if 'Supertrend' in strategies:
-        # Add Supertrend plot if it's calculated separately
-        supertrend_fig = go.Figure()
-        supertrend_fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['Supertrend'], name='Supertrend', line=dict(color='purple')))
-        supertrend_fig.update_layout(title='Supertrend Indicator', xaxis_title='Date', yaxis_title='Supertrend')
-        st.plotly_chart(supertrend_fig)
+    if "Bollinger Bands" in strategies:
+        bbands_fig = plot_bbands(symbol_data)
+        st.plotly_chart(bbands_fig)
+    if "Ichimoku" in strategies:
+        ichimoku_fig = plot_ichimoku(symbol_data)
+        st.plotly_chart(ichimoku_fig)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
