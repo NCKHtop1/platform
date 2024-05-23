@@ -53,10 +53,8 @@ class VAE(models.Model):
         x = data
         with tf.GradientTape() as tape:
             reconstructed, z_mean, z_log_var = self(x, training=True)
-            # Ensure data dimensions and types match
-            x = tf.cast(x, tf.float32)
-            reconstructed = tf.cast(reconstructed, tf.float32)
-            reconstruction_loss = tf.reduce_mean(losses.mean_squared_error(x, reconstructed))
+            mse = tf.keras.losses.MeanSquaredError()
+            reconstruction_loss = mse(x, reconstructed)
             kl_loss = -0.5 * tf.reduce_mean(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var), axis=-1)
             total_loss = reconstruction_loss + kl_loss
         grads = tape.gradient(total_loss, self.trainable_variables)
