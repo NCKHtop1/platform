@@ -62,17 +62,17 @@ class VAE(models.Model):
         return {'loss': total_loss}
 
 SECTOR_FILES = {
-    'Banking': 'data/Banking.csv',
-    'Building Material': 'data/Building Material.csv',
-    'Chemical': 'data/Chemical.csv',
-    'Financial Services': 'data/Financial Services.csv',
-    'Food and Beverage': 'data/Food and Beverage.csv',
-    'Industrial Services': 'data/Industrial Services.csv',
-    'Information Technology': 'data/Information Technology.csv',
-    'Mineral': 'data/Mineral.csv',
-    'Oil and Gas': 'data/Oil and Gas.csv',
-    'Real Estate': 'data/Real Estate.csv',
-    'Vnindex': 'data/Vnindex.csv'
+    'Banking': 'Banking.csv',
+    'Building Material': 'Building Material.csv',
+    'Chemical': 'Chemical.csv',
+    'Financial Services': 'Financial Services.csv',
+    'Food and Beverage': 'Food and Beverage.csv',
+    'Industrial Services': 'Industrial Services.csv',
+    'Information Technology': 'Information Technology.csv',
+    'Mineral': 'Mineral.csv',
+    'Oil and Gas': 'Oil and Gas.csv',
+    'Real Estate': 'Real Estate.csv',
+    'Vnindex': 'Vnindex.csv'
 }
 
 @st.cache(allow_output_mutation=True)
