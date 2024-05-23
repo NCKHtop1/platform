@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
@@ -33,14 +32,6 @@ def load_data(sector):
         df['Datetime'] = pd.to_datetime(df['Datetime'], format='%d/%m/%Y', dayfirst=True)
     df.set_index('Datetime', inplace=True)
     return df
-
-# Load unique stock symbols
-@st.cache_data
-def load_stock_symbols(sector):
-    file_path = SECTOR_FILES[sector]
-    df = pd.read_csv(file_path)
-    stock_symbols_df = df.drop_duplicates(subset='StockSymbol')
-    return stock_symbols_df['StockSymbol'].tolist()
 
 # Load unique stock symbols
 @st.cache_data
@@ -92,9 +83,6 @@ def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
     return macd_line, signal_line, histogram
 
 # Function to calculate buy/sell signals and crashes
-import pandas as pd
-import pandas_ta as ta
-
 def calculate_indicators_and_crashes(df, strategies):
     if "MACD" in strategies:
         macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
@@ -140,6 +128,52 @@ def calculate_indicators_and_crashes(df, strategies):
                            (~df['Crash'].shift(1).fillna(False)))
     return df
 
+# Function to calculate technical indicators
+def calculate_technical_indicators(df):
+    # Calculate Supertrend
+    supertrend = df.ta.supertrend(length=7, multiplier=3)
+    df['Supertrend'] = supertrend['SUPERT_7_3.0']
+
+    # Calculate RSI
+    df['RSI'] = df.ta.rsi(length=14)
+
+    # Calculate MACD
+    macd = df.ta.macd(fast=12, slow=26, signal=9)
+    df['MACD'] = macd['MACD_12_26_9']
+    df['MACD_Signal'] = macd['MACDs_12_26_9']
+
+    # Calculate Stochastic
+    stochastic = df.ta.stoch(high='high', low='low', close='close')
+    df['Stochastic_K'] = stochastic['STOCHk_14_3_3']
+    df['Stochastic_D'] = stochastic['STOCHd_14_3_3']
+
+    return df
+
+# Function to plot RSI
+def plot_rsi(df):
+    rsi_fig = go.Figure()
+    rsi_fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], name='RSI', line=dict(color='orange')))
+    rsi_fig.add_hline(y=70, line_dash='dash', line_color='red', annotation_text='Overbought', annotation_position="bottom right")
+    rsi_fig.add_hline(y=30, line_dash='dash', line_color='green', annotation_text='Oversold', annotation_position="top right")
+    rsi_fig.update_layout(title='RSI Indicator', xaxis_title='Date', yaxis_title='RSI')
+    return rsi_fig
+
+# Function to plot MACD
+def plot_macd(df):
+    macd_fig = go.Figure()
+    macd_fig.add_trace(go.Scatter(x=df.index, y=df['MACD'], name='MACD', line=dict(color='blue')))
+    macd_fig.add_trace(go.Scatter(x=df.index, y=df['MACD_Signal'], name='MACD Signal', line=dict(color='red')))
+    macd_fig.update_layout(title='MACD Indicator', xaxis_title='Date', yaxis_title='MACD')
+    return macd_fig
+
+# Function to plot Stochastic
+def plot_stochastic(df):
+    stoch_fig = go.Figure()
+    stoch_fig.add_trace(go.Scatter(x=df.index, y=df['Stochastic_K'], name='Stochastic %K', line=dict(color='green')))
+    stoch_fig.add_trace(go.Scatter(x=df.index, y=df['Stochastic_D'], name='Stochastic %D', line=dict(color='red')))
+    stoch_fig.update_layout(title='Stochastic Oscillator', xaxis_title='Date', yaxis_title='Stochastic')
+    return stoch_fig
+
 # Function to run backtesting using vectorbt's from_signals
 def run_backtest(df, init_cash, fees, direction):
     entries = df['Adjusted Buy']
@@ -180,8 +214,6 @@ stop_loss_percentage = st.sidebar.number_input('Stop Loss (%)', min_value=0.0, m
 trailing_take_profit_percentage = st.sidebar.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
 trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
-# (Continue with your existing sidebar and logic here)
-
 # Sidebar: Choose the strategies to apply
 strategies = st.sidebar.multiselect("Select Strategies", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
@@ -206,7 +238,7 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
 # Create tabs for different views
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot", "Technical Indicators"])
 
 with tab1:
     st.markdown("**Backtesting Stats:**")
@@ -281,43 +313,18 @@ with tab5:
     st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
                 providing a holistic view of the strategy's performance.")
     st.plotly_chart(fig, use_container_width=True)
-# Plot RSI with Overbought and Oversold Lines
-def plot_rsi(df):
-    rsi_fig = go.Figure()
-    rsi_fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], name='RSI', line=dict(color='orange')))
-    rsi_fig.add_hline(y=70, line_dash='dash', line_color='red', annotation_text='Overbought', annotation_position="bottom right")
-    rsi_fig.add_hline(y=30, line_dash='dash', line_color='green', annotation_text='Oversold', annotation_position="top right")
-    rsi_fig.update_layout(title='RSI Indicator', xaxis_title='Date', yaxis_title='RSI')
-    return rsi_fig
 
-# Plot MACD
-def plot_macd(df):
-    macd_fig = go.Figure()
-    macd_fig.add_trace(go.Scatter(x=df.index, y=df['MACD'], name='MACD Line', line=dict(color='blue')))
-    macd_fig.add_trace(go.Scatter(x=df.index, y=df['MACD_Signal'], name='Signal Line', line=dict(color='red')))
-    macd_fig.update_layout(title='MACD Indicator', xaxis_title='Date', yaxis_title='MACD')
-    return macd_fig
+with tab6:
+    st.markdown("**Technical Indicators:**")
+    st.markdown("This tab displays various technical indicators for detailed analysis.")
+    rsi_fig = plot_rsi(symbol_data)
+    macd_fig = plot_macd(symbol_data)
+    stoch_fig = plot_stochastic(symbol_data)
 
-# Plot Stochastic
-def plot_stochastic(df):
-    stoch_fig = go.Figure()
-    stoch_fig.add_trace(go.Scatter(x=df.index, y=df['Stochastic_K'], name='Stochastic %K', line=dict(color='green')))
-    stoch_fig.add_trace(go.Scatter(x=df.index, y=df['Stochastic_D'], name='Stochastic %D', line=dict(color='red')))
-    stoch_fig.update_layout(title='Stochastic Indicator', xaxis_title='Date', yaxis_title='Stochastic')
-    return stoch_fig
+    st.plotly_chart(rsi_fig)
+    st.plotly_chart(macd_fig)
+    st.plotly_chart(stoch_fig)
 
-# Load data and calculate indicators
-df = load_data('Vnindex')  # Ensure this function is defined properly
-df = calculate_technical_indicators(df)  # Ensure this function calculates all indicators
-
-# Plotting in Streamlit
-rsi_fig = plot_rsi(df)
-macd_fig = plot_macd(df)
-stoch_fig = plot_stochastic(df)
-
-st.plotly_chart(rsi_fig)
-st.plotly_chart(macd_fig)
-st.plotly_chart(stoch_fig)
 # If the end date is before the start date, show an error
 if start_date > end_date:
     st.error('Error: End Date must fall after Start Date.')
