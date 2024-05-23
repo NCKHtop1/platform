@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
 import tensorflow as tf
-from tensorflow.keras import layers, models, losses, optimizers
+from tensorflow.keras import layers, models, optimizers
 
 # Define the custom Sampling layer and VAE model
 class Sampling(layers.Layer):
@@ -61,119 +61,106 @@ class VAE(models.Model):
         self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
         return {'loss': total_loss}
 
-@st.cache(allow_output_mutation=True, suppress_st_warning=True)
-def detect_anomalies(df):
-    x_train = df['normalized_close'].values.reshape(-1, 1)
-    vae = VAE(latent_dim=2, input_shape=(1,))
-    vae.compile(optimizer=optimizers.Adam(learning_rate=0.001))
-    # Avoid training inside the cached function
-    if not hasattr(st, 'vae'):
-        st.vae = vae
-        st.vae.fit(x_train, epochs=50, batch_size=32)
-    reconstructed, _, _ = st.vae.predict(x_train)
-    reconstruction_error = np.abs(x_train - reconstructed.flatten())  # Ensure flattening if necessary
-    threshold = np.mean(reconstruction_error) + 2 * np.std(reconstruction_error)
-    df['Anomaly'] = reconstruction_error > threshold
-    return df
-
-# Configurations and File Paths
 SECTOR_FILES = {
-    'Banking': 'Banking.csv',
-    'Building Material': 'Building Material.csv',
-    'Chemical': 'Chemical.csv',
-    'Financial Services': 'Financial Services.csv',
-    'Food and Beverage': 'Food and Beverage.csv',
-    'Industrial Services': 'Industrial Services.csv',
-    'Information Technology': 'Information Technology.csv',
-    'Mineral': 'Mineral.csv',
-    'Oil and Gas': 'Oil and Gas.csv',
-    'Real Estate': 'Real Estate.csv',
-    'Vnindex': 'Vnindex.csv'
+    'Banking': 'data/Banking.csv',
+    'Building Material': 'data/Building Material.csv',
+    'Chemical': 'data/Chemical.csv',
+    'Financial Services': 'data/Financial Services.csv',
+    'Food and Beverage': 'data/Food and Beverage.csv',
+    'Industrial Services': 'data/Industrial Services.csv',
+    'Information Technology': 'data/Information Technology.csv',
+    'Mineral': 'data/Mineral.csv',
+    'Oil and Gas': 'data/Oil and Gas.csv',
+    'Real Estate': 'data/Real Estate.csv',
+    'Vnindex': 'data/Vnindex.csv'
 }
 
-# Load data and normalize
 @st.cache(allow_output_mutation=True)
 def load_data(sector):
     file_path = SECTOR_FILES[sector]
     df = pd.read_csv(file_path)
-    df['Datetime'] = pd.to_datetime(df['Datetime'], format='%d/%m/%Y', dayfirst=True)
+    df['Datetime'] = pd.to_datetime(df['Datetime'], format='%m/%d/%Y' if sector == 'Vnindex' else '%d/%m/%Y', dayfirst=True if sector != 'Vnindex' else False)
     df.set_index('Datetime', inplace=True)
     df['normalized_close'] = (df['close'] - df['close'].mean()) / df['close'].std()
     return df
 
-# Anomaly detection with VAE
-@st.cache(allow_output_mutation=True)
-def detect_anomalies(df):
+def create_and_train_vae(df):
     x_train = df['normalized_close'].values.reshape(-1, 1)
     vae = VAE(latent_dim=2, input_shape=(1,))
     vae.compile(optimizer=optimizers.Adam(learning_rate=0.001))
     vae.fit(x_train, epochs=50, batch_size=32)
+    return vae
+
+def detect_anomalies(df, vae):
+    x_train = df['normalized_close'].values.reshape(-1, 1)
     reconstructed, _, _ = vae.predict(x_train)
-    reconstruction_error = np.abs(x_train - reconstructed)
+    reconstruction_error = np.abs(x_train - reconstructed.flatten())
     threshold = np.mean(reconstruction_error) + 2 * np.std(reconstruction_error)
     df['Anomaly'] = reconstruction_error > threshold
     return df
 
-# Calculate indicators and crashes (revised to incorporate anomaly detection)
-def calculate_indicators_and_crashes(df, strategies):
-    if "MACD" in strategies:
-        df = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
-    if "RSI" in strategies:
-        df = df.ta.rsi(close='close', length=14, append=True)
+# Streamlit application setup
+st.title('Backtesting Stock and Index with Early Warning Model')
 
-    # Adjust buy and sell signals based on detected anomalies
-    df['Adjusted Buy'] = (df['MACD_Hist'] > 0) & (~df['Anomaly'])
-    df['Adjusted Sell'] = (df['MACD_Hist'] < 0) & (~df['Anomaly'])
-    return df
-
-# Streamlit Application Layout
-st.title('Stock and Index Backtesting with Anomaly Detection')
-st.write('This application analyzes stocks with buy/sell signals, and includes early warning signals of potential crashes based on anomaly detection.')
-
-# Sidebar for sector and stock selection
+# Sidebar configuration
 selected_sector = st.sidebar.selectbox('Select Sector', list(SECTOR_FILES.keys()))
 df_full = load_data(selected_sector)
-df_full = detect_anomalies(df_full)
+
+if 'vae' not in st.session_state:
+    st.session_state.vae = create_and_train_vae(df_full)
+
+df_full = detect_anomalies(df_full, st.session_state.vae)
+
+init_cash = st.sidebar.number_input('Initial Cash ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
+fees = st.sidebar.number_input('Transaction Fees (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
+direction = st.sidebar.selectbox("Direction", ["longonly", "shortonly", "both"], index=0)
 
 stock_symbols = df_full['StockSymbol'].unique()
 selected_stock_symbol = st.sidebar.selectbox('Select Stock Symbol', stock_symbols)
 
-# Trading parameters
-init_cash = st.sidebar.number_input('Initial Cash ($):', min_value=1000, max_value=1_000_000, value=100000, step=1000)
-fees = st.sidebar.number_input('Transaction Fees (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
-strategies = st.sidebar.multiselect("Select Strategies", ["MACD", "RSI"], default=["MACD"])
-
-# Select date range
+# Filtering data for the selected stock symbol
 df_selected = df_full[df_full['StockSymbol'] == selected_stock_symbol]
+df_selected.sort_index(inplace=True)
+
 start_date = st.sidebar.date_input('Start Date', df_selected.index.min())
-end_date = st.sidebar.date_input('End Date', df_selected.index.max())
-df_selected = df_selected.loc[start_date:end_date]
+end_date = st.sidebar.date_input('End Date', datetime.today().date())
 
-# Calculate indicators and signals
-df_selected = calculate_indicators_and_crashes(df_selected, strategies)
+# Processing data
+if start_date < end_date:
+    df_selected = df_selected.loc[start_date:end_date]
 
-# Run backtesting
-portfolio = vbt.Portfolio.from_signals(
-    df_selected['close'], entries=df_selected['Adjusted Buy'], exits=df_selected['Adjusted Sell'],
-    init_cash=init_cash, freq='1D', fees=fees
-)
+    portfolio = vbt.Portfolio.from_signals(
+        df_selected['close'], entries=df_selected['Anomaly'], exits=df_selected['Anomaly'],
+        init_cash=init_cash, freq='1D', fees=fees
+    )
 
-# Display Results in Tabs
-tab1, tab2 = st.tabs(['Equity Curve', 'Signals and Anomalies'])
+# Create tabs for different views
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot"])
+
 with tab1:
-    st.header("Equity Curve")
-    st.plotly_chart(vbt.plotting.create_returns_tear_sheet(portfolio, benchmark_rets=None), use_container_width=True)
+    st.write(portfolio.stats())
 
 with tab2:
-    st.header("Signals and Anomalies")
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['close'], mode='lines', name='Close'))
-    fig.add_trace(go.Scatter(x=df_selected.index[df_selected['Adjusted Buy']], y=df_selected['close'][df_selected['Adjusted Buy']], mode='markers', marker=dict(color='green', size=10), name='Buy Signal'))
-    fig.add_trace(go.Scatter(x=df_selected.index[df_selected['Adjusted Sell']], y=df_selected['close'][df_selected['Adjusted Sell']], mode='markers', marker=dict(color='red', size=10), name='Sell Signal'))
-    fig.add_trace(go.Scatter(x=df_selected.index[df_selected['Anomaly']], y=df_selected['close'][df_selected['Anomaly']], mode='markers', marker=dict(color='orange', size=10), name='Anomaly Detected'))
-    fig.update_layout(title='Price with Trading Signals and Anomalies', xaxis_title='Date', yaxis_title='Price', legend_title='Legend')
+    trades_df = portfolio.trades.records_readable
+    st.dataframe(trades_df)
+
+with tab3:
+    equity_curve = go.Figure(data=[go.Scatter(x=df_selected.index, y=portfolio.equity(), mode='lines')])
+    equity_curve.update_layout(title='Equity Curve', xaxis_title='Date', yaxis_title='Equity Value')
+    st.plotly_chart(equity_curve, use_container_width=True)
+
+with tab4:
+    drawdown_data = portfolio.drawdown() * 100
+    drawdown_curve = go.Figure(data=[go.Scatter(x=df_selected.index, y=drawdown_data, mode='lines', fill='tozeroy')])
+    drawdown_curve.update_layout(title='Drawdown Curve', xaxis_title='Date', yaxis_title='% Drawdown')
+    st.plotly_chart(drawdown_curve, use_container_width=True)
+
+with tab5:
+    fig = go.Figure(data=[go.Scatter(x=df_selected.index, y=df_selected['close'], mode='lines', name='Close'),
+                          go.Scatter(x=df_selected.index[df_selected['Anomaly']], y=df_selected['close'][df_selected['Anomaly']], mode='markers', marker=dict(color='red', size=10), name='Anomalies')])
+    fig.update_layout(title='Portfolio Plot with Anomalies', xaxis_title='Date', yaxis_title='Price')
     st.plotly_chart(fig, use_container_width=True)
 
-# Error handling for date range
+# Handle incorrect date range selection
 if start_date > end_date:
     st.error('Error: End Date must fall after Start Date.')
