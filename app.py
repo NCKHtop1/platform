@@ -111,9 +111,8 @@ def calculate_indicators_and_crashes(df, strategies):
         df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
         df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
-    # Calculate Bollinger Bands
     if "Bollinger Bands" in strategies:
-        bbands = df.ta.bbands(length=20, std=2)
+        bbands = df.ta.bbands(close='close', length=20, std=2, append=True)
         df['BB Upper'] = bbands['BBU_20_2.0']
         df['BB Middle'] = bbands['BBM_20_2.0']
         df['BB Lower'] = bbands['BBL_20_2.0']
@@ -191,10 +190,10 @@ def plot_stochastic(df):
 # Function to plot Bollinger Bands
 def plot_bbands(df):
     bbands_fig = go.Figure()
-    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['close'], name='Close', line=dict(color='blue')))
-    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Upper'], name='BB Upper', line=dict(color='red')))
-    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Middle'], name='BB Middle', line=dict(color='green')))
-    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Lower'], name='BB Lower', line=dict(color='red')))
+    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['close'], name='Close Price', line=dict(color='black')))
+    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Upper'], name='Upper Band', line=dict(color='blue', dash='dash')))
+    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Middle'], name='Middle Band', line=dict(color='green', dash='dash')))
+    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Lower'], name='Lower Band', line=dict(color='red', dash='dash')))
     bbands_fig.update_layout(title='Bollinger Bands', xaxis_title='Date', yaxis_title='Price')
     return bbands_fig
 
@@ -326,36 +325,58 @@ with tab4:
                 giving you insights into the strategy's potential for losses.")
 
 with tab5:
-    fig = portfolio.plot()
+    fig = go.Figure(data=[go.Candlestick(
+        x=symbol_data.index,
+        open=symbol_data['open'],
+        high=symbol_data['high'],
+        low=symbol_data['low'],
+        close=symbol_data['close'],
+        name='Candlestick'
+    )])
+
+    if "MACD" in strategies:
+        macd_trace = go.Scatter(x=symbol_data.index, y=symbol_data['MACD'], mode='lines', name='MACD', line=dict(color='blue'))
+        macd_signal_trace = go.Scatter(x=symbol_data.index, y=symbol_data['MACD_Signal'], mode='lines', name='MACD Signal', line=dict(color='red'))
+        fig.add_trace(macd_trace)
+        fig.add_trace(macd_signal_trace)
+
+    if "Supertrend" in strategies:
+        fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['Supertrend'], mode='lines', name='Supertrend', line=dict(color='purple')))
+
+    if "Stochastic" in strategies:
+        stoch_k_trace = go.Scatter(x=symbol_data.index, y=symbol_data['Stochastic_K'], mode='lines', name='Stochastic %K', line=dict(color='green'))
+        stoch_d_trace = go.Scatter(x=symbol_data.index, y=symbol_data['Stochastic_D'], mode='lines', name='Stochastic %D', line=dict(color='red'))
+        fig.add_trace(stoch_k_trace)
+        fig.add_trace(stoch_d_trace)
+
+    if "RSI" in strategies:
+        fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['RSI'], name='RSI', yaxis='y2'))
+        fig.update_layout(
+            yaxis2=dict(title='RSI', overlaying='y', side='right', range=[0, 100])
+        )
+
+    if "Bollinger Bands" in strategies:
+        fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['BB Upper'], name='Upper Band', line=dict(color='blue', dash='dash')))
+        fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['BB Middle'], name='Middle Band', line=dict(color='green', dash='dash')))
+        fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['BB Lower'], name='Lower Band', line=dict(color='red', dash='dash')))
+
     crash_df = symbol_data[symbol_data['Crash']]
-    fig.add_scatter(
+    fig.add_trace(go.Scatter(
         x=crash_df.index,
         y=crash_df['close'],
         mode='markers',
         marker=dict(color='orange', size=10, symbol='triangle-down'),
         name='Crash'
+    ))
+
+    fig.update_layout(
+        title='Portfolio Plot and Technical Indicators',
+        xaxis_title='Date',
+        yaxis_title='Price',
+        width=800,
+        height=600
     )
-    st.markdown("**Portfolio Plot and Technical Indicators:**")
-    st.markdown("This comprehensive plot combines the equity curve with buy/sell signals, potential crash warnings, and selected technical indicators, \
-                providing a holistic view of the strategy's performance.")
-    st.plotly_chart(fig, use_container_width=True)
-
-    # Plot selected technical indicators
-    if "RSI" in strategies:
-        rsi_fig = plot_rsi(symbol_data)
-        st.plotly_chart(rsi_fig)
-
-    if "MACD" in strategies:
-        macd_fig = plot_macd(symbol_data)
-        st.plotly_chart(macd_fig)
-
-    if "Stochastic" in strategies:
-        stoch_fig = plot_stochastic(symbol_data)
-        st.plotly_chart(stoch_fig)
-
-    if "Bollinger Bands" in strategies:
-        bbands_fig = plot_bbands(symbol_data)
-        st.plotly_chart(bbands_fig)
+    st.plotly_chart(fig)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
