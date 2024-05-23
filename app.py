@@ -121,6 +121,27 @@ def calculate_indicators_and_crashes(df, strategies):
         df['RSI'] = rsi
         df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
         df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
+    import pandas_ta as ta
+
+def calculate_technical_indicators(df):
+    # Calculate Supertrend
+    supertrend = df.ta.supertrend(length=7, multiplier=3)
+    df['Supertrend'] = supertrend['SUPERT_7_3.0']
+
+    # Calculate RSI
+    df['RSI'] = df.ta.rsi(length=14)
+
+    # Calculate MACD
+    macd = df.ta.macd(fast=12, slow=26, signal=9)
+    df['MACD'] = macd['MACD_12_26_9']
+    df['MACD_Signal'] = macd['MACDs_12_26_9']
+
+    # Calculate Stochastic
+    stochastic = df.ta.stoch(high='high', low='low', close='close', k=14, d=3)
+    df['Stochastic_K'] = stochastic['STOCHk_14_3_3']
+    df['Stochastic_D'] = stochastic['STOCHd_14_3_3']
+
+    return df
 
     peaks, _ = find_peaks(df['close'])
     df['Peaks'] = df.index.isin(df.index[peaks])
@@ -267,20 +288,41 @@ with tab4:
     st.markdown("This chart illustrates the peak-to-trough decline of your portfolio, \
                 giving you insights into the strategy's potential for losses.")
 
-with tab5:
-    fig = portfolio.plot()
-    crash_df = symbol_data[symbol_data['Crash']]
-    fig.add_scatter(
-        x=crash_df.index,
-        y=crash_df['close'],
-        mode='markers',
-        marker=dict(color='orange', size=10, symbol='triangle-down'),
-        name='Crash'
+# After calculating indicators
+df_selected = calculate_technical_indicators(df_selected)
+
+# Displaying in Streamlit
+with tab5:  # Assuming tab5 is the "Portfolio Plot" tab
+    fig = go.Figure()
+
+    # Plotting the close prices
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['close'], mode='lines', name='Close Price'))
+
+    # Plotting Supertrend
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['Supertrend'], mode='lines', name='Supertrend', line=dict(color='purple')))
+
+    # Adding MACD and Signal line
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['MACD'], mode='lines', name='MACD', line=dict(color='blue')))
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['MACD_Signal'], mode='lines', name='MACD Signal', line=dict(color='orange')))
+
+    # Adding Stochastic
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['Stochastic_K'], mode='lines', name='Stochastic K', line=dict(color='green')))
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['Stochastic_D'], mode='lines', name='Stochastic D', line=dict(color='red')))
+
+    # Add RSI in a separate y-axis
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['RSI'], name='RSI', yaxis='y2'))
+
+    # Update layout to add second y-axis for RSI
+    fig.update_layout(
+        title='Price and Indicators',
+        xaxis_title='Date',
+        yaxis_title='Price',
+        yaxis=dict(title='Price'),
+        yaxis2=dict(title='RSI', overlaying='y', side='right', range=[0, 100]),
+        legend=dict(x=0.01, y=0.99, bordercolor="Black", borderwidth=1)
     )
-    st.markdown("**Portfolio Plot:**")
-    st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
-                providing a holistic view of the strategy's performance.")
-    st.plotly_chart(fig, use_container_width=True)
+    
+    st.plotly_chart(fig)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
