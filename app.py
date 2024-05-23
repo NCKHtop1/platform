@@ -7,8 +7,8 @@ import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
 
-st.title('Backtesting Stock and Index with Early Warning Model')
-st.image('image.png', caption='Visual representation of stock analysis.')
+# Add image to the landing page
+st.image('image.png', use_column_width=True)
 
 # Sector files mapping
 SECTOR_FILES = {
