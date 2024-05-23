@@ -44,7 +44,7 @@ def load_stock_symbols(sector):
 
 # Ichimoku Oscillator Class
 class IchimokuOscillator:
-    def __init__(self, conversion_periods=8, base_periods=13, lagging_span2_periods=26, displacement=13):
+    def __init__(self, conversion_periods=9, base_periods=26, lagging_span2_periods=52, displacement=26):
         self.conversion_periods = conversion_periods
         self.base_periods = base_periods
         self.lagging_span2_periods = lagging_span2_periods
@@ -58,10 +58,9 @@ class IchimokuOscillator:
     def calculate(self, df):
         df['conversion_line'] = self.donchian_channel(df['close'], self.conversion_periods)
         df['base_line'] = self.donchian_channel(df['close'], self.base_periods)
-        df['leading_span_a'] = (df['conversion_line'] + df['base_line']) / 2
-        df['leading_span_b'] = self.donchian_channel(df['close'], self.lagging_span2_periods)
-        df['cloud_min'] = np.minimum(df['leading_span_a'].shift(self.displacement - 1), df['leading_span_b'].shift(self.displacement - 1))
-        df['cloud_max'] = np.maximum(df['leading_span_a'].shift(self.displacement - 1), df['leading_span_b'].shift(self.displacement - 1))
+        df['leading_span_a'] = ((df['conversion_line'] + df['base_line']) / 2).shift(self.displacement)
+        df['leading_span_b'] = self.donchian_channel(df['close'], self.lagging_span2_periods).shift(self.displacement)
+        df['lagging_span'] = df['close'].shift(-self.displacement)
         return df
 
 # Function to calculate MACD signals
@@ -149,18 +148,18 @@ def calculate_technical_indicators(df):
     df['Stochastic_D'] = stochastic['STOCHd_14_3_3']
 
     # Calculate Bollinger Bands
-    bbands = df.ta.bbands(length=20, std=2)
+    bbands = df.ta.bbands(length=20)
     df['BB Upper'] = bbands['BBU_20_2.0']
     df['BB Middle'] = bbands['BBM_20_2.0']
     df['BB Lower'] = bbands['BBL_20_2.0']
 
     # Calculate Ichimoku
-    ichimoku = df.ta.ichimoku()
-    df['Ichimoku A'] = ichimoku['ISA_9']
-    df['Ichimoku B'] = ichimoku['ISB_26']
-    df['Ichimoku Base'] = ichimoku['ITS_9']
-    df['Ichimoku Conversion'] = ichimoku['IKS_26']
-    df['Ichimoku Lagging'] = ichimoku['ICS_26']
+    ichimoku = ta.ichimoku(df['high'], df['low'], df['close'])
+    df['Ichimoku A'] = ichimoku[0]
+    df['Ichimoku B'] = ichimoku[1]
+    df['Ichimoku Base'] = ichimoku[2]
+    df['Ichimoku Conversion'] = ichimoku[3]
+    df['Ichimoku Lagging'] = ichimoku[4]
 
     return df
 
@@ -192,22 +191,22 @@ def plot_stochastic(df):
 # Function to plot Bollinger Bands
 def plot_bbands(df):
     bbands_fig = go.Figure()
-    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['close'], name='Close Price', line=dict(color='blue')))
-    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Upper'], name='Upper Band', line=dict(color='red')))
-    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Middle'], name='Middle Band', line=dict(color='green')))
-    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Lower'], name='Lower Band', line=dict(color='red')))
+    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['close'], name='Close', line=dict(color='blue')))
+    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Upper'], name='BB Upper', line=dict(color='red')))
+    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Middle'], name='BB Middle', line=dict(color='orange')))
+    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Lower'], name='BB Lower', line=dict(color='green')))
     bbands_fig.update_layout(title='Bollinger Bands', xaxis_title='Date', yaxis_title='Price')
     return bbands_fig
 
 # Function to plot Ichimoku
 def plot_ichimoku(df):
     ichimoku_fig = go.Figure()
-    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['close'], name='Close Price', line=dict(color='blue')))
-    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['Ichimoku A'], name='Ichimoku A', line=dict(color='green')))
-    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['Ichimoku B'], name='Ichimoku B', line=dict(color='red')))
-    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['Ichimoku Base'], name='Base Line', line=dict(color='orange')))
-    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['Ichimoku Conversion'], name='Conversion Line', line=dict(color='purple')))
-    ichimoku_fig.update_layout(title='Ichimoku Cloud', xaxis_title='Date', yaxis_title='Price')
+    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['close'], name='Close', line=dict(color='blue')))
+    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['Ichimoku A'], name='Ichimoku A', line=dict(color='red')))
+    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['Ichimoku B'], name='Ichimoku B', line=dict(color='orange')))
+    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['Ichimoku Base'], name='Ichimoku Base', line=dict(color='green')))
+    ichimoku_fig.add_trace(go.Scatter(x=df.index, y=df['Ichimoku Conversion'], name='Ichimoku Conversion', line=dict(color='purple')))
+    ichimoku_fig.update_layout(title='Ichimoku Indicator', xaxis_title='Date', yaxis_title='Price')
     return ichimoku_fig
 
 # Function to run backtesting using vectorbt's from_signals
@@ -338,7 +337,11 @@ with tab4:
                 giving you insights into the strategy's potential for losses.")
 
 with tab5:
-    fig = portfolio.plot()
+    fig = go.Figure(data=[go.Candlestick(x=symbol_data.index,
+                                         open=symbol_data['open'],
+                                         high=symbol_data['high'],
+                                         low=symbol_data['low'],
+                                         close=symbol_data['close'])])
     crash_df = symbol_data[symbol_data['Crash']]
     fig.add_scatter(
         x=crash_df.index,
@@ -347,26 +350,21 @@ with tab5:
         marker=dict(color='orange', size=10, symbol='triangle-down'),
         name='Crash'
     )
-    st.markdown("**Portfolio Plot and Technical Indicators:**")
-    st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
-                providing a holistic view of the strategy's performance.")
+    fig.update_layout(title='Candlestick plot with Buy/Sell Signals and Crashes', xaxis_title='Date', yaxis_title='Price')
 
+    # Plot selected technical indicators
     if 'RSI' in strategies:
         rsi_fig = plot_rsi(symbol_data)
         st.plotly_chart(rsi_fig)
-
     if 'MACD' in strategies:
         macd_fig = plot_macd(symbol_data)
         st.plotly_chart(macd_fig)
-
     if 'Stochastic' in strategies:
         stoch_fig = plot_stochastic(symbol_data)
         st.plotly_chart(stoch_fig)
-
     if 'Bollinger Bands' in strategies:
         bbands_fig = plot_bbands(symbol_data)
         st.plotly_chart(bbands_fig)
-
     if 'Ichimoku' in strategies:
         ichimoku_fig = plot_ichimoku(symbol_data)
         st.plotly_chart(ichimoku_fig)
