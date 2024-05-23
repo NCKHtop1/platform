@@ -8,7 +8,7 @@ import vectorbt as vbt
 import pandas_ta as ta
 
 # Add image to the landing page
-st.image('https://github.com/NCKHtop1/platform/blob/main/image.png', use_column_width=True)
+st.image('image.png', use_column_width=True)
 
 # Sector files mapping
 SECTOR_FILES = {
