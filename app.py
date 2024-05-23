@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
@@ -233,6 +234,8 @@ if start_date < end_date:
 
     # Calculate MACD, Ichimoku, and crash signals
     symbol_data = calculate_indicators_and_crashes(symbol_data, strategies)
+    # Calculate additional technical indicators
+    symbol_data = calculate_technical_indicators(symbol_data)
 
     # Run backtest
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
