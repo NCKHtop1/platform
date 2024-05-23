@@ -323,7 +323,17 @@ with tab5:  # Assuming tab5 is the "Portfolio Plot" tab
     )
     
     st.plotly_chart(fig)
-
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['close'], mode='lines', name='Close'))
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['Supertrend'], mode='lines', name='Supertrend', line=dict(color='purple')))
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['MACD'], mode='lines', name='MACD', line=dict(color='blue')))
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['MACD_Signal'], mode='lines', name='MACD Signal', line=dict(color='orange')))
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['Stochastic_K'], mode='lines', name='Stochastic K', line=dict(color='green')))
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['Stochastic_D'], mode='lines', name='Stochastic D', line=dict(color='red')))
+    fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['RSI'], mode='lines', name='RSI', line=dict(color='black')))
+    fig.update_layout(title="Technical Indicators", xaxis_title="Date", yaxis_title="Value", legend_title="Indicator")
+    st.plotly_chart(fig)
+    
 # If the end date is before the start date, show an error
 if start_date > end_date:
     st.error('Error: End Date must fall after Start Date.')
