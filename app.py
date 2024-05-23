@@ -7,6 +7,21 @@ import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
 
+# Set the page configuration
+st.set_page_config(page_title="Stock Analysis", layout="wide")
+
+# Background image CSS
+page_bg_img = '''
+<style>
+body {
+background-image: url("https://images.unsplash.com/photo-1542281286-9e0a16bb7366");
+background-size: cover;
+}
+</style>
+'''
+
+st.markdown(page_bg_img, unsafe_allow_html=True)
+
 SECTOR_FILES = {
     'Banking': 'Banking.csv',
     'Building Material': 'Building Material.csv',
@@ -42,36 +57,6 @@ def load_stock_symbols(sector):
     stock_symbols_df = df.drop_duplicates(subset='StockSymbol')
     return stock_symbols_df['StockSymbol'].tolist()
 
-# Load unique stock symbols
-@st.cache_data
-def load_stock_symbols(sector):
-    file_path = SECTOR_FILES[sector]
-    df = pd.read_csv(file_path)
-    stock_symbols_df = df.drop_duplicates(subset='StockSymbol')
-    return stock_symbols_df['StockSymbol'].tolist()
-
-# Ichimoku Oscillator Class
-class IchimokuOscillator:
-    def __init__(self, conversion_periods=8, base_periods=13, lagging_span2_periods=26, displacement=13):
-        self.conversion_periods = conversion_periods
-        self.base_periods = base_periods
-        self.lagging_span2_periods = lagging_span2_periods
-        self.displacement = displacement
-
-    def donchian_channel(self, series, length):
-        lowest = series.rolling(window=length, min_periods=1).min()
-        highest = series.rolling(window=length, min_periods=1).max()
-        return (lowest + highest) / 2
-
-    def calculate(self, df):
-        df['conversion_line'] = self.donchian_channel(df['close'], self.conversion_periods)
-        df['base_line'] = self.donchian_channel(df['close'], self.base_periods)
-        df['leading_span_a'] = (df['conversion_line'] + df['base_line']) / 2
-        df['leading_span_b'] = self.donchian_channel(df['close'], self.lagging_span2_periods)
-        df['cloud_min'] = np.minimum(df['leading_span_a'].shift(self.displacement - 1), df['leading_span_b'].shift(self.displacement - 1))
-        df['cloud_max'] = np.maximum(df['leading_span_a'].shift(self.displacement - 1), df['leading_span_b'].shift(self.displacement - 1))
-        return df
-
 # Function to calculate MACD signals
 def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
     def ema(values, length):
@@ -92,9 +77,6 @@ def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
     return macd_line, signal_line, histogram
 
 # Function to calculate buy/sell signals and crashes
-import pandas as pd
-import pandas_ta as ta
-
 def calculate_indicators_and_crashes(df, strategies):
     if "MACD" in strategies:
         macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
@@ -140,6 +122,33 @@ def calculate_indicators_and_crashes(df, strategies):
                            (~df['Crash'].shift(1).fillna(False)))
     return df
 
+# Function to calculate technical indicators
+def calculate_technical_indicators(df):
+    # Calculate Supertrend
+    supertrend = df.ta.supertrend(length=7, multiplier=3)
+    df['Supertrend'] = supertrend['SUPERT_7_3.0']
+
+    # Calculate RSI
+    df['RSI'] = df.ta.rsi(length=14)
+
+    # Calculate MACD
+    macd = df.ta.macd(fast=12, slow=26, signal=9)
+    df['MACD'] = macd['MACD_12_26_9']
+    df['MACD_Signal'] = macd['MACDs_12_26_9']
+
+    # Calculate Stochastic
+    stochastic = df.ta.stoch(high='high', low='low', close='close')
+    df['Stochastic_K'] = stochastic['STOCHk_14_3_3']
+    df['Stochastic_D'] = stochastic['STOCHd_14_3_3']
+
+    # Calculate Bollinger Bands
+    bbands = df.ta.bbands(length=20, std=2)
+    df['BB Upper'] = bbands['BBU_20_2.0']
+    df['BB Middle'] = bbands['BBM_20_2.0']
+    df['BB Lower'] = bbands['BBL_20_2.0']
+
+    return df
+
 # Function to run backtesting using vectorbt's from_signals
 def run_backtest(df, init_cash, fees, direction):
     entries = df['Adjusted Buy']
@@ -157,7 +166,7 @@ def run_backtest(df, init_cash, fees, direction):
 
 ## Streamlit App
 st.title('Backtesting Stock and Index with Early Warning Model')
-st.write('This application analyzes stocks with buy/sell signals, Early warning signals of stock before the market crashes on HOSE and VNINDEX.')
+st.write('This application analyzes stocks with buy/sell signals and early warning signals before market crashes on HOSE and VNINDEX.')
 
 # Sidebar: Sector selection
 selected_sector = st.sidebar.selectbox('Select Sector', list(SECTOR_FILES.keys()))
@@ -180,10 +189,8 @@ stop_loss_percentage = st.sidebar.number_input('Stop Loss (%)', min_value=0.0, m
 trailing_take_profit_percentage = st.sidebar.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
 trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
-# (Continue with your existing sidebar and logic here)
-
 # Sidebar: Choose the strategies to apply
-strategies = st.sidebar.multiselect("Select Strategies", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
+strategies = st.sidebar.multiselect("Select Strategies", ["MACD", "Supertrend", "Stochastic", "RSI", "Bollinger Bands"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
 # Filter data for the selected stock symbol
 symbol_data = df_full[df_full['StockSymbol'] == selected_stock_symbol]
@@ -201,6 +208,8 @@ if start_date < end_date:
 
     # Calculate MACD, Ichimoku, and crash signals
     symbol_data = calculate_indicators_and_crashes(symbol_data, strategies)
+    # Calculate additional technical indicators
+    symbol_data = calculate_technical_indicators(symbol_data)
 
     # Run backtest
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
@@ -210,16 +219,14 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(["Backtesting Stats", "List of Trades", "
 
 with tab1:
     st.markdown("**Backtesting Stats:**")
-    st.markdown("This tab displays the overall performance of the selected trading strategy. \
-                You'll find key metrics such as total return, profit/loss, and other relevant statistics.")
+    st.markdown("This tab displays the overall performance of the selected trading strategy. You'll find key metrics such as total return, profit/loss, and other relevant statistics.")
     stats_df = pd.DataFrame(portfolio.stats(), columns=['Value'])
     stats_df.index.name = 'Metric'
     st.dataframe(stats_df, height=800)
 
 with tab2:
     st.markdown("**List of Trades:**")
-    st.markdown("This tab provides a detailed list of all trades executed by the strategy. \
-                You can analyze the entry and exit points of each trade, along with the profit or loss incurred.")
+    st.markdown("This tab provides a detailed list of all trades executed by the strategy. You can analyze the entry and exit points of each trade, along with the profit or loss incurred.")
     trades_df = portfolio.trades.records_readable
     trades_df = trades_df.round(2)
     trades_df.index.name = 'Trade No'
@@ -241,8 +248,7 @@ with tab3:
     )
     st.plotly_chart(equity_fig)
     st.markdown("**Equity Curve:**")
-    st.markdown("This chart visualizes the growth of your portfolio value over time, \
-                allowing you to see how the strategy performs in different market conditions.")
+    st.markdown("This chart visualizes the growth of your portfolio value over time, allowing you to see how the strategy performs in different market conditions.")
 
 with tab4:
     drawdown_trace = go.Scatter(
@@ -264,23 +270,63 @@ with tab4:
     )
     st.plotly_chart(drawdown_fig)
     st.markdown("**Drawdown Curve:**")
-    st.markdown("This chart illustrates the peak-to-trough decline of your portfolio, \
-                giving you insights into the strategy's potential for losses.")
+    st.markdown("This chart illustrates the peak-to-trough decline of your portfolio, giving you insights into the strategy's potential for losses.")
 
 with tab5:
-    fig = portfolio.plot()
+    fig = go.Figure(data=[
+        go.Candlestick(
+            x=symbol_data.index,
+            open=symbol_data['open'],
+            high=symbol_data['high'],
+            low=symbol_data['low'],
+            close=symbol_data['close'],
+            name='Candlesticks'
+        )
+    ])
+
+    if "MACD" in strategies:
+        macd_trace = go.Scatter(x=symbol_data.index, y=symbol_data['MACD'], mode='lines', name='MACD', line=dict(color='blue'))
+        macd_signal_trace = go.Scatter(x=symbol_data.index, y=symbol_data['MACD_Signal'], mode='lines', name='MACD Signal', line=dict(color='red'))
+        fig.add_trace(macd_trace)
+        fig.add_trace(macd_signal_trace)
+
+    if "Supertrend" in strategies:
+        fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['Supertrend'], mode='lines', name='Supertrend', line=dict(color='purple')))
+
+    if "Stochastic" in strategies:
+        stoch_k_trace = go.Scatter(x=symbol_data.index, y=symbol_data['Stochastic_K'], mode='lines', name='Stochastic %K', line=dict(color='green'))
+        stoch_d_trace = go.Scatter(x=symbol_data.index, y=symbol_data['Stochastic_D'], mode='lines', name='Stochastic %D', line=dict(color='red'))
+        fig.add_trace(stoch_k_trace)
+        fig.add_trace(stoch_d_trace)
+
+    if "RSI" in strategies:
+        fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['RSI'], name='RSI', yaxis='y2'))
+        fig.update_layout(
+            yaxis2=dict(title='RSI', overlaying='y', side='right', range=[0, 100])
+        )
+
+    if "Bollinger Bands" in strategies:
+        fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['BB Upper'], name='Upper Band', line=dict(color='blue', dash='dash')))
+        fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['BB Middle'], name='Middle Band', line=dict(color='green', dash='dash')))
+        fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['BB Lower'], name='Lower Band', line=dict(color='red', dash='dash')))
+
     crash_df = symbol_data[symbol_data['Crash']]
-    fig.add_scatter(
+    fig.add_trace(go.Scatter(
         x=crash_df.index,
         y=crash_df['close'],
         mode='markers',
         marker=dict(color='orange', size=10, symbol='triangle-down'),
         name='Crash'
+    ))
+
+    fig.update_layout(
+        title='Portfolio Plot and Technical Indicators',
+        xaxis_title='Date',
+        yaxis_title='Price',
+        width=800,
+        height=600
     )
-    st.markdown("**Portfolio Plot:**")
-    st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
-                providing a holistic view of the strategy's performance.")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
