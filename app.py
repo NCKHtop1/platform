@@ -333,6 +333,47 @@ with tab5:  # Assuming tab5 is the "Portfolio Plot" tab
     fig.add_trace(go.Scatter(x=df_selected.index, y=df_selected['RSI'], mode='lines', name='RSI', line=dict(color='black')))
     fig.update_layout(title="Technical Indicators", xaxis_title="Date", yaxis_title="Value", legend_title="Indicator")
     st.plotly_chart(fig)
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+# Assuming df is your DataFrame already containing 'close', 'buy_signal', 'sell_signal', 'crash_signal', and technical indicators like 'Supertrend'
+
+def plot_portfolio_with_signals(df):
+    # Create a subplot with 2 rows
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
+                        subplot_titles=('Price and Trades', 'Cumulative Returns'),
+                        row_heights=[0.7, 0.3])
+
+    # Plotting the close prices and signals
+    fig.add_trace(go.Scatter(x=df.index, y=df['close'], mode='lines', name='Close'), row=1, col=1)
+    # Add buy signals
+    fig.add_trace(go.Scatter(x=df[df['buy_signal']].index, y=df[df['buy_signal']]['close'], mode='markers', marker=dict(color='green', size=10), name='Buy'), row=1, col=1)
+    # Add sell signals
+    fig.add_trace(go.Scatter(x=df[df['sell_signal']].index, y=df[df['sell_signal']]['close'], mode='markers', marker=dict(color='red', size=10), name='Sell'), row=1, col=1)
+    # Add crash signals
+    fig.add_trace(go.Scatter(x=df[df['crash_signal']].index, y=df[df['crash_signal']]['close'], mode='markers', marker=dict(color='orange', size=10), name='Crash'), row=1, col=1)
+
+    # Add technical indicator (e.g., Supertrend)
+    fig.add_trace(go.Scatter(x=df.index, y=df['Supertrend'], mode='lines', name='Supertrend', line=dict(color='purple', dash='dot')), row=1, col=1)
+
+    # Calculate cumulative returns for the second subplot
+    cumulative_returns = (df['close'].pct_change() + 1).cumprod() - 1
+    fig.add_trace(go.Scatter(x=df.index, y=cumulative_returns, mode='lines', name='Cumulative Returns'), row=2, col=1)
+
+    # Update layout
+    fig.update_layout(height=800, width=800, title_text="Portfolio Overview")
+    fig.update_xaxes(title_text="Date")
+    fig.update_yaxes(title_text="Price", row=1, col=1)
+    fig.update_yaxes(title_text="Returns", row=2, col=1)
+
+    return fig
+
+# Plotting
+df = load_your_dataframe_function()  # Ensure this function loads a DataFrame with necessary columns
+fig = plot_portfolio_with_signals(df)
+st.plotly_chart(fig)
     
 # If the end date is before the start date, show an error
 if start_date > end_date:
