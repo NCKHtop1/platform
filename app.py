@@ -281,7 +281,43 @@ with tab5:
     st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
                 providing a holistic view of the strategy's performance.")
     st.plotly_chart(fig, use_container_width=True)
+# Plot RSI with Overbought and Oversold Lines
+def plot_rsi(df):
+    rsi_fig = go.Figure()
+    rsi_fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], name='RSI', line=dict(color='orange')))
+    rsi_fig.add_hline(y=70, line_dash='dash', line_color='red', annotation_text='Overbought', annotation_position="bottom right")
+    rsi_fig.add_hline(y=30, line_dash='dash', line_color='green', annotation_text='Oversold', annotation_position="top right")
+    rsi_fig.update_layout(title='RSI Indicator', xaxis_title='Date', yaxis_title='RSI')
+    return rsi_fig
 
+# Plot MACD
+def plot_macd(df):
+    macd_fig = go.Figure()
+    macd_fig.add_trace(go.Scatter(x=df.index, y=df['MACD'], name='MACD Line', line=dict(color='blue')))
+    macd_fig.add_trace(go.Scatter(x=df.index, y=df['MACD_Signal'], name='Signal Line', line=dict(color='red')))
+    macd_fig.update_layout(title='MACD Indicator', xaxis_title='Date', yaxis_title='MACD')
+    return macd_fig
+
+# Plot Stochastic
+def plot_stochastic(df):
+    stoch_fig = go.Figure()
+    stoch_fig.add_trace(go.Scatter(x=df.index, y=df['Stochastic_K'], name='Stochastic %K', line=dict(color='green')))
+    stoch_fig.add_trace(go.Scatter(x=df.index, y=df['Stochastic_D'], name='Stochastic %D', line=dict(color='red')))
+    stoch_fig.update_layout(title='Stochastic Indicator', xaxis_title='Date', yaxis_title='Stochastic')
+    return stoch_fig
+
+# Load data and calculate indicators
+df = load_data('Vnindex')  # Ensure this function is defined properly
+df = calculate_technical_indicators(df)  # Ensure this function calculates all indicators
+
+# Plotting in Streamlit
+rsi_fig = plot_rsi(df)
+macd_fig = plot_macd(df)
+stoch_fig = plot_stochastic(df)
+
+st.plotly_chart(rsi_fig)
+st.plotly_chart(macd_fig)
+st.plotly_chart(stoch_fig)
 # If the end date is before the start date, show an error
 if start_date > end_date:
     st.error('Error: End Date must fall after Start Date.')
