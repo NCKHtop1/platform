@@ -42,6 +42,14 @@ def load_stock_symbols(sector):
     stock_symbols_df = df.drop_duplicates(subset='StockSymbol')
     return stock_symbols_df['StockSymbol'].tolist()
 
+# Load unique stock symbols
+@st.cache_data
+def load_stock_symbols(sector):
+    file_path = SECTOR_FILES[sector]
+    df = pd.read_csv(file_path)
+    stock_symbols_df = df.drop_duplicates(subset='StockSymbol')
+    return stock_symbols_df['StockSymbol'].tolist()
+
 # Ichimoku Oscillator Class
 class IchimokuOscillator:
     def __init__(self, conversion_periods=8, base_periods=13, lagging_span2_periods=26, displacement=13):
@@ -84,6 +92,9 @@ def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
     return macd_line, signal_line, histogram
 
 # Function to calculate buy/sell signals and crashes
+import pandas as pd
+import pandas_ta as ta
+
 def calculate_indicators_and_crashes(df, strategies):
     if "MACD" in strategies:
         macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
@@ -111,12 +122,6 @@ def calculate_indicators_and_crashes(df, strategies):
         df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
         df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
-    if "Bollinger Bands" in strategies:
-        bbands = df.ta.bbands(close='close', length=20, std=2, append=True)
-        df['BB Upper'] = bbands['BBU_20_2.0']
-        df['BB Middle'] = bbands['BBM_20_2.0']
-        df['BB Lower'] = bbands['BBL_20_2.0']
-
     peaks, _ = find_peaks(df['close'])
     df['Peaks'] = df.index.isin(df.index[peaks])
 
@@ -134,68 +139,6 @@ def calculate_indicators_and_crashes(df, strategies):
     df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
                            (~df['Crash'].shift(1).fillna(False)))
     return df
-
-# Function to calculate technical indicators
-def calculate_technical_indicators(df):
-    # Calculate Supertrend
-    supertrend = df.ta.supertrend(length=7, multiplier=3)
-    df['Supertrend'] = supertrend['SUPERT_7_3.0']
-
-    # Calculate RSI
-    df['RSI'] = df.ta.rsi(length=14)
-
-    # Calculate MACD
-    macd = df.ta.macd(fast=12, slow=26, signal=9)
-    df['MACD'] = macd['MACD_12_26_9']
-    df['MACD_Signal'] = macd['MACDs_12_26_9']
-
-    # Calculate Stochastic
-    stochastic = df.ta.stoch(high='high', low='low', close='close')
-    df['Stochastic_K'] = stochastic['STOCHk_14_3_3']
-    df['Stochastic_D'] = stochastic['STOCHd_14_3_3']
-
-    # Calculate Bollinger Bands
-    bbands = df.ta.bbands(length=20, std=2)
-    df['BB Upper'] = bbands['BBU_20_2.0']
-    df['BB Middle'] = bbands['BBM_20_2.0']
-    df['BB Lower'] = bbands['BBL_20_2.0']
-
-    return df
-
-# Function to plot RSI
-def plot_rsi(df):
-    rsi_fig = go.Figure()
-    rsi_fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], name='RSI', line=dict(color='orange')))
-    rsi_fig.add_hline(y=70, line_dash='dash', line_color='red', annotation_text='Overbought', annotation_position="bottom right")
-    rsi_fig.add_hline(y=30, line_dash='dash', line_color='green', annotation_text='Oversold', annotation_position="top right")
-    rsi_fig.update_layout(title='RSI Indicator', xaxis_title='Date', yaxis_title='RSI')
-    return rsi_fig
-
-# Function to plot MACD
-def plot_macd(df):
-    macd_fig = go.Figure()
-    macd_fig.add_trace(go.Scatter(x=df.index, y=df['MACD'], name='MACD', line=dict(color='blue')))
-    macd_fig.add_trace(go.Scatter(x=df.index, y=df['MACD_Signal'], name='MACD Signal', line=dict(color='red')))
-    macd_fig.update_layout(title='MACD Indicator', xaxis_title='Date', yaxis_title='MACD')
-    return macd_fig
-
-# Function to plot Stochastic
-def plot_stochastic(df):
-    stoch_fig = go.Figure()
-    stoch_fig.add_trace(go.Scatter(x=df.index, y=df['Stochastic_K'], name='Stochastic %K', line=dict(color='green')))
-    stoch_fig.add_trace(go.Scatter(x=df.index, y=df['Stochastic_D'], name='Stochastic %D', line=dict(color='red')))
-    stoch_fig.update_layout(title='Stochastic Oscillator', xaxis_title='Date', yaxis_title='Stochastic')
-    return stoch_fig
-
-# Function to plot Bollinger Bands
-def plot_bbands(df):
-    bbands_fig = go.Figure()
-    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['close'], name='Close Price', line=dict(color='black')))
-    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Upper'], name='Upper Band', line=dict(color='blue', dash='dash')))
-    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Middle'], name='Middle Band', line=dict(color='green', dash='dash')))
-    bbands_fig.add_trace(go.Scatter(x=df.index, y=df['BB Lower'], name='Lower Band', line=dict(color='red', dash='dash')))
-    bbands_fig.update_layout(title='Bollinger Bands', xaxis_title='Date', yaxis_title='Price')
-    return bbands_fig
 
 # Function to run backtesting using vectorbt's from_signals
 def run_backtest(df, init_cash, fees, direction):
@@ -237,8 +180,10 @@ stop_loss_percentage = st.sidebar.number_input('Stop Loss (%)', min_value=0.0, m
 trailing_take_profit_percentage = st.sidebar.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
 trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
+# (Continue with your existing sidebar and logic here)
+
 # Sidebar: Choose the strategies to apply
-strategies = st.sidebar.multiselect("Select Strategies", ["MACD", "Supertrend", "Stochastic", "RSI", "Bollinger Bands"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
+strategies = st.sidebar.multiselect("Select Strategies", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
 # Filter data for the selected stock symbol
 symbol_data = df_full[df_full['StockSymbol'] == selected_stock_symbol]
@@ -256,8 +201,6 @@ if start_date < end_date:
 
     # Calculate MACD, Ichimoku, and crash signals
     symbol_data = calculate_indicators_and_crashes(symbol_data, strategies)
-    # Calculate additional technical indicators
-    symbol_data = calculate_technical_indicators(symbol_data)
 
     # Run backtest
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
