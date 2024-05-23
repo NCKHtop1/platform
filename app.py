@@ -330,14 +330,26 @@ with tab6:
 
     candlestick_fig.update_layout(title='Candlestick Chart', xaxis_title='Date', yaxis_title='Price')
     
-    rsi_fig = plot_rsi(symbol_data)
-    macd_fig = plot_macd(symbol_data)
-    stoch_fig = plot_stochastic(symbol_data)
-
     st.plotly_chart(candlestick_fig)
-    st.plotly_chart(rsi_fig)
-    st.plotly_chart(macd_fig)
-    st.plotly_chart(stoch_fig)
+    
+    if 'RSI' in strategies:
+        rsi_fig = plot_rsi(symbol_data)
+        st.plotly_chart(rsi_fig)
+        
+    if 'MACD' in strategies:
+        macd_fig = plot_macd(symbol_data)
+        st.plotly_chart(macd_fig)
+        
+    if 'Stochastic' in strategies:
+        stoch_fig = plot_stochastic(symbol_data)
+        st.plotly_chart(stoch_fig)
+        
+    if 'Supertrend' in strategies:
+        # Add Supertrend plot if it's calculated separately
+        supertrend_fig = go.Figure()
+        supertrend_fig.add_trace(go.Scatter(x=symbol_data.index, y=symbol_data['Supertrend'], name='Supertrend', line=dict(color='purple')))
+        supertrend_fig.update_layout(title='Supertrend Indicator', xaxis_title='Date', yaxis_title='Supertrend')
+        st.plotly_chart(supertrend_fig)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
