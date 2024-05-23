@@ -53,12 +53,30 @@ class VAE(models.Model):
         x = data
         with tf.GradientTape() as tape:
             reconstructed, z_mean, z_log_var = self(x, training=True)
+            # Ensure data dimensions and types match
+            x = tf.cast(x, tf.float32)
+            reconstructed = tf.cast(reconstructed, tf.float32)
             reconstruction_loss = tf.reduce_mean(losses.mean_squared_error(x, reconstructed))
             kl_loss = -0.5 * tf.reduce_mean(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var), axis=-1)
             total_loss = reconstruction_loss + kl_loss
         grads = tape.gradient(total_loss, self.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
         return {'loss': total_loss}
+
+@st.cache(allow_output_mutation=True, suppress_st_warning=True)
+def detect_anomalies(df):
+    x_train = df['normalized_close'].values.reshape(-1, 1)
+    vae = VAE(latent_dim=2, input_shape=(1,))
+    vae.compile(optimizer=optimizers.Adam(learning_rate=0.001))
+    # Avoid training inside the cached function
+    if not hasattr(st, 'vae'):
+        st.vae = vae
+        st.vae.fit(x_train, epochs=50, batch_size=32)
+    reconstructed, _, _ = st.vae.predict(x_train)
+    reconstruction_error = np.abs(x_train - reconstructed.flatten())  # Ensure flattening if necessary
+    threshold = np.mean(reconstruction_error) + 2 * np.std(reconstruction_error)
+    df['Anomaly'] = reconstruction_error > threshold
+    return df
 
 # Configurations and File Paths
 SECTOR_FILES = {
