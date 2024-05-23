@@ -7,19 +7,8 @@ import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
 
-# Set the page configuration
-st.set_page_config(page_title="Stock Analysis", layout="wide")
-
-# Background image CSS
-page_bg_img = '''
-<style>
-body {
-background-image: url("https://images.unsplash.com/photo-1542281286-9e0a16bb7366");
-background-size: cover;
-}
-</style>
-'''
-st.markdown(page_bg_img, unsafe_allow_html=True)
+st.title('Backtesting Stock and Index with Early Warning Model')
+st.image('image.png', caption='Visual representation of stock analysis.')
 
 # Sector files mapping
 SECTOR_FILES = {
