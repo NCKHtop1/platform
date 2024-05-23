@@ -320,10 +320,21 @@ with tab5:
 with tab6:
     st.markdown("**Technical Indicators:**")
     st.markdown("This tab displays various technical indicators for detailed analysis.")
+    
+    candlestick_fig = go.Figure(data=[go.Candlestick(x=symbol_data.index,
+                                                     open=symbol_data['open'],
+                                                     high=symbol_data['high'],
+                                                     low=symbol_data['low'],
+                                                     close=symbol_data['close'],
+                                                     name='Candlestick')])
+
+    candlestick_fig.update_layout(title='Candlestick Chart', xaxis_title='Date', yaxis_title='Price')
+    
     rsi_fig = plot_rsi(symbol_data)
     macd_fig = plot_macd(symbol_data)
     stoch_fig = plot_stochastic(symbol_data)
 
+    st.plotly_chart(candlestick_fig)
     st.plotly_chart(rsi_fig)
     st.plotly_chart(macd_fig)
     st.plotly_chart(stoch_fig)
