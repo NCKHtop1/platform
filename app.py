@@ -34,6 +34,12 @@ st.markdown("""
         margin-left: auto;
         margin-right: auto;
     }
+    .highlight {
+        font-size: 1.5em;
+        font-weight: bold;
+        margin: 10px 0;
+        color: #4CAF50;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -224,23 +230,9 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
     # Create tabs for different views
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Tóm tắt"])
 
     with tab1:
-        st.markdown("**Tóm tắt:**")
-        # st.markdown("Tab này hiển thị các chỉ số quan trọng như tổng lợi nhuận, tỷ lệ thắng, và mức sụt giảm tối đa.")
-        summary_stats = portfolio.stats()[['Total Return [%]', 'Win Rate [%]', 'Max Drawdown [%]']]
-        metrics_vi_summary = {
-            'Total Return [%]': 'Tổng lợi nhuận [%]',
-            'Win Rate [%]': 'Tỷ lệ thắng [%]',
-            'Max Drawdown [%]': 'Mức sụt giảm tối đa [%]'
-        }
-        summary_stats.rename(index=metrics_vi_summary, inplace=True)
-
-        for index, value in summary_stats.items():
-            st.markdown(f'<div class="highlight">{index}: {value}</div>', unsafe_allow_html=True)
-
-    with tab2:
         st.markdown("**Chi tiết kết quả kiểm thử:**")
         st.markdown("Tab này hiển thị hiệu suất tổng thể của chiến lược giao dịch đã chọn. \
                     Bạn sẽ tìm thấy các chỉ số quan trọng như tổng lợi nhuận, lợi nhuận/lỗ, và các thống kê liên quan khác.")
@@ -264,7 +256,14 @@ if start_date < end_date:
         stats_df.rename(index=metrics_vi, inplace=True)
         st.dataframe(stats_df, height=800)
 
-    with tab3:
+        # Add crash points table
+        st.markdown("**Danh sách các điểm crash ghi nhận:**")
+        crash_points = symbol_data[symbol_data['Crash']][['close']]
+        crash_points = crash_points.rename(columns={'close': 'Giá'})
+        crash_points.index.name = 'Ngày crash'
+        st.dataframe(crash_points)
+
+    with tab2:
         st.markdown("**Tổng hợp lệnh mua/bán:**")
         st.markdown("Tab này cung cấp danh sách chi tiết của tất cả các lệnh mua/bán được thực hiện bởi chiến lược. \
                     Bạn có thể phân tích các điểm vào và ra của từng giao dịch, cùng với lợi nhuận hoặc lỗ.")
@@ -277,7 +276,7 @@ if start_date < end_date:
     equity_data = portfolio.value()
     drawdown_data = portfolio.drawdown() * 100
 
-    with tab4:
+    with tab3:
         equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Giá trị', line=dict(color='green'))
         equity_fig = go.Figure(data=[equity_trace])
         equity_fig.update_layout(
@@ -292,7 +291,7 @@ if start_date < end_date:
         st.markdown("Biểu đồ này hiển thị sự tăng trưởng giá trị danh mục của bạn theo thời gian, \
                     cho phép bạn thấy cách chiến lược hoạt động trong các điều kiện thị trường khác nhau.")
 
-    with tab5:
+    with tab4:
         drawdown_trace = go.Scatter(
             x=drawdown_data.index,
             y=drawdown_data,
@@ -315,7 +314,7 @@ if start_date < end_date:
         st.markdown("Biểu đồ này minh họa sự sụt giảm từ đỉnh đến đáy của danh mục của bạn, \
                     giúp bạn hiểu rõ hơn về tiềm năng thua lỗ của chiến lược.")
 
-    with tab6:
+    with tab5:
         fig = portfolio.plot()
         crash_df = symbol_data[symbol_data['Crash']]
         fig.add_scatter(
@@ -329,6 +328,14 @@ if start_date < end_date:
         st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các tín hiệu mua/bán và cảnh báo sụp đổ tiềm năng, \
                     cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
         st.plotly_chart(fig, use_container_width=True)
+
+    with tab6:
+        st.markdown("**Tóm tắt:**")
+        st.markdown("Tab này cung cấp một số chỉ số quan trọng từ kết quả kiểm thử chiến lược.")
+        summary_metrics = ['Total Return [%]', 'Win Rate [%]', 'Max Drawdown [%]']
+        summary_stats = stats_df.loc[summary_metrics]
+        for index, value in summary_stats['Giá trị'].items():
+            st.markdown(f"<div class='highlight'>{index}: {value}</div>", unsafe_allow_html=True)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
