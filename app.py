@@ -12,6 +12,10 @@ import os
 if "ACCEPT_TC" not in os.environ:
     os.environ["ACCEPT_TC"] = "tôi đồng ý"
 
+# Accept the terms and conditions for vnstock3
+if "ACCEPT_TC" not in os.environ:
+    os.environ["ACCEPT_TC"] = "tôi đồng ý"
+
 # Check if the image file exists
 image_path = 'image.png'
 if not os.path.exists(image_path):
