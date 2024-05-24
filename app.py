@@ -37,7 +37,6 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-
 # Sector files mapping
 SECTOR_FILES = {
     'Ngân hàng': 'Banking.csv',
