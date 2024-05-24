@@ -180,23 +180,25 @@ def run_backtest(df, init_cash, fees, direction):
 st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
-# Sidebar: Sector selection
-selected_sector = st.sidebar.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
-
-# Load stock symbols and filter data
-df_full = load_data(selected_sector)
-stock_symbols = load_stock_symbols(selected_sector)
-selected_stock_symbol = st.sidebar.selectbox('Chọn mã cổ phiếu', stock_symbols)
+# Sidebar: Portfolio selection
+st.sidebar.header('Danh mục Portfolio')
+vnstock = Vnstock()
+portfolio_options = st.sidebar.multiselect('Chọn nhóm cổ phiếu', ['VN100', 'VN30', 'VNAllShare'], default=['VN100'])
+portfolio_symbols = []
+for portfolio_option in portfolio_options:
+    symbols = vnstock.listing().symbols_by_group(portfolio_option)
+    portfolio_symbols.extend(symbols)
+st.sidebar.write("Danh mục các mã chứng khoán thuộc các nhóm đã chọn:")
+st.sidebar.write(portfolio_symbols)
 
 # Sidebar: Backtesting parameters
 st.sidebar.header('Thông số kiểm tra')
+selected_sector = st.sidebar.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
 init_cash = st.sidebar.number_input('Vốn đầu tư ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
 fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
 direction_vi = st.sidebar.selectbox("Vị thế", ["Mua", "Bán"], index=0)
 direction = "longonly" if direction_vi == "Mua" else "shortonly"
 t_plus = st.sidebar.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0)
-
-# New trading parameters
 take_profit_percentage = st.sidebar.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
 stop_loss_percentage = st.sidebar.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
 trailing_take_profit_percentage = st.sidebar.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
@@ -205,10 +207,10 @@ trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)'
 # Sidebar: Choose the strategies to apply
 strategies = st.sidebar.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
-# Sidebar: Portfolio selection
-portfolio_options = st.sidebar.multiselect("Chọn danh mục", ["VN100", "VN30", "VNAllShare"], default=["VN100"])
-
 # Filter data for the selected stock symbol
+df_full = load_data(selected_sector)
+stock_symbols = load_stock_symbols(selected_sector)
+selected_stock_symbol = st.sidebar.selectbox('Chọn mã cổ phiếu', stock_symbols)
 symbol_data = df_full[df_full['StockSymbol'] == selected_stock_symbol]
 symbol_data.sort_index(inplace=True)
 
@@ -228,7 +230,7 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
     # Create tabs for different views
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục portfolio"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục Portfolio"])
 
     with tab1:
         st.markdown("**Tóm tắt:**")
@@ -268,12 +270,11 @@ if start_date < end_date:
         stats_df.rename(index=metrics_vi, inplace=True)
         st.dataframe(stats_df, height=800)
 
-        st.markdown("**Danh sách các điểm crash ghi nhận:**")
-        crash_list = symbol_data[symbol_data['Crash']]
-        crash_list = crash_list[['close']]
-        crash_list.columns = ['Giá']
-        crash_list.index.name = 'Ngày crash'
-        st.dataframe(crash_list)
+        st.markdown("**Danh sách các điểm crash:**")
+        crash_points = symbol_data[symbol_data['Crash']]
+        crash_points_df = crash_points[['close']]
+        crash_points_df.columns = ['Giá']
+        st.dataframe(crash_points_df)
 
     with tab3:
         st.markdown("**Tổng hợp lệnh mua/bán:**")
@@ -342,13 +343,8 @@ if start_date < end_date:
         st.plotly_chart(fig, use_container_width=True)
 
     with tab7:
-        st.markdown("**Danh mục portfolio:**")
-        vnstock = Vnstock()
-        portfolio_symbols = []
-        for portfolio_option in portfolio_options:
-            symbols = vnstock.listing().symbols_by_group(portfolio_option)
-            portfolio_symbols.extend(symbols)
-        st.write("Danh mục các mã chứng khoán thuộc các nhóm đã chọn:")
+        st.markdown("**Danh mục Portfolio:**")
+        st.markdown("Danh sách các mã chứng khoán thuộc các nhóm đã chọn:")
         st.write(portfolio_symbols)
 
 # If the end date is before the start date, show an error
