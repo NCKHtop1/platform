@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
 import os
+from vnstock3 import Vnstock
 
 # Accept the terms and conditions for vnstock3
 if "ACCEPT_TC" not in os.environ:
@@ -179,29 +180,13 @@ def run_backtest(df, init_cash, fees, direction):
 st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
-# Sidebar: Portfolio selection
+# Sidebar for Portfolio Selection
 st.sidebar.header('Danh mục Portfolio')
-portfolio_options = st.sidebar.multiselect("Chọn danh mục", ["VN100", "VN30", "VNAllShare"], default=["VN100", "VN30", "VNAllShare"])
+portfolio_options = st.sidebar.multiselect('Chọn danh mục', ['VN100', 'VN30', 'VNAllShare'])
 
-# Display selected portfolios
-if portfolio_options:
-    stock = Vnstock()
-    for portfolio_option in portfolio_options:
-        st.sidebar.markdown(f"**{portfolio_option}:**")
-        symbols = stock.listing.symbols_by_group(portfolio_option)
-        st.sidebar.write(symbols)
-
-# Sidebar: Sector selection
+# Portfolio tab
 st.sidebar.header('Thông số kiểm tra')
-selected_sector = st.sidebar.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
-
-# Load stock symbols and filter data
-df_full = load_data(selected_sector)
-stock_symbols = load_stock_symbols(selected_sector)
-selected_stock_symbol = st.sidebar.selectbox('Chọn mã cổ phiếu', stock_symbols)
-
-# Sidebar: Backtesting parameters
-init_cash = st.sidebar.number_input('Vốn đầu tư (VNĐ):', min_value=1000, max_value=100_000_000, value=10_000_000, step=1000)
+init_cash = st.sidebar.number_input('Vốn đầu tư ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
 fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
 direction_vi = st.sidebar.selectbox("Vị thế", ["Mua", "Bán"], index=0)
 direction = "longonly" if direction_vi == "Mua" else "shortonly"
@@ -217,6 +202,11 @@ trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)'
 strategies = st.sidebar.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
 # Filter data for the selected stock symbol
+selected_sector = st.sidebar.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
+df_full = load_data(selected_sector)
+stock_symbols = load_stock_symbols(selected_sector)
+selected_stock_symbol = st.sidebar.selectbox('Chọn mã cổ phiếu', stock_symbols)
+
 symbol_data = df_full[df_full['StockSymbol'] == selected_stock_symbol]
 symbol_data.sort_index(inplace=True)
 
@@ -236,7 +226,7 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
     # Create tabs for different views
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục Portfolio"])
 
     with tab1:
         st.markdown("**Tóm tắt:**")
@@ -275,13 +265,13 @@ if start_date < end_date:
         }
         stats_df.rename(index=metrics_vi, inplace=True)
         st.dataframe(stats_df, height=800)
-
-        # Add crash information
-        st.markdown("**Danh sách các điểm crash ghi nhận:**")
-        crash_dates = symbol_data[symbol_data['Crash']].index
-        crash_prices = symbol_data[symbol_data['Crash']]['close']
-        crash_data = pd.DataFrame({'Ngày crash': crash_dates, 'Giá': crash_prices})
-        st.dataframe(crash_data, height=200)
+        
+        # Add crash details
+        crash_details = symbol_data[symbol_data['Crash']][['close']]
+        crash_details.reset_index(inplace=True)
+        crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
+        st.markdown("**Danh sách các điểm crash:**")
+        st.dataframe(crash_details, height=200)
 
     with tab3:
         st.markdown("**Tổng hợp lệnh mua/bán:**")
@@ -348,6 +338,16 @@ if start_date < end_date:
         st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các tín hiệu mua/bán và cảnh báo sụp đổ tiềm năng, \
                     cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
         st.plotly_chart(fig, use_container_width=True)
+
+    with tab7:
+        st.markdown("**Danh mục Portfolio:**")
+        st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
+        if portfolio_options:
+            stock = Vnstock()
+            for portfolio_option in portfolio_options:
+                st.markdown(f"**{portfolio_option}:**")
+                symbols = stock.listing.symbols_by_group(portfolio_option)
+                st.write(symbols)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
