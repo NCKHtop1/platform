@@ -179,7 +179,7 @@ selected_stock_symbol = st.sidebar.selectbox('Chọn mã cổ phiếu', stock_sy
 st.sidebar.header('Thông số kiểm tra')
 init_cash = st.sidebar.number_input('Vốn đầu tư ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
 fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
-direction = st.sidebar.selectbox("Vị thế", ["Mua", "Bán"], index=0)
+direction = st.sidebar.selectbox("Vị thế", ["Mua", "Bán", "Cả hai"], index=0)
 t_plus = st.sidebar.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0)
 
 # New trading parameters
