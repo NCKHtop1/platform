@@ -34,14 +34,9 @@ st.markdown("""
         margin-left: auto;
         margin-right: auto;
     }
-    .highlight {
-        font-size: 24px;
-        font-weight: bold;
-        color: #ff4b4b;
-        margin-bottom: 10px;
-    }
     </style>
     """, unsafe_allow_html=True)
+
 
 # Sector files mapping
 SECTOR_FILES = {
