@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
 import os
+from vnstock3 import Vnstock
 
 # Check if the image file exists
 image_path = 'image.png'
@@ -33,7 +34,6 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Rest of your code...
 
 # Sector files mapping
 SECTOR_FILES = {
