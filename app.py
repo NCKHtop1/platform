@@ -35,9 +35,10 @@ st.markdown("""
         margin-right: auto;
     }
     .highlight {
-        font-size: 20px;
+        font-size: 24px;
         font-weight: bold;
-        color: #4CAF50;
+        color: #ff4b4b;
+        margin-bottom: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -233,16 +234,17 @@ if start_date < end_date:
 
     with tab1:
         st.markdown("**Tóm tắt:**")
-        st.markdown("Tab này hiển thị các chỉ số quan trọng một cách nổi bật.")
-        summary_metrics = {
-            'Tỷ lệ thắng [%]': 'Win Rate [%]',
-            'Tổng lợi nhuận [%]': 'Total Return [%]',
-            'Mức giảm tối đa [%]': 'Max Drawdown [%]',
+        st.markdown("Tab này hiển thị các chỉ số quan trọng như tổng lợi nhuận, tỷ lệ thắng, và mức sụt giảm tối đa.")
+        summary_stats = portfolio.stats()[['Total Return [%]', 'Win Rate [%]', 'Max Drawdown [%]']]
+        metrics_vi_summary = {
+            'Total Return [%]': 'Tổng lợi nhuận [%]',
+            'Win Rate [%]': 'Tỷ lệ thắng [%]',
+            'Max Drawdown [%]': 'Mức sụt giảm tối đa [%]'
         }
-        summary_stats = portfolio.stats().loc[summary_metrics.values()]
-        summary_stats.index = summary_metrics.keys()
-        for index, value in summary_stats.iteritems():
-            st.markdown(f"<div class='highlight'>{index}: {value:.2f}</div>", unsafe_allow_html=True)
+        summary_stats.rename(index=metrics_vi_summary, inplace=True)
+
+        for index, value in summary_stats.items():
+            st.markdown(f'<div class="highlight">{index}: {value}</div>', unsafe_allow_html=True)
 
     with tab2:
         st.markdown("**Chi tiết kết quả kiểm thử:**")
