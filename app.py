@@ -180,25 +180,19 @@ def run_backtest(df, init_cash, fees, direction):
 st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
-# Sidebar: Portfolio selection
+# Sidebar for Portfolio Selection
 st.sidebar.header('Danh mục Portfolio')
-vnstock = Vnstock()
-portfolio_options = st.sidebar.multiselect('Chọn nhóm cổ phiếu', ['VN100', 'VN30', 'VNAllShare'], default=['VN100'])
-portfolio_symbols = []
-for portfolio_option in portfolio_options:
-    symbols = vnstock.listing().symbols_by_group(portfolio_option)
-    portfolio_symbols.extend(symbols)
-st.sidebar.write("Danh mục các mã chứng khoán thuộc các nhóm đã chọn:")
-st.sidebar.write(portfolio_symbols)
+portfolio_options = st.sidebar.multiselect('Chọn danh mục', ['VN100', 'VN30', 'VNAllShare'])
 
-# Sidebar: Backtesting parameters
+# Portfolio tab
 st.sidebar.header('Thông số kiểm tra')
-selected_sector = st.sidebar.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
 init_cash = st.sidebar.number_input('Vốn đầu tư ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
 fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
 direction_vi = st.sidebar.selectbox("Vị thế", ["Mua", "Bán"], index=0)
 direction = "longonly" if direction_vi == "Mua" else "shortonly"
 t_plus = st.sidebar.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0)
+
+# New trading parameters
 take_profit_percentage = st.sidebar.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
 stop_loss_percentage = st.sidebar.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
 trailing_take_profit_percentage = st.sidebar.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
@@ -208,9 +202,11 @@ trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)'
 strategies = st.sidebar.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
 # Filter data for the selected stock symbol
+selected_sector = st.sidebar.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
 df_full = load_data(selected_sector)
 stock_symbols = load_stock_symbols(selected_sector)
 selected_stock_symbol = st.sidebar.selectbox('Chọn mã cổ phiếu', stock_symbols)
+
 symbol_data = df_full[df_full['StockSymbol'] == selected_stock_symbol]
 symbol_data.sort_index(inplace=True)
 
@@ -269,12 +265,13 @@ if start_date < end_date:
         }
         stats_df.rename(index=metrics_vi, inplace=True)
         st.dataframe(stats_df, height=800)
-
+        
+        # Add crash details
+        crash_details = symbol_data[symbol_data['Crash']][['close']]
+        crash_details.reset_index(inplace=True)
+        crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
         st.markdown("**Danh sách các điểm crash:**")
-        crash_points = symbol_data[symbol_data['Crash']]
-        crash_points_df = crash_points[['close']]
-        crash_points_df.columns = ['Giá']
-        st.dataframe(crash_points_df)
+        st.dataframe(crash_details, height=200)
 
     with tab3:
         st.markdown("**Tổng hợp lệnh mua/bán:**")
@@ -344,8 +341,13 @@ if start_date < end_date:
 
     with tab7:
         st.markdown("**Danh mục Portfolio:**")
-        st.markdown("Danh sách các mã chứng khoán thuộc các nhóm đã chọn:")
-        st.write(portfolio_symbols)
+        st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
+        if portfolio_options:
+            stock = Vnstock()
+            for portfolio_option in portfolio_options:
+                st.markdown(f"**{portfolio_option}:**")
+                symbols = stock.listing.symbols_by_group(portfolio_option)
+                st.write(symbols)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
