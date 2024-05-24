@@ -159,32 +159,32 @@ def run_backtest(df, init_cash, fees, direction):
     return portfolio
 
 ## Streamlit App
-st.title('Backtesting Stock and Index with Early Warning Model')
-st.write('This application analyzes stocks with buy/sell signals and early warning signals of stock before the market crashes on HOSE and VNINDEX.')
+st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
+st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi thị trường chứng khoán HOSE và VNINDEX sụp đổ.')
 
 # Sidebar: Sector selection
-selected_sector = st.sidebar.selectbox('Select Sector', list(SECTOR_FILES.keys()))
+selected_sector = st.sidebar.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
 
 # Load stock symbols and filter data
 df_full = load_data(selected_sector)
 stock_symbols = load_stock_symbols(selected_sector)
-selected_stock_symbol = st.sidebar.selectbox('Select Stock Symbol', stock_symbols)
+selected_stock_symbol = st.sidebar.selectbox('Chọn mã cổ phiếu', stock_symbols)
 
 # Sidebar: Backtesting parameters
-st.sidebar.header('Backtesting Parameters')
-init_cash = st.sidebar.number_input('Initial Cash ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
-fees = st.sidebar.number_input('Transaction Fees (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
-direction = st.sidebar.selectbox("Direction", ["longonly", "shortonly", "both"], index=0)
-t_plus = st.sidebar.selectbox("T+ Settlement Days", [0, 1, 2.5, 3], index=0)  # Adding the T+ selection
+st.sidebar.header('Thông số kiểm tra')
+init_cash = st.sidebar.number_input('Vốn ban đầu ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
+fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
+direction = st.sidebar.selectbox("Chiều giao dịch", ["longonly", "shortonly", "both"], index=0)
+t_plus = st.sidebar.selectbox("Ngày thanh toán T+", [0, 1, 2.5, 3], index=0)  # Adding the T+ selection
 
 # New trading parameters
-take_profit_percentage = st.sidebar.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
-stop_loss_percentage = st.sidebar.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
-trailing_take_profit_percentage = st.sidebar.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
-trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
+take_profit_percentage = st.sidebar.number_input('Lợi nhuận chốt lời (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
+stop_loss_percentage = st.sidebar.number_input('Cắt lỗ (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
+trailing_take_profit_percentage = st.sidebar.number_input('Chốt lời theo sau (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
+trailing_stop_loss_percentage = st.sidebar.number_input('Cắt lỗ theo sau (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
 # Sidebar: Choose the strategies to apply
-strategies = st.sidebar.multiselect("Select Strategies", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
+strategies = st.sidebar.multiselect("Chọn chiến lược", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
 # Filter data for the selected stock symbol
 symbol_data = df_full[df_full['StockSymbol'] == selected_stock_symbol]
@@ -193,8 +193,8 @@ symbol_data.sort_index(inplace=True)
 # Automatically set the start date to the earliest available date for the selected symbol
 first_available_date = symbol_data.index.min()
 default_start_date = first_available_date.date() if first_available_date is not None else datetime(2000, 1, 1).date()
-start_date = st.sidebar.date_input('Start Date', default_start_date)
-end_date = st.sidebar.date_input('End Date', datetime.today().date())
+start_date = st.sidebar.date_input('Ngày bắt đầu', default_start_date)
+end_date = st.sidebar.date_input('Ngày kết thúc', datetime.today().date())
 
 if start_date < end_date:
     symbol_data = symbol_data.loc[start_date:end_date]
@@ -206,23 +206,23 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
     # Create tabs for different views
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Backtesting Stats", "List of Trades", "Equity Curve", "Drawdown", "Portfolio Plot"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Thống kê kiểm tra", "Danh sách giao dịch", "Đường cong giá trị", "Mức giảm", "Biểu đồ danh mục"])
 
     with tab1:
-        st.markdown("**Backtesting Stats:**")
-        st.markdown("This tab displays the overall performance of the selected trading strategy. \
-                    You'll find key metrics such as total return, profit/loss, and other relevant statistics.")
-        stats_df = pd.DataFrame(portfolio.stats(), columns=['Value'])
-        stats_df.index.name = 'Metric'
+        st.markdown("**Thống kê kiểm tra:**")
+        st.markdown("Tab này hiển thị hiệu suất tổng thể của chiến lược giao dịch đã chọn. \
+                    Bạn sẽ tìm thấy các chỉ số quan trọng như tổng lợi nhuận, lợi nhuận/lỗ, và các thống kê liên quan khác.")
+        stats_df = pd.DataFrame(portfolio.stats(), columns=['Giá trị'])
+        stats_df.index.name = 'Chỉ số'
         st.dataframe(stats_df, height=800)
 
     with tab2:
-        st.markdown("**List of Trades:**")
-        st.markdown("This tab provides a detailed list of all trades executed by the strategy. \
-                    You can analyze the entry and exit points of each trade, along with the profit or loss incurred.")
+        st.markdown("**Danh sách giao dịch:**")
+        st.markdown("Tab này cung cấp danh sách chi tiết của tất cả các giao dịch được thực hiện bởi chiến lược. \
+                    Bạn có thể phân tích các điểm vào và ra của từng giao dịch, cùng với lợi nhuận hoặc lỗ.")
         trades_df = portfolio.trades.records_readable
         trades_df = trades_df.round(2)
-        trades_df.index.name = 'Trade No'
+        trades_df.index.name = 'Số giao dịch'
         trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
         st.dataframe(trades_df, width=800, height=600)
 
@@ -230,42 +230,42 @@ if start_date < end_date:
     drawdown_data = portfolio.drawdown() * 100
 
     with tab3:
-        equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Equity', line=dict(color='green'))
+        equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Giá trị', line=dict(color='green'))
         equity_fig = go.Figure(data=[equity_trace])
         equity_fig.update_layout(
-            title='Equity Curve',
-            xaxis_title='Date',
-            yaxis_title='Equity',
+            title='Đường cong giá trị',
+            xaxis_title='Ngày',
+            yaxis_title='Giá trị',
             width=800,
             height=600
         )
         st.plotly_chart(equity_fig)
-        st.markdown("**Equity Curve:**")
-        st.markdown("This chart visualizes the growth of your portfolio value over time, \
-                    allowing you to see how the strategy performs in different market conditions.")
+        st.markdown("**Đường cong giá trị:**")
+        st.markdown("Biểu đồ này hiển thị sự tăng trưởng giá trị danh mục của bạn theo thời gian, \
+                    cho phép bạn thấy cách chiến lược hoạt động trong các điều kiện thị trường khác nhau.")
 
     with tab4:
         drawdown_trace = go.Scatter(
             x=drawdown_data.index,
             y=drawdown_data,
             mode='lines',
-            name='Drawdown',
+            name='Mức giảm',
             fill='tozeroy',
             line=dict(color='red')
         )
         drawdown_fig = go.Figure(data=[drawdown_trace])
         drawdown_fig.update_layout(
-            title='Drawdown Curve',
-            xaxis_title='Date',
-            yaxis_title='% Drawdown',
+            title='Mức giảm',
+            xaxis_title='Ngày',
+            yaxis_title='% Mức giảm',
             template='plotly_white',
             width=800,
             height=600
         )
         st.plotly_chart(drawdown_fig)
-        st.markdown("**Drawdown Curve:**")
-        st.markdown("This chart illustrates the peak-to-trough decline of your portfolio, \
-                    giving you insights into the strategy's potential for losses.")
+        st.markdown("**Mức giảm:**")
+        st.markdown("Biểu đồ này minh họa sự suy giảm từ đỉnh đến đáy của danh mục của bạn, \
+                    giúp bạn hiểu rõ hơn về tiềm năng thua lỗ của chiến lược.")
 
     with tab5:
         fig = portfolio.plot()
@@ -275,16 +275,16 @@ if start_date < end_date:
             y=crash_df['close'],
             mode='markers',
             marker=dict(color='orange', size=10, symbol='triangle-down'),
-            name='Crash'
+            name='Sụp đổ'
         )
-        st.markdown("**Portfolio Plot:**")
-        st.markdown("This comprehensive plot combines the equity curve with buy/sell signals and potential crash warnings, \
-                    providing a holistic view of the strategy's performance.")
+        st.markdown("**Biểu đồ danh mục:**")
+        st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các tín hiệu mua/bán và cảnh báo sụp đổ tiềm năng, \
+                    cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
         st.plotly_chart(fig, use_container_width=True)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
-    st.error('Error: End Date must fall after Start Date.')
+    st.error('Lỗi: Ngày kết thúc phải sau ngày bắt đầu.')
 
 else:
-    st.write("Please select a valid date range to view the results.")
+    st.write("Vui lòng chọn khoảng thời gian hợp lệ để xem kết quả.")
