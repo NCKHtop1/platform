@@ -9,9 +9,8 @@ import pandas_ta as ta
 import os
 from vnstock3 import Vnstock
 
-# Automatically accept Vnstock3 terms and conditions
 if "ACCEPT_TC" not in os.environ:
-    os.environ["ACCEPT_TC"] = "tôi đồng ý"
+os.environ["ACCEPT_TC"] = "tôi đồng ý"
 # # Check if the image file exists
 # image_path = 'image.png'
 # if not os.path.exists(image_path):
