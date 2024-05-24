@@ -6,6 +6,14 @@ from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
+import os
+
+# Check if the image file exists
+image_path = 'image.png'
+if not os.path.exists(image_path):
+    st.error(f"Image file not found: {image_path}")
+else:
+    st.image(image_path, use_column_width=True)
 
 # Custom CSS for better UI
 st.markdown("""
@@ -16,9 +24,6 @@ st.markdown("""
     .css-1aumxhk {padding: 2rem;}
     </style>
     """, unsafe_allow_html=True)
-
-# Add image to the landing page
-st.image('image.png', use_column_width=True)
 
 # Sector files mapping
 SECTOR_FILES = {
@@ -174,7 +179,7 @@ selected_stock_symbol = st.sidebar.selectbox('Chọn mã cổ phiếu', stock_sy
 st.sidebar.header('Thông số kiểm tra')
 init_cash = st.sidebar.number_input('Vốn đầu tư ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
 fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
-direction = st.sidebar.selectbox("Vị thế", ["Mua", "Bán"], index=0)
+direction = st.sidebar.selectbox("Vị thế", ["longonly", "shortonly", "both"], index=0)
 t_plus = st.sidebar.selectbox("Ngày thanh toán T+", [0, 1, 2.5, 3], index=0)
 
 # New trading parameters
