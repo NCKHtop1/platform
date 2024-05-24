@@ -7,8 +7,8 @@ import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
 import os
-from vnstock3 import Vnstock
 
+# Accept the terms and conditions for vnstock3
 if "ACCEPT_TC" not in os.environ:
     os.environ["ACCEPT_TC"] = "tôi đồng ý"
 
@@ -26,6 +26,14 @@ st.markdown("""
     .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
     .stSidebar {background-color: #f0f2f6;}
     .css-1aumxhk {padding: 2rem;}
+    .stImage img {
+        width: 100%;
+        max-width: 1200px;  /* Adjust max-width as needed */
+        height: auto;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
     </style>
     """, unsafe_allow_html=True)
 
