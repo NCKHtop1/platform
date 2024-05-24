@@ -12,33 +12,22 @@ from vnstock3 import Vnstock
 if "ACCEPT_TC" not in os.environ:
     os.environ["ACCEPT_TC"] = "tôi đồng ý"
 
-# The rest of your code goes here...
+# Check if the image file exists
+image_path = 'image.png'
+if not os.path.exists(image_path):
+    st.error(f"Image file not found: {image_path}")
+else:
+    st.image(image_path, use_column_width=True)
 
-# # Check if the image file exists
-# image_path = 'image.png'
-# if not os.path.exists(image_path):
-#     st.error(f"Image file not found: {image_path}")
-# else:
-#     st.image(image_path, use_column_width=True)
-
-# # Custom CSS for better UI
-# st.markdown("""
-#     <style>
-#     .main {background-color: #f0f2f6;}
-#     .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
-#     .stSidebar {background-color: #f0f2f6;}
-#     .css-1aumxhk {padding: 2rem;}
-#     .stImage img {
-#         width: 100%;
-#         max-width: 1200px;  /* Adjust max-width as needed */
-#         height: auto;
-#         display: block;
-#         margin-left: auto;
-#         margin-right: auto;
-#     }
-#     </style>
-#     """, unsafe_allow_html=True)
-
+# Custom CSS for better UI
+st.markdown("""
+    <style>
+    .main {background-color: #f0f2f6;}
+    .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
+    .stSidebar {background-color: #f0f2f6;}
+    .css-1aumxhk {padding: 2rem;}
+    </style>
+    """, unsafe_allow_html=True)
 
 # Sector files mapping
 SECTOR_FILES = {
