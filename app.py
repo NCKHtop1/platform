@@ -37,14 +37,14 @@ SECTOR_FILES = {
     'Khoáng sản': 'Mineral.csv',
     'Dầu khí': 'Oil and Gas.csv',
     'Bất động sản': 'Real Estate.csv',
-    'Vnindex': 'Vnindex.csv'
+    'Chỉ số VNINDEX': 'Vnindex.csv'
 }
 
 # Load the dataset with conditional date parsing
 @st.cache_data
 def load_data(sector):
     file_path = SECTOR_FILES[sector]
-    if sector == 'Vnindex':
+    if sector == 'Chỉ số VNINDEX':
         df = pd.read_csv(file_path)
         df['Datetime'] = pd.to_datetime(df['Datetime'], format='%m/%d/%Y')  # Format for Vnindex
     else:
@@ -180,7 +180,7 @@ st.sidebar.header('Thông số kiểm tra')
 init_cash = st.sidebar.number_input('Vốn đầu tư ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
 fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
 direction = st.sidebar.selectbox("Vị thế", ["longonly", "shortonly", "both"], index=0)
-t_plus = st.sidebar.selectbox("Ngày thanh toán T+", [0, 1, 2.5, 3], index=0)
+t_plus = st.sidebar.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0)
 
 # New trading parameters
 take_profit_percentage = st.sidebar.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
