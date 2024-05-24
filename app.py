@@ -34,6 +34,12 @@ st.markdown("""
         margin-left: auto;
         margin-right: auto;
     }
+    .highlight {
+        font-size: 1.5em;
+        font-weight: bold;
+        margin: 10px 0;
+        color: #4CAF50;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -250,11 +256,12 @@ if start_date < end_date:
         stats_df.rename(index=metrics_vi, inplace=True)
         st.dataframe(stats_df, height=800)
 
+        # Add crash points table
         st.markdown("**Danh sách các điểm crash ghi nhận:**")
         crash_points = symbol_data[symbol_data['Crash']][['close']]
-        crash_points.columns = ['Giá']
+        crash_points = crash_points.rename(columns={'close': 'Giá'})
         crash_points.index.name = 'Ngày crash'
-        st.dataframe(crash_points, height=400)
+        st.dataframe(crash_points)
 
     with tab2:
         st.markdown("**Tổng hợp lệnh mua/bán:**")
@@ -324,10 +331,11 @@ if start_date < end_date:
 
     with tab6:
         st.markdown("**Tóm tắt:**")
-        st.markdown("Tab này làm nổi bật các chỉ số quan trọng từ kết quả kiểm thử.")
-        summary_stats = stats_df.loc[['Tổng lợi nhuận [%]', 'Tỷ lệ thắng [%]', 'Mức giảm tối đa [%]']]
-        for index, value in summary_stats.iterrows():
-            st.markdown(f"<p class='highlight'>{index}: {value['Giá trị']}</p>", unsafe_allow_html=True)
+        st.markdown("Tab này cung cấp một số chỉ số quan trọng từ kết quả kiểm thử chiến lược.")
+        summary_metrics = ['Total Return [%]', 'Win Rate [%]', 'Max Drawdown [%]']
+        summary_stats = stats_df.loc[summary_metrics]
+        for index, value in summary_stats['Giá trị'].items():
+            st.markdown(f"<div class='highlight'>{index}: {value}</div>", unsafe_allow_html=True)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
