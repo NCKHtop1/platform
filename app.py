@@ -37,14 +37,14 @@ SECTOR_FILES = {
     'Khoáng sản': 'Mineral.csv',
     'Dầu khí': 'Oil and Gas.csv',
     'Bất động sản': 'Real Estate.csv',
-    'Chỉ số VNINDEX': 'Vnindex.csv'
+    'Vnindex': 'Vnindex.csv'
 }
 
 # Load the dataset with conditional date parsing
 @st.cache_data
 def load_data(sector):
     file_path = SECTOR_FILES[sector]
-    if sector == 'Chỉ số VNINDEX':
+    if sector == 'Vnindex':
         df = pd.read_csv(file_path)
         df['Datetime'] = pd.to_datetime(df['Datetime'], format='%m/%d/%Y')  # Format for Vnindex
     else:
