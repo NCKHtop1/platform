@@ -224,10 +224,10 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
     # Create tabs for different views
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Thống kê kiểm tra", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ"])
 
     with tab1:
-        st.markdown("**Thống kê kiểm tra:**")
+        st.markdown("**Chi tiết kết quả kiểm thử:**")
         st.markdown("Tab này hiển thị hiệu suất tổng thể của chiến lược giao dịch đã chọn. \
                     Bạn sẽ tìm thấy các chỉ số quan trọng như tổng lợi nhuận, lợi nhuận/lỗ, và các thống kê liên quan khác.")
         stats_df = pd.DataFrame(portfolio.stats(), columns=['Giá trị'])
