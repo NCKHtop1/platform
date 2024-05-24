@@ -37,14 +37,14 @@ SECTOR_FILES = {
     'Khoáng sản': 'Mineral.csv',
     'Dầu khí': 'Oil and Gas.csv',
     'Bất động sản': 'Real Estate.csv',
-    'Vnindex': 'Vnindex.csv'
+    'VNINDEX': 'Vnindex.csv'
 }
 
 # Load the dataset with conditional date parsing
 @st.cache_data
 def load_data(sector):
     file_path = SECTOR_FILES[sector]
-    if sector == 'Vnindex':
+    if sector == 'VNINDEX':
         df = pd.read_csv(file_path)
         df['Datetime'] = pd.to_datetime(df['Datetime'], format='%m/%d/%Y')  # Format for Vnindex
     else:
@@ -211,7 +211,7 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
     # Create tabs for different views
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Thống kê kiểm tra", "Danh sách giao dịch", "Đường cong giá trị", "Mức giảm", "Biểu đồ danh mục"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Thống kê kiểm tra", "Tổng hợp lệnh mua ", "Đường cong giá trị", "Mức giảm", "Biểu đồ"])
 
     with tab1:
         st.markdown("**Thống kê kiểm tra:**")
@@ -238,8 +238,8 @@ if start_date < end_date:
         st.dataframe(stats_df, height=800)
 
     with tab2:
-        st.markdown("**Danh sách giao dịch:**")
-        st.markdown("Tab này cung cấp danh sách chi tiết của tất cả các giao dịch được thực hiện bởi chiến lược. \
+        st.markdown("**Tổng hợp lệnh mua bán:**")
+        st.markdown("Tab này cung cấp danh sách chi tiết của tất cả các lệnh mua bán được thực hiện bởi chiến lược. \
                     Bạn có thể phân tích các điểm vào và ra của từng giao dịch, cùng với lợi nhuận hoặc lỗ.")
         trades_df = portfolio.trades.records_readable
         trades_df = trades_df.round(2)
