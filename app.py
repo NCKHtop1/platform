@@ -34,6 +34,11 @@ st.markdown("""
         margin-left: auto;
         margin-right: auto;
     }
+    .highlight {
+        font-size: 20px;
+        font-weight: bold;
+        color: #4CAF50;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -224,9 +229,22 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
     # Create tabs for different views
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ"])
 
     with tab1:
+        st.markdown("**Tóm tắt:**")
+        st.markdown("Tab này hiển thị các chỉ số quan trọng một cách nổi bật.")
+        summary_metrics = {
+            'Tỷ lệ thắng [%]': 'Win Rate [%]',
+            'Tổng lợi nhuận [%]': 'Total Return [%]',
+            'Mức giảm tối đa [%]': 'Max Drawdown [%]',
+        }
+        summary_stats = portfolio.stats().loc[summary_metrics.values()]
+        summary_stats.index = summary_metrics.keys()
+        for index, value in summary_stats.iteritems():
+            st.markdown(f"<div class='highlight'>{index}: {value:.2f}</div>", unsafe_allow_html=True)
+
+    with tab2:
         st.markdown("**Chi tiết kết quả kiểm thử:**")
         st.markdown("Tab này hiển thị hiệu suất tổng thể của chiến lược giao dịch đã chọn. \
                     Bạn sẽ tìm thấy các chỉ số quan trọng như tổng lợi nhuận, lợi nhuận/lỗ, và các thống kê liên quan khác.")
@@ -250,7 +268,7 @@ if start_date < end_date:
         stats_df.rename(index=metrics_vi, inplace=True)
         st.dataframe(stats_df, height=800)
 
-    with tab2:
+    with tab3:
         st.markdown("**Tổng hợp lệnh mua/bán:**")
         st.markdown("Tab này cung cấp danh sách chi tiết của tất cả các lệnh mua/bán được thực hiện bởi chiến lược. \
                     Bạn có thể phân tích các điểm vào và ra của từng giao dịch, cùng với lợi nhuận hoặc lỗ.")
@@ -263,7 +281,7 @@ if start_date < end_date:
     equity_data = portfolio.value()
     drawdown_data = portfolio.drawdown() * 100
 
-    with tab3:
+    with tab4:
         equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Giá trị', line=dict(color='green'))
         equity_fig = go.Figure(data=[equity_trace])
         equity_fig.update_layout(
@@ -278,7 +296,7 @@ if start_date < end_date:
         st.markdown("Biểu đồ này hiển thị sự tăng trưởng giá trị danh mục của bạn theo thời gian, \
                     cho phép bạn thấy cách chiến lược hoạt động trong các điều kiện thị trường khác nhau.")
 
-    with tab4:
+    with tab5:
         drawdown_trace = go.Scatter(
             x=drawdown_data.index,
             y=drawdown_data,
@@ -301,7 +319,7 @@ if start_date < end_date:
         st.markdown("Biểu đồ này minh họa sự sụt giảm từ đỉnh đến đáy của danh mục của bạn, \
                     giúp bạn hiểu rõ hơn về tiềm năng thua lỗ của chiến lược.")
 
-    with tab5:
+    with tab6:
         fig = portfolio.plot()
         crash_df = symbol_data[symbol_data['Crash']]
         fig.add_scatter(
