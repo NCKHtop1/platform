@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
 import os
+from vnstock3 import stock
 
 # Accept the terms and conditions for vnstock3
 if "ACCEPT_TC" not in os.environ:
@@ -189,17 +190,23 @@ selected_stock_symbol = st.sidebar.selectbox('Chọn mã cổ phiếu', stock_sy
 
 # Sidebar: Backtesting parameters
 st.sidebar.header('Thông số kiểm tra')
-init_cash = st.sidebar.number_input('Vốn đầu tư ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
-fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
-direction_vi = st.sidebar.selectbox("Vị thế", ["Mua", "Bán"], index=0)
-direction = "longonly" if direction_vi == "Mua" else "shortonly"
-t_plus = st.sidebar.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0)
+tab1, tab2, tab3 = st.sidebar.tabs(["Thông số cơ bản", "Thông số chiến lược", "Ngày giao dịch"])
+with tab1:
+    init_cash = st.number_input('Vốn đầu tư ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
+    fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
+    direction_vi = st.selectbox("Vị thế", ["Mua", "Bán"], index=0)
+    direction = "longonly" if direction_vi == "Mua" else "shortonly"
 
-# New trading parameters
-take_profit_percentage = st.sidebar.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
-stop_loss_percentage = st.sidebar.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
-trailing_take_profit_percentage = st.sidebar.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
-trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
+with tab2:
+    take_profit_percentage = st.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
+    stop_loss_percentage = st.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
+    trailing_take_profit_percentage = st.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
+    trailing_stop_loss_percentage = st.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
+
+with tab3:
+    start_date = st.date_input('Ngày bắt đầu', datetime(2020, 1, 1))
+    end_date = st.date_input('Ngày kết thúc', datetime.today())
+    t_plus = st.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0)
 
 # Sidebar: Choose the strategies to apply
 strategies = st.sidebar.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
@@ -224,7 +231,7 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
     # Create tabs for different views
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục portfolio"])
 
     with tab1:
         st.markdown("**Tóm tắt:**")
@@ -263,6 +270,10 @@ if start_date < end_date:
         }
         stats_df.rename(index=metrics_vi, inplace=True)
         st.dataframe(stats_df, height=800)
+
+        crash_points = symbol_data[symbol_data['Crash']]
+        st.markdown("**Danh sách các điểm crash:**")
+        st.dataframe(crash_points[['close']], height=400, width=800)
 
     with tab3:
         st.markdown("**Tổng hợp lệnh mua/bán:**")
@@ -329,6 +340,22 @@ if start_date < end_date:
         st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các tín hiệu mua/bán và cảnh báo sụp đổ tiềm năng, \
                     cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
         st.plotly_chart(fig, use_container_width=True)
+
+    with tab7:
+        st.markdown("**Danh mục portfolio:**")
+        st.markdown("Danh sách các cổ phiếu trong các danh mục VN100, VN30 và VNAllShare.")
+        vn100 = stock.listing.symbols_by_group('VN100')
+        vn30 = stock.listing.symbols_by_group('VN30')
+        vnallshare = stock.listing.symbols_by_group('VNAllShare')
+
+        st.markdown("**VN100:**")
+        st.dataframe(pd.DataFrame(vn100), height=200)
+
+        st.markdown("**VN30:**")
+        st.dataframe(pd.DataFrame(vn30), height=200)
+
+        st.markdown("**VNAllShare:**")
+        st.dataframe(pd.DataFrame(vnallshare), height=200)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
