@@ -22,16 +22,16 @@ st.image('image.png', use_column_width=True)
 
 # Sector files mapping
 SECTOR_FILES = {
-    'Banking': 'Banking.csv',
-    'Building Material': 'Building Material.csv',
-    'Chemical': 'Chemical.csv',
-    'Financial Services': 'Financial Services.csv',
-    'Food and Beverage': 'Food and Beverage.csv',
-    'Industrial Services': 'Industrial Services.csv',
-    'Information Technology': 'Information Technology.csv',
-    'Mineral': 'Mineral.csv',
-    'Oil and Gas': 'Oil and Gas.csv',
-    'Real Estate': 'Real Estate.csv',
+    'Ngân hàng': 'Banking.csv',
+    'Vật liệu xây dựng': 'Building Material.csv',
+    'Hóa chất': 'Chemical.csv',
+    'Dịch vụ tài chính': 'Financial Services.csv',
+    'Thực phẩm và đồ uống': 'Food and Beverage.csv',
+    'Dịch vụ công nghiệp': 'Industrial Services.csv',
+    'Công nghệ thông tin': 'Information Technology.csv',
+    'Khoáng sản': 'Mineral.csv',
+    'Dầu khí': 'Oil and Gas.csv',
+    'Bất động sản': 'Real Estate.csv',
     'Vnindex': 'Vnindex.csv'
 }
 
@@ -160,7 +160,7 @@ def run_backtest(df, init_cash, fees, direction):
 
 ## Streamlit App
 st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
-st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEXVNINDEX.')
+st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
 # Sidebar: Sector selection
 selected_sector = st.sidebar.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
@@ -175,13 +175,13 @@ st.sidebar.header('Thông số kiểm tra')
 init_cash = st.sidebar.number_input('Vốn đầu tư ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
 fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
 direction = st.sidebar.selectbox("Vị thế", ["Mua", "Bán"], index=0)
-t_plus = st.sidebar.selectbox("Ngày thanh toán T+", [0, 1, 2.5, 3], index=0)  # Adding the T+ selection
+t_plus = st.sidebar.selectbox("Ngày thanh toán T+", [0, 1, 2.5, 3], index=0)
 
 # New trading parameters
-take_profit_percentage = st.sidebar.number_input('Tỉ lệ chốt lời (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
-stop_loss_percentage = st.sidebar.number_input('Tỉ lệ cắt lỗ (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
-trailing_take_profit_percentage = st.sidebar.number_input('Trailing take profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
-trailing_stop_loss_percentage = st.sidebar.number_input('Trailing stop loss(%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
+take_profit_percentage = st.sidebar.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
+stop_loss_percentage = st.sidebar.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
+trailing_take_profit_percentage = st.sidebar.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
+trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
 # Sidebar: Choose the strategies to apply
 strategies = st.sidebar.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
@@ -214,6 +214,22 @@ if start_date < end_date:
                     Bạn sẽ tìm thấy các chỉ số quan trọng như tổng lợi nhuận, lợi nhuận/lỗ, và các thống kê liên quan khác.")
         stats_df = pd.DataFrame(portfolio.stats(), columns=['Giá trị'])
         stats_df.index.name = 'Chỉ số'
+        metrics_vi = {
+            'Start Value': 'Giá trị ban đầu',
+            'End Value': 'Giá trị cuối cùng',
+            'Total Return [%]': 'Tổng lợi nhuận [%]',
+            'Max Drawdown [%]': 'Mức giảm tối đa [%]',
+            'Total Trades': 'Tổng số giao dịch',
+            'Win Rate [%]': 'Tỷ lệ thắng [%]',
+            'Best Trade [%]': 'Giao dịch tốt nhất [%]',
+            'Worst Trade [%]': 'Giao dịch tệ nhất [%]',
+            'Profit Factor': 'Hệ số lợi nhuận',
+            'Expectancy': 'Kỳ vọng',
+            'Sharpe Ratio': 'Tỷ lệ Sharpe',
+            'Sortino Ratio': 'Tỷ lệ Sortino',
+            'Calmar Ratio': 'Tỷ lệ Calmar'
+        }
+        stats_df.rename(index=metrics_vi, inplace=True)
         st.dataframe(stats_df, height=800)
 
     with tab2:
