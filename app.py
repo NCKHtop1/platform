@@ -8,7 +8,6 @@ import vectorbt as vbt
 import pandas_ta as ta
 import os
 
-# Check if the image file exists
 image_path = 'image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
