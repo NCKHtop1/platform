@@ -160,7 +160,7 @@ def run_backtest(df, init_cash, fees, direction):
 
 ## Streamlit App
 st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
-st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi thị trường chứng khoán HOSE và VNINDEX sụp đổ.')
+st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEXVNINDEX.')
 
 # Sidebar: Sector selection
 selected_sector = st.sidebar.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
@@ -172,19 +172,19 @@ selected_stock_symbol = st.sidebar.selectbox('Chọn mã cổ phiếu', stock_sy
 
 # Sidebar: Backtesting parameters
 st.sidebar.header('Thông số kiểm tra')
-init_cash = st.sidebar.number_input('Vốn ban đầu ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
+init_cash = st.sidebar.number_input('Vốn đầu tư ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
 fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
-direction = st.sidebar.selectbox("Chiều giao dịch", ["longonly", "shortonly", "both"], index=0)
+direction = st.sidebar.selectbox("Vị thế", ["Mua", "Bán"], index=0)
 t_plus = st.sidebar.selectbox("Ngày thanh toán T+", [0, 1, 2.5, 3], index=0)  # Adding the T+ selection
 
 # New trading parameters
-take_profit_percentage = st.sidebar.number_input('Lợi nhuận chốt lời (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
-stop_loss_percentage = st.sidebar.number_input('Cắt lỗ (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
-trailing_take_profit_percentage = st.sidebar.number_input('Chốt lời theo sau (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
-trailing_stop_loss_percentage = st.sidebar.number_input('Cắt lỗ theo sau (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
+take_profit_percentage = st.sidebar.number_input('Tỉ lệ chốt lời (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
+stop_loss_percentage = st.sidebar.number_input('Tỉ lệ cắt lỗ (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
+trailing_take_profit_percentage = st.sidebar.number_input('Trailing take profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
+trailing_stop_loss_percentage = st.sidebar.number_input('Trailing stop loss(%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
 # Sidebar: Choose the strategies to apply
-strategies = st.sidebar.multiselect("Chọn chiến lược", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
+strategies = st.sidebar.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
 # Filter data for the selected stock symbol
 symbol_data = df_full[df_full['StockSymbol'] == selected_stock_symbol]
