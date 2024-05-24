@@ -7,10 +7,7 @@ import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
 import os
-
-# Accept the terms and conditions for vnstock3
-if "ACCEPT_TC" not in os.environ:
-    os.environ["ACCEPT_TC"] = "tôi đồng ý"
+from vnstock3 import Vnstock
 
 # Accept the terms and conditions for vnstock3
 if "ACCEPT_TC" not in os.environ:
@@ -208,6 +205,9 @@ trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)'
 # Sidebar: Choose the strategies to apply
 strategies = st.sidebar.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
+# Sidebar: Portfolio selection
+portfolio_options = st.sidebar.multiselect("Danh mục portfolio", ["VN100", "VN30", "VNAllShare"], default=["VN100"])
+
 # Filter data for the selected stock symbol
 symbol_data = df_full[df_full['StockSymbol'] == selected_stock_symbol]
 symbol_data.sort_index(inplace=True)
@@ -268,11 +268,12 @@ if start_date < end_date:
         stats_df.rename(index=metrics_vi, inplace=True)
         st.dataframe(stats_df, height=800)
 
-        st.markdown("**Danh sách các điểm crash:**")
-        crash_points = symbol_data[symbol_data['Crash']]
-        crash_points_df = crash_points[['close']].reset_index()
-        crash_points_df.columns = ['Ngày crash', 'Giá']
-        st.dataframe(crash_points_df)
+        # Add a table of crash points
+        crash_points = symbol_data[symbol_data['Crash']][['close']]
+        crash_points.columns = ['Giá']
+        crash_points.index.name = 'Ngày crash'
+        st.markdown("**Danh sách các điểm crash ghi nhận:**")
+        st.table(crash_points)
 
     with tab3:
         st.markdown("**Tổng hợp lệnh mua/bán:**")
@@ -342,26 +343,11 @@ if start_date < end_date:
 
     with tab7:
         st.markdown("**Danh mục portfolio:**")
-        st.markdown("Tab này hiển thị danh sách các cổ phiếu trong VN100, VN30, và VNAllShare.")
-
-        # Example to show VN100, VN30, and VNAllShare stock symbols
-        try:
-            from vnstock3 import stock
-            vn100_symbols = stock.listing.symbols_by_group('VN100')
-            vn30_symbols = stock.listing.symbols_by_group('VN30')
-            vnallshare_symbols = stock.listing.symbols_by_group('VNAllShare')
-
-            st.write("### VN100 Symbols")
-            st.write(vn100_symbols)
-            
-            st.write("### VN30 Symbols")
-            st.write(vn30_symbols)
-            
-            st.write("### VNAllShare Symbols")
-            st.write(vnallshare_symbols)
-        except ImportError as e:
-            st.error("Failed to import stock from vnstock3. Please ensure it is correctly installed.")
-            st.error(e)
+        vnstock = Vnstock()
+        for portfolio in portfolio_options:
+            symbols = vnstock.listing.symbols_by_group(portfolio)
+            st.markdown(f"**{portfolio}**")
+            st.write(", ".join(symbols))
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
