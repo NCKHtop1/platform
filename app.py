@@ -181,12 +181,12 @@ st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
 # Sidebar for Portfolio Selection
-st.sidebar.header('Danh mục Portfolio')
+st.sidebar.header('Danh mục đầu tư')
 portfolio_options = st.sidebar.multiselect('Chọn danh mục', ['VN100', 'VN30', 'VNAllShare'])
 
 # Portfolio tab
 st.sidebar.header('Thông số kiểm tra')
-init_cash = st.sidebar.number_input('Vốn đầu tư ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
+init_cash = st.sidebar.number_input('Vốn đầu tư (VNĐ):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
 fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
 direction_vi = st.sidebar.selectbox("Vị thế", ["Mua", "Bán"], index=0)
 direction = "longonly" if direction_vi == "Mua" else "shortonly"
@@ -226,7 +226,7 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
     # Create tabs for different views
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục Portfolio"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
 
     with tab1:
         st.markdown("**Tóm tắt:**")
@@ -340,7 +340,7 @@ if start_date < end_date:
         st.plotly_chart(fig, use_container_width=True)
 
     with tab7:
-        st.markdown("**Danh mục Portfolio:**")
+        st.markdown("**Danh mục đầu tư:**")
         st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
         if portfolio_options:
             stock = Vnstock()
