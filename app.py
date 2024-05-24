@@ -210,7 +210,7 @@ if start_date < end_date:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
     # Create tabs for different views
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Thống kê kiểm tra", "Tổng hợp lệnh mua ", "Đường cong giá trị", "Mức giảm", "Biểu đồ"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Thống kê kiểm tra", "Tổng hợp lệnh mua/bán  ", "Đường cong giá trị", "Mức giảm", "Biểu đồ"])
 
     with tab1:
         st.markdown("**Thống kê kiểm tra:**")
@@ -237,8 +237,8 @@ if start_date < end_date:
         st.dataframe(stats_df, height=800)
 
     with tab2:
-        st.markdown("**Tổng hợp lệnh mua bán:**")
-        st.markdown("Tab này cung cấp danh sách chi tiết của tất cả các lệnh mua bán được thực hiện bởi chiến lược. \
+        st.markdown("**Tổng hợp lệnh mua/bán:**")
+        st.markdown("Tab này cung cấp danh sách chi tiết của tất cả các lệnh mua/bán được thực hiện bởi chiến lược. \
                     Bạn có thể phân tích các điểm vào và ra của từng giao dịch, cùng với lợi nhuận hoặc lỗ.")
         trades_df = portfolio.trades.records_readable
         trades_df = trades_df.round(2)
@@ -269,22 +269,22 @@ if start_date < end_date:
             x=drawdown_data.index,
             y=drawdown_data,
             mode='lines',
-            name='Mức giảm',
+            name='Mức sụt giảm tối đa',
             fill='tozeroy',
             line=dict(color='red')
         )
         drawdown_fig = go.Figure(data=[drawdown_trace])
         drawdown_fig.update_layout(
-            title='Mức giảm',
+            title='Mức sụt giảm tối đa',
             xaxis_title='Ngày',
-            yaxis_title='% Mức giảm',
+            yaxis_title='% Mức sụt giảm tối đa',
             template='plotly_white',
             width=800,
             height=600
         )
         st.plotly_chart(drawdown_fig)
-        st.markdown("**Mức giảm:**")
-        st.markdown("Biểu đồ này minh họa sự suy giảm từ đỉnh đến đáy của danh mục của bạn, \
+        st.markdown("**Mức sụt giảm tối đa:**")
+        st.markdown("Biểu đồ này minh họa sự sụt giảm từ đỉnh đến đáy của danh mục của bạn, \
                     giúp bạn hiểu rõ hơn về tiềm năng thua lỗ của chiến lược.")
 
     with tab5:
@@ -295,9 +295,9 @@ if start_date < end_date:
             y=crash_df['close'],
             mode='markers',
             marker=dict(color='orange', size=10, symbol='triangle-down'),
-            name='Sụp đổ'
+            name='Sụt giảm'
         )
-        st.markdown("**Biểu đồ danh mục:**")
+        st.markdown("**Biểu đồ:**")
         st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các tín hiệu mua/bán và cảnh báo sụp đổ tiềm năng, \
                     cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
         st.plotly_chart(fig, use_container_width=True)
