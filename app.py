@@ -34,10 +34,6 @@ st.markdown("""
         margin-left: auto;
         margin-right: auto;
     }
-    .highlight {
-        font-size: 24px;
-        color: red;
-    }
     </style>
     """, unsafe_allow_html=True)
 
