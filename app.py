@@ -8,6 +8,7 @@ import vectorbt as vbt
 import pandas_ta as ta
 import os
 
+# Check if the image file exists
 image_path = 'image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
@@ -23,7 +24,6 @@ st.markdown("""
     .css-1aumxhk {padding: 2rem;}
     </style>
     """, unsafe_allow_html=True)
-
 # Sector files mapping
 SECTOR_FILES = {
     'Ngân hàng': 'Banking.csv',
