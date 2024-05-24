@@ -210,7 +210,7 @@ trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)'
 strategies = st.sidebar.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
 # Sidebar: Portfolio selection
-portfolio_options = st.sidebar.multiselect("Danh mục portfolio", ["VN100", "VN30", "VNAllShare"], default=["VN100"])
+portfolio_options = st.sidebar.multiselect("Chọn danh mục", ["VN100", "VN30", "VNAllShare"], default=["VN100"])
 
 # Filter data for the selected stock symbol
 symbol_data = df_full[df_full['StockSymbol'] == selected_stock_symbol]
@@ -272,12 +272,12 @@ if start_date < end_date:
         stats_df.rename(index=metrics_vi, inplace=True)
         st.dataframe(stats_df, height=800)
 
-        # Add a table of crash points
-        crash_points = symbol_data[symbol_data['Crash']][['close']]
-        crash_points.columns = ['Giá']
-        crash_points.index.name = 'Ngày crash'
         st.markdown("**Danh sách các điểm crash ghi nhận:**")
-        st.table(crash_points)
+        crash_list = symbol_data[symbol_data['Crash']]
+        crash_list = crash_list[['close']]
+        crash_list.columns = ['Giá']
+        crash_list.index.name = 'Ngày crash'
+        st.dataframe(crash_list)
 
     with tab3:
         st.markdown("**Tổng hợp lệnh mua/bán:**")
@@ -348,10 +348,12 @@ if start_date < end_date:
     with tab7:
         st.markdown("**Danh mục portfolio:**")
         vnstock = Vnstock()
-        for portfolio in portfolio_options:
-            symbols = vnstock.listing.symbols_by_group(portfolio)
-            st.markdown(f"**{portfolio}**")
-            st.write(", ".join(symbols))
+        portfolio_symbols = []
+        for portfolio_option in portfolio_options:
+            symbols = vnstock.listing().symbols_by_group(portfolio_option)
+            portfolio_symbols.extend(symbols)
+        st.write("Danh mục các mã chứng khoán thuộc các nhóm đã chọn:")
+        st.write(portfolio_symbols)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
