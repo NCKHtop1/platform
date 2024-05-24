@@ -8,26 +8,6 @@ import vectorbt as vbt
 import pandas_ta as ta
 import os
 
-# Check if the image file exists
-image_path = 'image.png'
-if not os.path.exists(image_path):
-    st.error(f"Image file not found: {image_path}")
-else:
-    # Add custom CSS for image size
-    st.markdown(f"""
-        <style>
-        .header-img {{
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
-            width: 100%;
-            max-width: 1200px;  /* Adjust max-width as needed */
-            height: auto;
-        }}
-        </style>
-        """, unsafe_allow_html=True)
-    st.markdown(f'<img src="{image_path}" class="header-img">', unsafe_allow_html=True)
-
 # Custom CSS for better UI
 st.markdown("""
     <style>
@@ -35,8 +15,23 @@ st.markdown("""
     .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
     .stSidebar {background-color: #f0f2f6;}
     .css-1aumxhk {padding: 2rem;}
+    .header-img {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 100%;
+        max-width: 1200px;  /* Adjust max-width as needed */
+        height: auto;
+    }
     </style>
     """, unsafe_allow_html=True)
+
+# Check if the image file exists
+image_path = 'image.png'
+if not os.path.exists(image_path):
+    st.error(f"Image file not found: {image_path}")
+else:
+    st.markdown(f'<img src="{image_path}" class="header-img">', unsafe_allow_html=True)
 
 # Sector files mapping
 SECTOR_FILES = {
