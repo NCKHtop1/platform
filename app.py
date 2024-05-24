@@ -10,7 +10,10 @@ import os
 from vnstock3 import Vnstock
 
 if "ACCEPT_TC" not in os.environ:
-os.environ["ACCEPT_TC"] = "tôi đồng ý"
+    os.environ["ACCEPT_TC"] = "tôi đồng ý"
+
+# The rest of your code goes here...
+
 # # Check if the image file exists
 # image_path = 'image.png'
 # if not os.path.exists(image_path):
