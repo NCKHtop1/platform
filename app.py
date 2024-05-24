@@ -229,7 +229,7 @@ if start_date < end_date:
 
     with tab1:
         st.markdown("**Tóm tắt:**")
-        st.markdown("Tab này hiển thị các chỉ số quan trọng như tổng lợi nhuận, tỷ lệ thắng, và mức sụt giảm tối đa.")
+        # st.markdown("Tab này hiển thị các chỉ số quan trọng như tổng lợi nhuận, tỷ lệ thắng, và mức sụt giảm tối đa.")
         summary_stats = portfolio.stats()[['Total Return [%]', 'Win Rate [%]', 'Max Drawdown [%]']]
         metrics_vi_summary = {
             'Total Return [%]': 'Tổng lợi nhuận [%]',
