@@ -186,7 +186,7 @@ portfolio_options = st.sidebar.multiselect('Chọn danh mục', ['VN100', 'VN30'
 
 # Portfolio tab
 st.sidebar.header('Thông số kiểm tra')
-init_cash = st.sidebar.number_input('Vốn đầu tư (VNĐ):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
+init_cash = st.sidebar.number_input('Vốn đầu tư (VNĐ):', min_value=1000, max_value=1_000_000, value=100_000_000, step=1000)
 fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
 direction_vi = st.sidebar.selectbox("Vị thế", ["Mua", "Bán"], index=0)
 direction = "longonly" if direction_vi == "Mua" else "shortonly"
