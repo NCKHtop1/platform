@@ -13,7 +13,20 @@ image_path = 'image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
 else:
-    st.image(image_path, use_column_width=True)
+    # Add custom CSS for image size
+    st.markdown(f"""
+        <style>
+        .header-img {{
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            width: 100%;
+            max-width: 1200px;  /* Adjust max-width as needed */
+            height: auto;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+    st.markdown(f'<img src="{image_path}" class="header-img">', unsafe_allow_html=True)
 
 # Custom CSS for better UI
 st.markdown("""
