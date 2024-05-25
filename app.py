@@ -143,6 +143,13 @@ def calculate_indicators_and_crashes(df, strategies):
         df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
         df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
+    # Calculate weekly returns and detect crashes
+    df = calculate_weekly_returns_and_crashes(df)
+
+    peaks, _ = find_peaks(df['close'])
+    df['Peaks'] = df.index.isin(df.index[peaks])
+
+    return df
 
 # Function to calculate weekly returns and detect crashes
 def calculate_weekly_returns_and_crashes(df):
@@ -160,15 +167,8 @@ def calculate_weekly_returns_and_crashes(df):
     deviation_threshold = 3.09
     df_weekly['Crash'] = df_weekly['Return'] < (mean_return - deviation_threshold * std_return)
 
-    # Forward-fill peak prices to compute drawdowns
-    peak_prices = df_weekly['close'].where(df_weekly['Crash']).ffill()
-    drawdowns = (peak_prices - df_weekly['close']) / peak_prices
-
-    return df
-
-    peaks, _ = find_peaks(df['close'])
-    df['Peaks'] = df.index.isin(df.index[peaks])
-
+    # Map weekly crash data back to daily data
+    df['Weekly_Crash'] = df.index.isin(df_weekly[df_weekly['Crash']].index)
     return df
 
 # Function to run backtesting using vectorbt's from_signals
