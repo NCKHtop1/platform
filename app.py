@@ -119,29 +119,33 @@ def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
 def calculate_indicators_and_crashes(df, strategies):
     if "MACD" in strategies:
         macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
-        df['MACD Line'] = macd['MACD_12_26_9']
-        df['Signal Line'] = macd['MACDs_12_26_9']
-        df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
-        df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
+        if 'MACD_12_26_9' in macd.columns:
+            df['MACD Line'] = macd['MACD_12_26_9']
+            df['Signal Line'] = macd['MACDs_12_26_9']
+            df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
+            df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
 
     if "Supertrend" in strategies:
         supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
-        df['Supertrend'] = supertrend['SUPERTd_7_3.0']
-        df['Supertrend Buy'] = supertrend['SUPERTd_7_3.0'] == 1  # Buy when supertrend is positive
-        df['Supertrend Sell'] = supertrend['SUPERTd_7_3.0'] == -1  # Sell when supertrend is negative
+        if 'SUPERTd_7_3.0' in supertrend.columns:
+            df['Supertrend'] = supertrend['SUPERTd_7_3.0']
+            df['Supertrend Buy'] = supertrend['SUPERTd_7_3.0'] == 1  # Buy when supertrend is positive
+            df['Supertrend Sell'] = supertrend['SUPERTd_7_3.0'] == -1  # Sell when supertrend is negative
 
     if "Stochastic" in strategies:
         stochastic = df.ta.stoch(append=True)
-        df['Stochastic K'] = stochastic['STOCHk_14_3_3']
-        df['Stochastic D'] = stochastic['STOCHd_14_3_3']
-        df['Stochastic Buy'] = (df['Stochastic K'] > df['Stochastic D']) & (df['Stochastic K'].shift(1) <= df['Stochastic D'].shift(1))
-        df['Stochastic Sell'] = (df['Stochastic K'] < df['Stochastic D']) & (df['Stochastic K'].shift(1) >= df['Stochastic D'].shift(1))
+        if 'STOCHk_14_3_3' in stochastic.columns and 'STOCHd_14_3_3' in stochastic.columns:
+            df['Stochastic K'] = stochastic['STOCHk_14_3_3']
+            df['Stochastic D'] = stochastic['STOCHd_14_3_3']
+            df['Stochastic Buy'] = (df['Stochastic K'] > df['Stochastic D']) & (df['Stochastic K'].shift(1) <= df['Stochastic D'].shift(1))
+            df['Stochastic Sell'] = (df['Stochastic K'] < df['Stochastic D']) & (df['Stochastic K'].shift(1) >= df['Stochastic D'].shift(1))
 
     if "RSI" in strategies:
         rsi = df.ta.rsi(close='close', length=14, append=True)
-        df['RSI'] = rsi
-        df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
-        df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
+        if 'RSI_14' in rsi.columns:
+            df['RSI'] = rsi['RSI_14']
+            df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
+            df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
     peaks, _ = find_peaks(df['close'])
     df['Peaks'] = df.index.isin(df.index[peaks])
@@ -156,7 +160,6 @@ def calculate_indicators_and_crashes(df, strategies):
 
     # Filter crashes to keep only one per week (on Fridays)
     df['Crash'] = df['Crash'] & (df.index.weekday == 4)
-
 
     # Adjust buy and sell signals based on crashes
     df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
