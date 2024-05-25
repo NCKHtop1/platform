@@ -143,7 +143,6 @@ def calculate_indicators_and_crashes(df, strategies):
         df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
         df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
-    # Detect peaks in close prices for drawdown calculation
     peaks, _ = find_peaks(df['close'])
     df['Peaks'] = df.index.isin(df.index[peaks])
 
@@ -157,6 +156,7 @@ def calculate_indicators_and_crashes(df, strategies):
 
     # Filter crashes to keep only one per week (on Fridays)
     df['Crash'] = df['Crash'] & (df.index.weekday == 4)
+
 
     # Adjust buy and sell signals based on crashes
     df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
