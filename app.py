@@ -257,10 +257,10 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
         # Run backtest
         portfolio = run_backtest(df_filtered, init_cash, fees, direction)
 
-        if portfolio.wrapper.shape[0] == 0:
+        if portfolio.empty:
             st.error("Portfolio is empty. Please check the selected stocks and date range.")
         else:
-            # Create tabs for different views
+            # Create tabs for different views on the main screen
             tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
 
             with tab1:
