@@ -7,3 +7,5 @@ plotly
 vectorbt
 pandas-ta
 vnstock3
+seaborn
+matplotlib
