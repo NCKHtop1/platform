@@ -242,29 +242,31 @@ df_full = load_data(selected_sector)
 available_symbols = df_full['StockSymbol'].unique().tolist()
 selected_symbols_in_sector = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
 
-# Automatically set the start date to the earliest available date for the selected symbol
+# Giả sử df_full là DataFrame chứa dữ liệu
 if not df_full.empty:
-    first_available_date = df_full.index.min()
-    latest_available_date = df_full.index.max()
-    default_start_date = first_available_date.date()
-    default_end_date = latest_available_date.date()
+    first_available_date = df_full.index.min().date()
+    latest_available_date = df_full.index.max().date()
 else:
-    default_start_date = datetime(2000, 1, 1).date()
-    default_end_date = datetime.today().date()
+    first_available_date = datetime(2000, 1, 1).date()
+    latest_available_date = datetime.today().date()
 
-start_date = st.date_input('Ngày bắt đầu', default_start_date)
-end_date = st.date_input('Ngày kết thúc', default_end_date)
+# Giới hạn phạm vi chọn ngày để nằm trong dữ liệu thực tế
+start_date = st.date_input('Ngày bắt đầu', first_available_date, min_value=first_available_date, max_value=latest_available_date)
+end_date = st.date_input('Ngày kết thúc', latest_available_date, min_value=first_available_date, max_value=latest_available_date)
 
-# Ensure the end date is always after the start date
+# Kiểm tra ngày kết thúc có nằm sau ngày bắt đầu không
 if end_date < start_date:
     st.error('Ngày kết thúc phải sau ngày bắt đầu!')
+else:
+    # Hiển thị phạm vi đã chọn
+    st.write(f"Phạm vi đã chọn từ {start_date} đến {end_date}")
 
-# Optionally display the selected date range
-st.write(f"Phạm vi đã chọn từ {start_date} đến {end_date}")
+    # Lọc dữ liệu theo phạm vi ngày hợp lệ
+    df_filtered = df_full.loc[start_date:end_date]
 
-if start_date < end_date:
-    df_filtered = df_full[df_full['StockSymbol'].isin(selected_symbols_in_sector)]
-    df_filtered = df_filtered.loc[start_date:end_date]
+    # Hiển thị dữ liệu đã lọc (tùy chọn)
+    st.write("Dữ liệu đã lọc:", df_filtered)
+
 
     # Calculate indicators and crashes
     df_filtered = calculate_indicators_and_crashes(df_filtered, strategies)
