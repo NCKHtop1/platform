@@ -5,8 +5,6 @@ from datetime import datetime
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import plotly.express as px
-import seaborn as sns
-import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 import os
@@ -217,6 +215,10 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
         symbols = load_portfolio_symbols(portfolio_option)
         selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
         selected_stocks.extend(selected_symbols)
+        
+    # Date input for portfolio
+    portfolio_start_date = st.date_input('Ngày bắt đầu (Danh mục đầu tư)', datetime(2000, 1, 1))
+    portfolio_end_date = st.date_input('Ngày kết thúc (Danh mục đầu tư)', datetime.today())
 
 # Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
