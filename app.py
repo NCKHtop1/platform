@@ -255,8 +255,9 @@ if start_date < end_date:
     # Run backtest
     portfolio = run_backtest(df_filtered, init_cash, fees, direction)
 
-    # if portfolio.wrapper.wrapper.shape[0] == 0:
-    #     st.error('Không có giao dịch nào được thực hiện trong khoảng thời gian này.')
+    if portfolio.trades.records.empty:
+        st.error('Không có giao dịch nào được thực hiện trong khoảng thời gian này.')
+
     else:
         # Create tabs for different views
         tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
