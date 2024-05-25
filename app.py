@@ -117,12 +117,20 @@ def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
 
 # Function to calculate buy/sell signals and crashes
 def calculate_indicators_and_crashes(df, strategies):
+    # Example of calculating MACD
     if "MACD" in strategies:
         macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
         df['MACD Line'] = macd['MACD_12_26_9']
         df['Signal Line'] = macd['MACDs_12_26_9']
         df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
         df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
+
+    # Define adjusted buy/sell signals
+    df['Adjusted Buy'] = df['MACD Buy']  # Example logic, adjust as necessary
+    df['Adjusted Sell'] = df['MACD Sell']  # Example logic, adjust as necessary
+
+    return df
+
 
     if "Supertrend" in strategies:
         supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
@@ -234,8 +242,10 @@ if start_date < end_date:
     # Calculate indicators, weekly returns, and crashes
     symbol_data = calculate_indicators_and_crashes(symbol_data, strategies)
 
-    # Run backtest
+if 'Adjusted Buy' in symbol_data.columns and 'Adjusted Sell' in symbol_data.columns:
     portfolio = run_backtest(symbol_data, init_cash, fees, direction)
+else:
+    print("Adjusted signals not found. Please check the indicator calculations.")
 
     # Create tabs for different views
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
