@@ -273,7 +273,7 @@ if start_date < end_date:
             st.markdown(f'<div class="highlight">{index}: {value}</div>', unsafe_allow_html=True)
 
         # Add crash details
-        crash_details = df_filtered[df_filtered['Crash']][['close']]
+        crash_details = symbol_data[symbol_data['Crash']][['close']]
         crash_details.reset_index(inplace=True)
         crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
         st.markdown("**Danh sách các điểm crash:**")
