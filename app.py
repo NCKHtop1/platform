@@ -215,19 +215,19 @@ for portfolio_option in portfolio_options:
     selected_symbols = st.sidebar.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
     selected_stocks.extend(selected_symbols)
 
-# Portfolio tab
-st.sidebar.header('Thông số kiểm tra')
-init_cash = st.sidebar.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000)
-fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
-direction_vi = st.sidebar.selectbox("Vị thế", ["Mua", "Bán"], index=0)
-direction = "longonly" if direction_vi == "Mua" else "shortonly"
-t_plus = st.sidebar.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0)
+# Collapsible section for Portfolio Parameters
+with st.sidebar.expander("Thông số kiểm tra", expanded=False):
+    init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000)
+    fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
+    direction_vi = st.selectbox("Vị thế", ["Mua", "Bán"], index=0)
+    direction = "longonly" if direction_vi == "Mua" else "shortonly"
+    t_plus = st.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0)
 
-# New trading parameters
-take_profit_percentage = st.sidebar.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
-stop_loss_percentage = st.sidebar.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
-trailing_take_profit_percentage = st.sidebar.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
-trailing_stop_loss_percentage = st.sidebar.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
+    # New trading parameters
+    take_profit_percentage = st.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
+    stop_loss_percentage = st.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
+    trailing_take_profit_percentage = st.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
+    trailing_stop_loss_percentage = st.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
 # Sidebar: Choose the strategies to apply
 strategies = st.sidebar.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
@@ -257,7 +257,6 @@ if start_date < end_date:
 
     if portfolio.trades.records.empty:
         st.error('Không có giao dịch nào được thực hiện trong khoảng thời gian này.')
-
     else:
         # Create tabs for different views
         tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
