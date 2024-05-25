@@ -147,24 +147,29 @@ def calculate_indicators_and_crashes(df, strategies):
 
     return df
 
-# Function to calculate weekly returns and detect crashes
 def calculate_weekly_returns_and_crashes(df):
-    # Resample to weekly frequency, taking the last value of each week (Friday)
-    df_weekly = df['close'].resample('W-FRI').last()
+    # Ensure the dataframe has a datetime index, which is necessary for resampling
+    if not pd.api.types.is_datetime64_any_dtype(df.index):
+        df['Datetime'] = pd.to_datetime(df['Datetime'])
+        df.set_index('Datetime', inplace=True)
 
-    # Calculate weekly returns
-    df_weekly['Return'] = df_weekly.pct_change()
+    # Resample to weekly frequency, taking the last value of each week
+    df_weekly = df.resample('W-FRI').last()
 
-    # Compute mean and standard deviation of weekly returns
-    mean_return = df_weekly['Return'].mean()
-    std_return = df_weekly['Return'].std()
+    # Calculate weekly returns and add them to the weekly dataframe
+    df_weekly['Weekly_Return'] = df_weekly['close'].pct_change()
 
-    # Define crash criterion
-    deviation_threshold = 3.09
-    df_weekly['Crash'] = df_weekly['Return'] < (mean_return - deviation_threshold * std_return)
+    # Compute the mean and standard deviation of weekly returns
+    mean_returns = df_weekly['Weekly_Return'].mean()
+    std_returns = df_weekly['Weekly_Return'].std()
 
-    # Merge the weekly crash information back into the daily data
-    df['Weekly_Crash'] = df.index.isin(df_weekly[df_weekly['Crash']].index)
+    # Define crash based on the deviation threshold
+    deviation_threshold = 3.09  # This threshold can be adjusted as needed
+    df_weekly['Crash'] = df_weekly['Weekly_Return'] < (mean_returns - deviation_threshold * std_returns)
+
+    # Create a crash column in the original daily dataframe
+    # We use reindex to align weekly crash data with the daily dataframe
+    df['Weekly_Crash'] = df_weekly['Crash'].reindex(df.index, method='ffill')
 
     return df
 
