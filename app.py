@@ -255,9 +255,8 @@ if start_date < end_date:
     # Run backtest
     portfolio = run_backtest(df_filtered, init_cash, fees, direction)
 
-    if portfolio.empty:
-        st.error("Portfolio is empty. Please check the selected stocks and date range.")
-    else:
+    # Check if portfolio has entries and exits
+    if portfolio.positions.shape[0] > 0:
         # Create tabs for different views
         tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
 
@@ -394,6 +393,7 @@ if start_date < end_date:
             fig, ax = plt.subplots(figsize=(10, len(crash_likelihoods_df) / 2))
             sns.heatmap(crash_likelihoods_df, annot=True, cmap='RdYlGn_r', ax=ax)
             st.pyplot(fig)
-
+    else:
+        st.warning("Không có dữ liệu giao dịch nào trong khoảng thời gian đã chọn.")
 else:
     st.error('Lỗi: Ngày kết thúc phải sau ngày bắt đầu.')
