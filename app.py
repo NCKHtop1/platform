@@ -142,9 +142,10 @@ def calculate_indicators_and_crashes(df, strategies):
 
     if "RSI" in strategies:
         rsi = df.ta.rsi(close='close', length=14, append=True)
-        df['RSI'] = rsi
-        df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
-        df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
+        if 'RSI_14' in rsi.columns:
+            df['RSI'] = rsi['RSI_14']
+            df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
+            df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
     peaks, _ = find_peaks(df['close'])
     df['Peaks'] = df.index.isin(df.index[peaks])
@@ -247,7 +248,8 @@ if not df_full.empty:
     default_start_date = first_available_date.date()
 else:
     default_start_date = datetime(2000, 1, 1).date()
-start_date = st.date_input('Ngày bắt đầu', default_start_date); end_date = st.date_input('Ngày kết thúc', datetime.today().date())
+start_date = st.date_input('Ngày bắt đầu', default_start_date)
+end_date = st.date_input('Ngày kết thúc', datetime.today().date())
 
 if start_date < end_date:
     df_filtered = df_full[df_full['StockSymbol'].isin(selected_symbols_in_sector)]
