@@ -15,7 +15,7 @@ if "ACCEPT_TC" not in os.environ:
     os.environ["ACCEPT_TC"] = "tôi đồng ý"
 
 # Check if the image file exists
-image_path = 'image.png'
+image_path = '/mnt/data/image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
 else:
@@ -207,7 +207,7 @@ st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
 # Sidebar for Portfolio Selection
-with st.sidebar.expander("Danh mục đầu tư"):
+with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'VN100', 'VNAllShare'])
     selected_stocks = []
     for portfolio_option in portfolio_options:
@@ -215,8 +215,8 @@ with st.sidebar.expander("Danh mục đầu tư"):
         selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
         selected_stocks.extend(selected_symbols)
 
-# Sidebar for Testing Parameters
-with st.sidebar.expander("Thông số kiểm tra"):
+# Portfolio tab
+with st.sidebar.expander("Thông số kiểm tra", expanded=True):
     init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000)
     fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
     direction_vi = st.selectbox("Vị thế", ["Mua", "Bán"], index=0)
@@ -235,11 +235,12 @@ with st.sidebar.expander("Thông số kiểm tra"):
     # Filter data for the selected stock symbol
     selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
     df_full = load_data(selected_sector)
-    df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
+    available_symbols = df_full['StockSymbol'].unique().tolist()
+    selected_symbols_in_sector = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
 
     # Automatically set the start date to the earliest available date for the selected symbol
-    if not df_filtered.empty:
-        first_available_date = df_filtered.index.min()
+    if not df_full.empty:
+        first_available_date = df_full.index.min()
         default_start_date = first_available_date.date()
     else:
         default_start_date = datetime(2000, 1, 1).date()
@@ -247,6 +248,7 @@ with st.sidebar.expander("Thông số kiểm tra"):
     end_date = st.date_input('Ngày kết thúc', datetime.today().date())
 
     if start_date < end_date:
+        df_filtered = df_full[df_full['StockSymbol'].isin(selected_symbols_in_sector)]
         df_filtered = df_filtered.loc[start_date:end_date]
 
         # Calculate indicators and crashes
@@ -255,7 +257,7 @@ with st.sidebar.expander("Thông số kiểm tra"):
         # Run backtest
         portfolio = run_backtest(df_filtered, init_cash, fees, direction)
 
-        if portfolio.trades.records.empty:
+        if portfolio.wrapper.wrapper.shape[0] == 0:
             st.error('Không có giao dịch nào được thực hiện trong khoảng thời gian này.')
         else:
             # Create tabs for different views
@@ -330,6 +332,9 @@ with st.sidebar.expander("Thông số kiểm tra"):
                     height=600
                 )
                 st.plotly_chart(equity_fig)
+                st.markdown("**Đường cong giá trị:**")
+                st.markdown("Biểu đồ này hiển thị sự tăng trưởng giá trị danh mục của bạn theo thời gian, \
+                            cho phép bạn thấy cách chiến lược hoạt động trong các điều kiện thị trường khác nhau.")
 
             with tab5:
                 drawdown_trace = go.Scatter(
@@ -350,6 +355,9 @@ with st.sidebar.expander("Thông số kiểm tra"):
                     height=600
                 )
                 st.plotly_chart(drawdown_fig)
+                st.markdown("**Mức sụt giảm tối đa:**")
+                st.markdown("Biểu đồ này minh họa sự sụt giảm từ đỉnh đến đáy của danh mục của bạn, \
+                            giúp bạn hiểu rõ hơn về tiềm năng thua lỗ của chiến lược.")
 
             with tab6:
                 fig = portfolio.plot()
@@ -361,6 +369,9 @@ with st.sidebar.expander("Thông số kiểm tra"):
                     marker=dict(color='orange', size=10, symbol='triangle-down'),
                     name='Sụt giảm'
                 )
+                st.markdown("**Biểu đồ:**")
+                st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các tín hiệu mua/bán và cảnh báo sụp đổ tiềm năng, \
+                            cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
                 st.plotly_chart(fig, use_container_width=True)
 
             with tab7:
