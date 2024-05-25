@@ -115,39 +115,8 @@ def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
 
     return macd_line, signal_line, histogram
 
-# Function to calculate weekly returns and detect crashes
-def calculate_weekly_returns_and_crashes(df):
-    # Resample to weekly frequency, taking the last value of each week (Friday)
-    df_weekly = df['close'].resample('W-FRI').last()
-
-    # Calculate weekly returns
-    df_weekly['Return'] = df_weekly.pct_change()
-
-    # Compute mean and standard deviation of weekly returns
-    mean_return = df_weekly['Return'].mean()
-    std_return = df_weekly['Return'].std()
-
-    # Define crash criterion
-    deviation_threshold = 3.09
-    df_weekly['Crash'] = df_weekly['Return'] < (mean_return - deviation_threshold * std_return)
-
-    # Forward-fill peak prices to compute drawdowns
-    peak_prices = df_weekly['close'].where(df_weekly['Crash']).ffill()
-    drawdowns = (peak_prices - df_weekly['close']) / peak_prices
-
-    # Mark significant drawdowns as crashes
-    crash_threshold = 0.175
-    df_weekly['Weekly_Crash'] = drawdowns >= crash_threshold
-
-    crash_dates = df_weekly[df_weekly['Weekly_Crash']].index
-    df['Weekly_Crash'] = df.index.isin(crash_dates)
-
-    return df
-
 # Function to calculate buy/sell signals and crashes
 def calculate_indicators_and_crashes(df, strategies):
-    df = calculate_weekly_returns_and_crashes(df)
-    
     if "MACD" in strategies:
         macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
         df['MACD Line'] = macd['MACD_12_26_9']
@@ -173,6 +142,29 @@ def calculate_indicators_and_crashes(df, strategies):
         df['RSI'] = rsi
         df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
         df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
+
+
+# Function to calculate weekly returns and detect crashes
+def calculate_weekly_returns_and_crashes(df):
+    # Resample to weekly frequency, taking the last value of each week (Friday)
+    df_weekly = df['close'].resample('W-FRI').last()
+
+    # Calculate weekly returns
+    df_weekly['Return'] = df_weekly.pct_change()
+
+    # Compute mean and standard deviation of weekly returns
+    mean_return = df_weekly['Return'].mean()
+    std_return = df_weekly['Return'].std()
+
+    # Define crash criterion
+    deviation_threshold = 3.09
+    df_weekly['Crash'] = df_weekly['Return'] < (mean_return - deviation_threshold * std_return)
+
+    # Forward-fill peak prices to compute drawdowns
+    peak_prices = df_weekly['close'].where(df_weekly['Crash']).ffill()
+    drawdowns = (peak_prices - df_weekly['close']) / peak_prices
+
+    return df
 
     peaks, _ = find_peaks(df['close'])
     df['Peaks'] = df.index.isin(df.index[peaks])
