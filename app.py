@@ -242,7 +242,7 @@ df_full = load_data(selected_sector)
 available_symbols = df_full['StockSymbol'].unique().tolist()
 selected_symbols_in_sector = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
 
-# Giả sử df_full là DataFrame chứa dữ liệu
+# Assuming df_full is the DataFrame containing the data
 if not df_full.empty:
     first_available_date = df_full.index.min().date()
     latest_available_date = df_full.index.max().date()
@@ -250,24 +250,17 @@ else:
     first_available_date = datetime(2000, 1, 1).date()
     latest_available_date = datetime.today().date()
 
-# Giới hạn phạm vi chọn ngày để nằm trong dữ liệu thực tế
+# Limit the date selection to within the actual data range
 start_date = st.date_input('Ngày bắt đầu', first_available_date, min_value=first_available_date, max_value=latest_available_date)
 end_date = st.date_input('Ngày kết thúc', latest_available_date, min_value=first_available_date, max_value=latest_available_date)
 
-# Kiểm tra ngày kết thúc có nằm sau ngày bắt đầu không
+# Check if the end date is indeed after the start date
 if end_date < start_date:
     st.error('Ngày kết thúc phải sau ngày bắt đầu!')
 else:
-    # Hiển thị phạm vi đã chọn
-    st.write(f"Phạm vi đã chọn từ {start_date} đến {end_date}")
-
-    # Lọc dữ liệu theo phạm vi ngày hợp lệ
+    # Filter data based on the valid date range
     df_filtered = df_full.loc[start_date:end_date]
-
-    # Hiển thị dữ liệu đã lọc (tùy chọn)
-    st.write("Dữ liệu đã lọc:", df_filtered)
-
-
+    
     # Calculate indicators and crashes
     df_filtered = calculate_indicators_and_crashes(df_filtered, strategies)
 
