@@ -242,25 +242,19 @@ df_full = load_data(selected_sector)
 available_symbols = df_full['StockSymbol'].unique().tolist()
 selected_symbols_in_sector = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
 
-# Assuming df_full is the DataFrame containing the data
+# Automatically set the start date to the earliest available date for the selected symbol
 if not df_full.empty:
-    first_available_date = df_full.index.min().date()
-    latest_available_date = df_full.index.max().date()
+    first_available_date = df_full.index.min()
+    default_start_date = first_available_date.date()
 else:
-    first_available_date = datetime(2000, 1, 1).date()
-    latest_available_date = datetime.today().date()
+    default_start_date = datetime(2000, 1, 1).date()
+start_date = st.date_input('Ngày bắt đầu', default_start_date)
+end_date = st.date_input('Ngày kết thúc', datetime.today().date())
 
-# Limit the date selection to within the actual data range
-start_date = st.date_input('Ngày bắt đầu', first_available_date, min_value=first_available_date, max_value=latest_available_date)
-end_date = st.date_input('Ngày kết thúc', latest_available_date, min_value=first_available_date, max_value=latest_available_date)
+if start_date < end_date:
+    df_filtered = df_full[df_full['StockSymbol'].isin(selected_symbols_in_sector)]
+    df_filtered = df_filtered.loc[start_date:end_date]
 
-# Check if the end date is indeed after the start date
-if end_date < start_date:
-    st.error('Ngày kết thúc phải sau ngày bắt đầu!')
-else:
-    # Filter data based on the valid date range
-    df_filtered = df_full.loc[start_date:end_date]
-    
     # Calculate indicators and crashes
     df_filtered = calculate_indicators_and_crashes(df_filtered, strategies)
 
