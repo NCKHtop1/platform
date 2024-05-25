@@ -146,15 +146,12 @@ def calculate_indicators_and_crashes(df, strategies):
     # Calculate weekly returns and detect crashes
     df = calculate_weekly_returns_and_crashes(df)
 
-    peaks, _ = find_peaks(df['close'])
-    df['Peaks'] = df.index.isin(df.index[peaks])
-
     return df
 
 # Function to calculate weekly returns and detect crashes
 def calculate_weekly_returns_and_crashes(df):
     # Resample to weekly frequency, taking the last value of each week (Friday)
-    df_weekly = df['close'].resample('W-FRI').last()
+    df_weekly = df['close'].resample('W-FRI').last().dropna()
 
     # Calculate weekly returns
     df_weekly['Return'] = df_weekly.pct_change()
@@ -167,8 +164,9 @@ def calculate_weekly_returns_and_crashes(df):
     deviation_threshold = 3.09
     df_weekly['Crash'] = df_weekly['Return'] < (mean_return - deviation_threshold * std_return)
 
-    # Map weekly crash data back to daily data
+    # Align crash data back to the original dataframe
     df['Weekly_Crash'] = df.index.isin(df_weekly[df_weekly['Crash']].index)
+
     return df
 
 # Function to run backtesting using vectorbt's from_signals
