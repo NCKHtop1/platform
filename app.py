@@ -119,10 +119,14 @@ def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
 def calculate_indicators_and_crashes(df, strategies):
     if "MACD" in strategies:
         macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
-        df['MACD Line'] = macd['MACD_12_26_9']
-        df['Signal Line'] = macd['MACDs_12_26_9']
-        df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
-        df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
+        st.write(macd.head())  # Debugging line to check the macd dataframe
+        if 'MACD_12_26_9' in macd.columns and 'MACDs_12_26_9' in macd.columns:
+            df['MACD Line'] = macd['MACD_12_26_9']
+            df['Signal Line'] = macd['MACDs_12_26_9']
+            df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
+            df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
+        else:
+            st.error("MACD columns not found in the dataframe.")
 
     if "Supertrend" in strategies:
         supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
