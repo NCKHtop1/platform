@@ -353,7 +353,7 @@ if start_date < end_date:
                 st.write(symbols)
 
 # If the end date is before the start date, show an error
-if start_date > end date:
+if start_date > end_date:
     st.error('Lỗi: Ngày kết thúc phải sau ngày bắt đầu.')
 
 else:
