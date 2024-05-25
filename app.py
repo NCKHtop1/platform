@@ -237,7 +237,7 @@ if start_date < end_date:
     if 'Adjusted Buy' in symbol_data.columns and 'Adjusted Sell' in symbol_data.columns:
         portfolio = run_backtest(symbol_data, init_cash, fees, direction)
     else:
-        st.error("Adjusted signals not found. Please check the indicator calculations.")
+        st.error("Adjusted Buy/Sell signals not found. Please check the indicator calculations.")
 
     # Create tabs for different views
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
