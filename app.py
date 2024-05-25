@@ -219,7 +219,7 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
         selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
         selected_stocks.extend(selected_symbols)
 
-# Sidebar for Testing Parameters
+# Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
     init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000)
     fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
@@ -236,13 +236,21 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
     # Sidebar: Choose the strategies to apply
     strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
-    # Filter data for the selected stock symbol
-    selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
-    df_full = load_data(selected_sector)
-    available_symbols = df_full['StockSymbol'].unique().tolist()
-    selected_symbols_in_sector = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
+# Filter data for the selected stock symbol
+selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
+df_full = load_data(selected_sector)
+available_symbols = df_full['StockSymbol'].unique().tolist()
+selected_symbols_in_sector = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
 
-# Main Content: Results Display
+# Automatically set the start date to the earliest available date for the selected symbol
+if not df_full.empty:
+    first_available_date = df_full.index.min()
+    default_start_date = first_available_date.date()
+else:
+    default_start_date = datetime(2000, 1, 1).date()
+start_date = st.date_input('Ngày bắt đầu', default_start_date)
+end_date = st.date_input('Ngày kết thúc', datetime.today().date())
+
 if start_date < end_date:
     df_filtered = df_full[df_full['StockSymbol'].isin(selected_symbols_in_sector)]
     df_filtered = df_filtered.loc[start_date:end_date]
