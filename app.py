@@ -142,10 +142,9 @@ def calculate_indicators_and_crashes(df, strategies):
 
     if "RSI" in strategies:
         rsi = df.ta.rsi(close='close', length=14, append=True)
-        if 'RSI_14' in rsi.columns:
-            df['RSI'] = rsi['RSI_14']
-            df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
-            df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
+        df['RSI'] = rsi
+        df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
+        df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
     peaks, _ = find_peaks(df['close'])
     df['Peaks'] = df.index.isin(df.index[peaks])
