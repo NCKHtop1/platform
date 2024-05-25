@@ -154,6 +154,9 @@ def calculate_indicators_and_crashes(df, strategies):
     crash_threshold = 0.175
     df['Crash'] = drawdowns >= crash_threshold
 
+    # Filter crashes to keep only one per week (on Fridays)
+    df['Crash'] = df['Crash'] & (df.index.weekday == 4)
+
     # Adjust buy and sell signals based on crashes
     df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
                             (~df['Crash'].shift(1).fillna(False)))
@@ -350,7 +353,7 @@ if start_date < end_date:
                 st.write(symbols)
 
 # If the end date is before the start date, show an error
-if start_date > end_date:
+if start_date > end date:
     st.error('Lỗi: Ngày kết thúc phải sau ngày bắt đầu.')
 
 else:
