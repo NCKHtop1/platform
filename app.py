@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import vectorbt as vbt
 import pandas_ta as ta
@@ -74,46 +73,32 @@ def load_stock_symbols(sector):
     stock_symbols_df = df.drop_duplicates(subset='StockSymbol')
     return stock_symbols_df['StockSymbol'].tolist()
 
-# Ichimoku Oscillator Class
-class IchimokuOscillator:
-    def __init__(self, conversion_periods=8, base_periods=13, lagging_span2_periods=26, displacement=13):
-        self.conversion_periods = conversion_periods
-        self.base_periods = base_periods
-        self.lagging_span2_periods = lagging_span2_periods
-        self.displacement = displacement
+# Function to calculate weekly returns and detect crashes
+def calculate_weekly_returns_and_crashes(df):
+    # Ensure the dataframe has a datetime index, which is necessary for resampling
+    if not pd.api.types.is_datetime64_any_dtype(df.index):
+        df['Datetime'] = pd.to_datetime(df['Datetime'])
+        df.set_index('Datetime', inplace=True)
 
-    def donchian_channel(self, series, length):
-        lowest = series.rolling(window=length, min_periods=1).min()
-        highest = series.rolling(window=length, min_periods=1).max()
-        return (lowest + highest) / 2
+    # Resample to weekly frequency, taking the last value of each week
+    df_weekly = df['close'].resample('W-FRI').last()
 
-    def calculate(self, df):
-        df['conversion_line'] = self.donchian_channel(df['close'], self.conversion_periods)
-        df['base_line'] = self.donchian_channel(df['close'], self.base_periods)
-        df['leading_span_a'] = (df['conversion_line'] + df['base_line']) / 2
-        df['leading_span_b'] = self.donchian_channel(df['close'], self.lagging_span2_periods)
-        df['cloud_min'] = np.minimum(df['leading_span_a'].shift(self.displacement - 1), df['leading_span_b'].shift(self.displacement - 1))
-        df['cloud_max'] = np.maximum(df['leading_span_a'].shift(self.displacement - 1), df['leading_span_b'].shift(self.displacement - 1))
-        return df
+    # Calculate weekly returns and add them to the weekly dataframe
+    df_weekly['Weekly_Return'] = df_weekly.pct_change()
 
-# Function to calculate MACD signals
-def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
-    def ema(values, length):
-        alpha = 2 / (length + 1)
-        ema_values = np.zeros_like(values)
-        ema_values[0] = values[0]
-        for i in range(1, len(values)):
-            ema_values[i] = values[i] * alpha + ema_values[i - 1] * (1 - alpha)
-        return ema_values
+    # Compute the mean and standard deviation of weekly returns
+    mean_returns = df_weekly['Weekly_Return'].mean()
+    std_returns = df_weekly['Weekly_Return'].std()
 
-    fast_ma = ema(prices, fast_length)
-    slow_ma = ema(prices, slow_length)
-    macd_line = fast_ma - slow_ma
+    # Define crash based on the deviation threshold
+    deviation_threshold = 3.09  # This threshold can be adjusted as needed
+    df_weekly['Crash'] = df_weekly['Weekly_Return'] < (mean_returns - deviation_threshold * std_returns)
 
-    signal_line = ema(macd_line, signal_length)
-    histogram = macd_line - signal_line
+    # Create a crash column in the original daily dataframe
+    # We use reindex to align weekly crash data with the daily dataframe
+    df['Weekly_Crash'] = df_weekly['Crash'].reindex(df.index, method='ffill').fillna(False)
 
-    return macd_line, signal_line, histogram
+    return df
 
 # Function to calculate buy/sell signals and crashes
 def calculate_indicators_and_crashes(df, strategies):
@@ -144,35 +129,6 @@ def calculate_indicators_and_crashes(df, strategies):
         df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
     df = calculate_weekly_returns_and_crashes(df)
-
-    df['Adjusted Buy'] = df['MACD Buy']  # Example logic, adjust as necessary
-    df['Adjusted Sell'] = df['MACD Sell']  # Example logic, adjust as necessary
-
-    return df
-
-def calculate_weekly_returns_and_crashes(df):
-    # Ensure the dataframe has a datetime index, which is necessary for resampling
-    if not pd.api.types.is_datetime64_any_dtype(df.index):
-        df['Datetime'] = pd.to_datetime(df['Datetime'])
-        df.set_index('Datetime', inplace=True)
-
-    # Resample to weekly frequency, taking the last value of each week
-    df_weekly = df.resample('W-FRI').last()
-
-    # Calculate weekly returns and add them to the weekly dataframe
-    df_weekly['Weekly_Return'] = df_weekly['close'].pct_change()
-
-    # Compute the mean and standard deviation of weekly returns
-    mean_returns = df_weekly['Weekly_Return'].mean()
-    std_returns = df_weekly['Weekly_Return'].std()
-
-    # Define crash based on the deviation threshold
-    deviation_threshold = 3.09  # This threshold can be adjusted as needed
-    df_weekly['Crash'] = df_weekly['Weekly_Return'] < (mean_returns - deviation_threshold * std_returns)
-
-    # Create a crash column in the original daily dataframe
-    # We use reindex to align weekly crash data with the daily dataframe
-    df['Weekly_Crash'] = df_weekly['Crash'].reindex(df.index, method='ffill').fillna(False)
 
     return df
 
@@ -237,136 +193,137 @@ if start_date < end_date:
     # Calculate indicators, weekly returns, and crashes
     symbol_data = calculate_indicators_and_crashes(symbol_data, strategies)
 
-    # Run backtest
-    portfolio = run_backtest(symbol_data, init_cash, fees, direction)
+    if 'Adjusted Buy' in symbol_data.columns and 'Adjusted Sell' in symbol_data.columns:
+        portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
-    # Create tabs for different views
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
+        # Create tabs for different views
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
 
-    with tab1:
-        st.markdown("**Tóm tắt:**")
-        st.markdown("Tab này hiển thị các chỉ số quan trọng như tổng lợi nhuận, tỷ lệ thắng, và mức sụt giảm tối đa.")
-        summary_stats = portfolio.stats().loc[['Total Return [%]', 'Win Rate [%]', 'Max Drawdown [%]']]
-        metrics_vi_summary = {
-            'Total Return [%]': 'Tổng lợi nhuận [%]',
-            'Win Rate [%]': 'Tỷ lệ thắng [%]',
-            'Max Drawdown [%]': 'Mức sụt giảm tối đa [%]'
-        }
-        summary_stats.rename(index=metrics_vi_summary, inplace=True)
+        with tab1:
+            st.markdown("**Tóm tắt:**")
+            st.markdown("Tab này hiển thị các chỉ số quan trọng như tổng lợi nhuận, tỷ lệ thắng, và mức sụt giảm tối đa.")
+            summary_stats = portfolio.stats()[['Total Return [%]', 'Win Rate [%]', 'Max Drawdown [%]']]
+            metrics_vi_summary = {
+                'Total Return [%]': 'Tổng lợi nhuận [%]',
+                'Win Rate [%]': 'Tỷ lệ thắng [%]',
+                'Max Drawdown [%]': 'Mức sụt giảm tối đa [%]'
+            }
+            summary_stats.rename(index=metrics_vi_summary, inplace=True)
 
-        for index, value in summary_stats.items():
-            st.markdown(f'<div class="highlight">{index}: {value}</div>', unsafe_allow_html=True)
+            for index, value in summary_stats.items():
+                st.markdown(f'<div class="highlight">{index}: {value}</div>', unsafe_allow_html=True)
 
-        # Add crash details
-        crash_details = symbol_data[symbol_data['Weekly_Crash']][['close']]
-        crash_details.reset_index(inplace=True)
-        crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
-        st.markdown("**Danh sách các điểm crash:**")
-        st.dataframe(crash_details, height=200)
+            # Add crash details
+            crash_details = symbol_data[symbol_data['Weekly_Crash']][['close']]
+            crash_details.reset_index(inplace=True)
+            crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
+            st.markdown("**Danh sách các điểm crash:**")
+            st.dataframe(crash_details, height=200)
 
-    with tab2:
-        st.markdown("**Chi tiết kết quả kiểm thử:**")
-        st.markdown("Tab này hiển thị hiệu suất tổng thể của chiến lược giao dịch đã chọn. \
-                    Bạn sẽ tìm thấy các chỉ số quan trọng như tổng lợi nhuận, lợi nhuận/lỗ, và các thống kê liên quan khác.")
-        stats_df = pd.DataFrame(portfolio.stats(), columns=['Giá trị'])
-        stats_df.index.name = 'Chỉ số'
-        metrics_vi = {
-            'Start Value': 'Giá trị ban đầu',
-            'End Value': 'Giá trị cuối cùng',
-            'Total Return [%]': 'Tổng lợi nhuận [%]',
-            'Max Drawdown [%]': 'Mức giảm tối đa [%]',
-            'Total Trades': 'Tổng số giao dịch',
-            'Win Rate [%]': 'Tỷ lệ thắng [%]',
-            'Best Trade [%]': 'Giao dịch tốt nhất [%]',
-            'Worst Trade [%]': 'Giao dịch tệ nhất [%]',
-            'Profit Factor': 'Hệ số lợi nhuận',
-            'Expectancy': 'Kỳ vọng',
-            'Sharpe Ratio': 'Tỷ lệ Sharpe',
-            'Sortino Ratio': 'Tỷ lệ Sortino',
-            'Calmar Ratio': 'Tỷ lệ Calmar'
-        }
-        stats_df.rename(index=metrics_vi, inplace=True)
-        st.dataframe(stats_df, height=800)
+        with tab2:
+            st.markdown("**Chi tiết kết quả kiểm thử:**")
+            st.markdown("Tab này hiển thị hiệu suất tổng thể của chiến lược giao dịch đã chọn. \
+                        Bạn sẽ tìm thấy các chỉ số quan trọng như tổng lợi nhuận, lợi nhuận/lỗ, và các thống kê liên quan khác.")
+            stats_df = pd.DataFrame(portfolio.stats(), columns=['Giá trị'])
+            stats_df.index.name = 'Chỉ số'
+            metrics_vi = {
+                'Start Value': 'Giá trị ban đầu',
+                'End Value': 'Giá trị cuối cùng',
+                'Total Return [%]': 'Tổng lợi nhuận [%]',
+                'Max Drawdown [%]': 'Mức giảm tối đa [%]',
+                'Total Trades': 'Tổng số giao dịch',
+                'Win Rate [%]': 'Tỷ lệ thắng [%]',
+                'Best Trade [%]': 'Giao dịch tốt nhất [%]',
+                'Worst Trade [%]': 'Giao dịch tệ nhất [%]',
+                'Profit Factor': 'Hệ số lợi nhuận',
+                'Expectancy': 'Kỳ vọng',
+                'Sharpe Ratio': 'Tỷ lệ Sharpe',
+                'Sortino Ratio': 'Tỷ lệ Sortino',
+                'Calmar Ratio': 'Tỷ lệ Calmar'
+            }
+            stats_df.rename(index=metrics_vi, inplace=True)
+            st.dataframe(stats_df, height=800)
 
-    with tab3:
-        st.markdown("**Tổng hợp lệnh mua/bán:**")
-        st.markdown("Tab này cung cấp danh sách chi tiết của tất cả các lệnh mua/bán được thực hiện bởi chiến lược. \
-                    Bạn có thể phân tích các điểm vào và ra của từng giao dịch, cùng với lợi nhuận hoặc lỗ.")
-        trades_df = portfolio.trades.records_readable
-        trades_df = trades_df.round(2)
-        trades_df.index.name = 'Số giao dịch'
-        trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
-        st.dataframe(trades_df, width=800, height=600)
+        with tab3:
+            st.markdown("**Tổng hợp lệnh mua/bán:**")
+            st.markdown("Tab này cung cấp danh sách chi tiết của tất cả các lệnh mua/bán được thực hiện bởi chiến lược. \
+                        Bạn có thể phân tích các điểm vào và ra của từng giao dịch, cùng với lợi nhuận hoặc lỗ.")
+            trades_df = portfolio.trades.records_readable
+            trades_df = trades_df.round(2)
+            trades_df.index.name = 'Số giao dịch'
+            trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
+            st.dataframe(trades_df, width=800, height=600)
 
-    equity_data = portfolio.value()
-    drawdown_data = portfolio.drawdown() * 100
+        equity_data = portfolio.value()
+        drawdown_data = portfolio.drawdown() * 100
 
-    with tab4:
-        equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Giá trị', line=dict(color='green'))
-        equity_fig = go.Figure(data=[equity_trace])
-        equity_fig.update_layout(
-            title='Đường cong giá trị',
-            xaxis_title='Ngày',
-            yaxis_title='Giá trị',
-            width=800,
-            height=600
-        )
-        st.plotly_chart(equity_fig)
-        st.markdown("**Đường cong giá trị:**")
-        st.markdown("Biểu đồ này hiển thị sự tăng trưởng giá trị danh mục của bạn theo thời gian, \
-                    cho phép bạn thấy cách chiến lược hoạt động trong các điều kiện thị trường khác nhau.")
+        with tab4:
+            equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Giá trị', line=dict(color='green'))
+            equity_fig = go.Figure(data=[equity_trace])
+            equity_fig.update_layout(
+                title='Đường cong giá trị',
+                xaxis_title='Ngày',
+                yaxis_title='Giá trị',
+                width=800,
+                height=600
+            )
+            st.plotly_chart(equity_fig)
+            st.markdown("**Đường cong giá trị:**")
+            st.markdown("Biểu đồ này hiển thị sự tăng trưởng giá trị danh mục của bạn theo thời gian, \
+                        cho phép bạn thấy cách chiến lược hoạt động trong các điều kiện thị trường khác nhau.")
 
-    with tab5:
-        drawdown_trace = go.Scatter(
-            x=drawdown_data.index,
-            y=drawdown_data,
-            mode='lines',
-            name='Mức sụt giảm tối đa',
-            fill='tozeroy',
-            line=dict(color='red')
-        )
-        drawdown_fig = go.Figure(data=[drawdown_trace])
-        drawdown_fig.update_layout(
-            title='Mức sụt giảm tối đa',
-            xaxis_title='Ngày',
-            yaxis_title='% Mức sụt giảm tối đa',
-            template='plotly_white',
-            width=800,
-            height=600
-        )
-        st.plotly_chart(drawdown_fig)
-        st.markdown("**Mức sụt giảm tối đa:**")
-        st.markdown("Biểu đồ này minh họa sự sụt giảm từ đỉnh đến đáy của danh mục của bạn, \
-                    giúp bạn hiểu rõ hơn về tiềm năng thua lỗ của chiến lược.")
+        with tab5:
+            drawdown_trace = go.Scatter(
+                x=drawdown_data.index,
+                y=drawdown_data,
+                mode='lines',
+                name='Mức sụt giảm tối đa',
+                fill='tozeroy',
+                line=dict(color='red')
+            )
+            drawdown_fig = go.Figure(data=[drawdown_trace])
+            drawdown_fig.update_layout(
+                title='Mức sụt giảm tối đa',
+                xaxis_title='Ngày',
+                yaxis_title='% Mức sụt giảm tối đa',
+                template='plotly_white',
+                width=800,
+                height=600
+            )
+            st.plotly_chart(drawdown_fig)
+            st.markdown("**Mức sụt giảm tối đa:**")
+            st.markdown("Biểu đồ này minh họa sự sụt giảm từ đỉnh đến đáy của danh mục của bạn, \
+                        giúp bạn hiểu rõ hơn về tiềm năng thua lỗ của chiến lược.")
 
-    with tab6:
-        fig = portfolio.plot()
-        crash_df = symbol_data[symbol_data['Weekly_Crash']]
-        fig.add_scatter(
-            x=crash_df.index,
-            y=crash_df['close'],
-            mode='markers',
-            marker=dict(color='orange', size=10, symbol='triangle-down'),
-            name='Sụt giảm'
-        )
-        st.markdown("**Biểu đồ:**")
-        st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các tín hiệu mua/bán và cảnh báo sụp đổ tiềm năng, \
-                    cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
-        st.plotly_chart(fig, use_container_width=True)
+        with tab6:
+            fig = portfolio.plot()
+            crash_df = symbol_data[symbol_data['Weekly_Crash']]
+            fig.add_scatter(
+                x=crash_df.index,
+                y=crash_df['close'],
+                mode='markers',
+                marker=dict(color='orange', size=10, symbol='triangle-down'),
+                name='Sụt giảm'
+            )
+            st.markdown("**Biểu đồ:**")
+            st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các tín hiệu mua/bán và cảnh báo sụp đổ tiềm năng, \
+                        cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
+            st.plotly_chart(fig, use_container_width=True)
 
-    with tab7:
-        st.markdown("**Danh mục đầu tư:**")
-        st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
-        if portfolio_options:
-            stock = Vnstock()
-            for portfolio_option in portfolio_options:
-                st.markdown(f"**{portfolio_option}:**")
-                symbols = stock.listing.symbols_by_group(portfolio_option)
-                st.write(symbols)
+        with tab7:
+            st.markdown("**Danh mục đầu tư:**")
+            st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
+            if portfolio_options:
+                stock = Vnstock()
+                for portfolio_option in portfolio_options:
+                    st.markdown(f"**{portfolio_option}:**")
+                    symbols = stock.listing.symbols_by_group(portfolio_option)
+                    st.write(symbols)
+    else:
+        st.error('Thiếu các tín hiệu mua/bán. Vui lòng kiểm tra lại các tính toán chỉ báo.')
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
     st.error('Lỗi: Ngày kết thúc phải sau ngày bắt đầu.')
-
 else:
     st.write("Vui lòng chọn khoảng thời gian hợp lệ để xem kết quả.")
