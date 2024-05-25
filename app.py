@@ -248,8 +248,7 @@ if not df_full.empty:
     default_start_date = first_available_date.date()
 else:
     default_start_date = datetime(2000, 1, 1).date()
-start_date = st.date_input('Ngày bắt đầu', default_start_date)
-end_date = st.date_input('Ngày kết thúc', datetime.today().date())
+start_date = st.date_input('Ngày bắt đầu', default_start_date); end_date = st.date_input('Ngày kết thúc', datetime.today().date())
 
 if start_date < end_date:
     df_filtered = df_full[df_full['StockSymbol'].isin(selected_symbols_in_sector)]
