@@ -255,8 +255,9 @@ if start_date < end_date:
     # Run backtest
     portfolio = run_backtest(df_filtered, init_cash, fees, direction)
 
-    # Check if portfolio has entries and exits
-    if portfolio.positions.shape[0] > 0:
+    if portfolio.total_records == 0:
+        st.error('Không có giao dịch nào được thực hiện trong khoảng thời gian này.')
+    else:
         # Create tabs for different views
         tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
 
@@ -393,7 +394,9 @@ if start_date < end_date:
             fig, ax = plt.subplots(figsize=(10, len(crash_likelihoods_df) / 2))
             sns.heatmap(crash_likelihoods_df, annot=True, cmap='RdYlGn_r', ax=ax)
             st.pyplot(fig)
-    else:
-        st.warning("Không có dữ liệu giao dịch nào trong khoảng thời gian đã chọn.")
-else:
+
+# If the end date is before the start date, show an error
+if start_date > end_date:
     st.error('Lỗi: Ngày kết thúc phải sau ngày bắt đầu.')
+else:
+    st.write("Vui lòng chọn khoảng thời gian hợp lệ để xem kết quả.")
