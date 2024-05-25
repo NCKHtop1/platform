@@ -245,11 +245,22 @@ selected_symbols_in_sector = st.multiselect('Chọn mã cổ phiếu trong ngàn
 # Automatically set the start date to the earliest available date for the selected symbol
 if not df_full.empty:
     first_available_date = df_full.index.min()
+    latest_available_date = df_full.index.max()
     default_start_date = first_available_date.date()
+    default_end_date = latest_available_date.date()
 else:
     default_start_date = datetime(2000, 1, 1).date()
+    default_end_date = datetime.today().date()
+
 start_date = st.date_input('Ngày bắt đầu', default_start_date)
-end_date = st.date_input('Ngày kết thúc', datetime.today().date())
+end_date = st.date_input('Ngày kết thúc', default_end_date)
+
+# Ensure the end date is always after the start date
+if end_date < start_date:
+    st.error('Ngày kết thúc phải sau ngày bắt đầu!')
+
+# Optionally display the selected date range
+st.write(f"Phạm vi đã chọn từ {start_date} đến {end_date}")
 
 if start_date < end_date:
     df_filtered = df_full[df_full['StockSymbol'].isin(selected_symbols_in_sector)]
