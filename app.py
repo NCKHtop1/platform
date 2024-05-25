@@ -74,21 +74,6 @@ def load_stock_symbols(sector):
     stock_symbols_df = df.drop_duplicates(subset='StockSymbol')
     return stock_symbols_df['StockSymbol'].tolist()
 
-# Function to calculate weekly returns and detect crashes
-def calculate_weekly_returns_and_crashes(df):
-    df['Return'] = df['close'].pct_change()
-    df_weekly = df['Return'].resample('W-FRI').sum()
-
-    mean_returns = df_weekly.mean()
-    std_returns = df_weekly.std()
-    deviation_threshold = 3.09
-
-    df_weekly['Crash'] = df_weekly < (mean_returns - deviation_threshold * std_returns)
-    crash_dates = df_weekly[df_weekly['Crash']].index
-
-    df['Weekly_Crash'] = df.index.isin(crash_dates)
-    return df
-
 # Ichimoku Oscillator Class
 class IchimokuOscillator:
     def __init__(self, conversion_periods=8, base_periods=13, lagging_span2_periods=26, displacement=13):
@@ -130,8 +115,39 @@ def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
 
     return macd_line, signal_line, histogram
 
+# Function to calculate weekly returns and detect crashes
+def calculate_weekly_returns_and_crashes(df):
+    # Resample to weekly frequency, taking the last value of each week (Friday)
+    df_weekly = df['close'].resample('W-FRI').last()
+
+    # Calculate weekly returns
+    df_weekly['Return'] = df_weekly.pct_change()
+
+    # Compute mean and standard deviation of weekly returns
+    mean_return = df_weekly['Return'].mean()
+    std_return = df_weekly['Return'].std()
+
+    # Define crash criterion
+    deviation_threshold = 3.09
+    df_weekly['Crash'] = df_weekly['Return'] < (mean_return - deviation_threshold * std_return)
+
+    # Forward-fill peak prices to compute drawdowns
+    peak_prices = df_weekly['close'].where(df_weekly['Crash']).ffill()
+    drawdowns = (peak_prices - df_weekly['close']) / peak_prices
+
+    # Mark significant drawdowns as crashes
+    crash_threshold = 0.175
+    df_weekly['Weekly_Crash'] = drawdowns >= crash_threshold
+
+    crash_dates = df_weekly[df_weekly['Weekly_Crash']].index
+    df['Weekly_Crash'] = df.index.isin(crash_dates)
+
+    return df
+
 # Function to calculate buy/sell signals and crashes
 def calculate_indicators_and_crashes(df, strategies):
+    df = calculate_weekly_returns_and_crashes(df)
+    
     if "MACD" in strategies:
         macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
         df['MACD Line'] = macd['MACD_12_26_9']
@@ -158,13 +174,9 @@ def calculate_indicators_and_crashes(df, strategies):
         df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
         df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
-    df = calculate_weekly_returns_and_crashes(df)
+    peaks, _ = find_peaks(df['close'])
+    df['Peaks'] = df.index.isin(df.index[peaks])
 
-    # Adjust buy and sell signals based on crashes
-    df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
-                            (~df['Weekly_Crash'].shift(1).fillna(False)))
-    df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
-                           (~df['Weekly_Crash'].shift(1).fillna(False)))
     return df
 
 # Function to run backtesting using vectorbt's from_signals
@@ -225,7 +237,7 @@ end_date = st.sidebar.date_input('Ngày kết thúc', datetime.today().date())
 if start_date < end_date:
     symbol_data = symbol_data.loc[start_date:end_date]
 
-    # Calculate MACD, Ichimoku, and crash signals
+    # Calculate indicators, weekly returns, and crashes
     symbol_data = calculate_indicators_and_crashes(symbol_data, strategies)
 
     # Run backtest
