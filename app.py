@@ -117,20 +117,12 @@ def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
 
 # Function to calculate buy/sell signals and crashes
 def calculate_indicators_and_crashes(df, strategies):
-    # Example of calculating MACD
     if "MACD" in strategies:
         macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
         df['MACD Line'] = macd['MACD_12_26_9']
         df['Signal Line'] = macd['MACDs_12_26_9']
         df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
         df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
-
-    # Define adjusted buy/sell signals
-    df['Adjusted Buy'] = df['MACD Buy']  # Example logic, adjust as necessary
-    df['Adjusted Sell'] = df['MACD Sell']  # Example logic, adjust as necessary
-
-    return df
-
 
     if "Supertrend" in strategies:
         supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
@@ -152,6 +144,12 @@ def calculate_indicators_and_crashes(df, strategies):
         df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
     df = calculate_weekly_returns_and_crashes(df)
+
+    # Adjust buy and sell signals based on crashes
+    df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
+                            (~df['Weekly_Crash'].shift(1).fillna(False)))
+    df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
+                           (~df['Weekly_Crash'].shift(1).fillna(False)))
 
     return df
 
@@ -242,10 +240,10 @@ if start_date < end_date:
     # Calculate indicators, weekly returns, and crashes
     symbol_data = calculate_indicators_and_crashes(symbol_data, strategies)
 
-if 'Adjusted Buy' in symbol_data.columns and 'Adjusted Sell' in symbol_data.columns:
-    portfolio = run_backtest(symbol_data, init_cash, fees, direction)
-else:
-    print("Adjusted signals not found. Please check the indicator calculations.")
+    if 'Adjusted Buy' in symbol_data.columns and 'Adjusted Sell' in symbol_data.columns:
+        portfolio = run_backtest(symbol_data, init_cash, fees, direction)
+    else:
+        st.error("Adjusted signals not found. Please check the indicator calculations.")
 
     # Create tabs for different views
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
