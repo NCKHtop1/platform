@@ -34,7 +34,7 @@ st.markdown("""
         height: auto;
         display: block;
         margin-left: auto;
-        margin-right: auto;
+        margin-right: auto.
     }
     </style>
     """, unsafe_allow_html=True)
@@ -141,11 +141,9 @@ def calculate_indicators_and_crashes(df, strategies):
             df['Stochastic Sell'] = (df['Stochastic K'] < df['Stochastic D']) & (df['Stochastic K'].shift(1) >= df['Stochastic D'].shift(1))
 
     if "RSI" in strategies:
-        rsi = df.ta.rsi(close='close', length=14, append=True)
-        if 'RSI_14' in rsi.columns:
-            df['RSI'] = rsi['RSI_14']
-            df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
-            df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
+        df['RSI'] = ta.rsi(df['close'], length=14)
+        df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
+        df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
     peaks, _ = find_peaks(df['close'])
     df['Peaks'] = df.index.isin(df.index[peaks])
