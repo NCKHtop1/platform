@@ -117,12 +117,16 @@ def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
 
 # Function to calculate buy/sell signals and crashes
 def calculate_indicators_and_crashes(df, strategies):
+    # Debug statements to ensure columns are being created
+    st.write("Calculating indicators...")
+
     if "MACD" in strategies:
         macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
         df['MACD Line'] = macd['MACD_12_26_9']
         df['Signal Line'] = macd['MACDs_12_26_9']
         df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
         df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
+        st.write("MACD columns created:", df[['MACD Line', 'Signal Line', 'MACD Buy', 'MACD Sell']].head())
 
     if "Supertrend" in strategies:
         supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
@@ -145,8 +149,9 @@ def calculate_indicators_and_crashes(df, strategies):
 
     df = calculate_weekly_returns_and_crashes(df)
 
-    df['Adjusted Buy'] = df['MACD Buy']  # Example logic, adjust as necessary
-    df['Adjusted Sell'] = df['MACD Sell']  # Example logic, adjust as necessary
+    # Check if the necessary columns exist before assignment
+    df['Adjusted Buy'] = df.get('MACD Buy', False)
+    df['Adjusted Sell'] = df.get('MACD Sell', False)
 
     return df
 
