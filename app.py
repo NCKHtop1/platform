@@ -255,7 +255,7 @@ if start_date < end_date:
     # Run backtest
     portfolio = run_backtest(df_filtered, init_cash, fees, direction)
 
-    if portfolio.total_records == 0:
+    if len(portfolio.records) == 0:
         st.error('Không có giao dịch nào được thực hiện trong khoảng thời gian này.')
     else:
         # Create tabs for different views
