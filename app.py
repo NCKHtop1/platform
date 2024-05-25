@@ -145,12 +145,6 @@ def calculate_indicators_and_crashes(df, strategies):
 
     df = calculate_weekly_returns_and_crashes(df)
 
-    # Adjust buy and sell signals based on crashes
-    df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
-                            (~df['Weekly_Crash'].shift(1).fillna(False)))
-    df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
-                           (~df['Weekly_Crash'].shift(1).fillna(False)))
-
     return df
 
 def calculate_weekly_returns_and_crashes(df):
@@ -175,7 +169,7 @@ def calculate_weekly_returns_and_crashes(df):
 
     # Create a crash column in the original daily dataframe
     # We use reindex to align weekly crash data with the daily dataframe
-    df['Weekly_Crash'] = df_weekly['Crash'].reindex(df.index, method='ffill')
+    df['Weekly_Crash'] = df_weekly['Crash'].reindex(df.index, method='ffill').fillna(False)
 
     return df
 
