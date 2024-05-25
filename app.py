@@ -117,16 +117,12 @@ def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
 
 # Function to calculate buy/sell signals and crashes
 def calculate_indicators_and_crashes(df, strategies):
-    # Debug statements to ensure columns are being created
-    st.write("Calculating indicators...")
-
     if "MACD" in strategies:
         macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
         df['MACD Line'] = macd['MACD_12_26_9']
         df['Signal Line'] = macd['MACDs_12_26_9']
         df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
         df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
-        st.write("MACD columns created:", df[['MACD Line', 'Signal Line', 'MACD Buy', 'MACD Sell']].head())
 
     if "Supertrend" in strategies:
         supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
@@ -147,38 +143,22 @@ def calculate_indicators_and_crashes(df, strategies):
         df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
         df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
-    df = calculate_weekly_returns_and_crashes(df)
+    peaks, _ = find_peaks(df['close'])
+    df['Peaks'] = df.index.isin(df.index[peaks])
 
-    # Check if the necessary columns exist before assignment
-    df['Adjusted Buy'] = df.get('MACD Buy', False)
-    df['Adjusted Sell'] = df.get('MACD Sell', False)
+    # Forward-fill peak prices to compute drawdowns
+    peak_prices = df['close'].where(df['Peaks']).ffill()
+    drawdowns = (peak_prices - df['close']) / peak_prices
 
-    return df
+    # Mark significant drawdowns as crashes
+    crash_threshold = 0.175
+    df['Crash'] = drawdowns >= crash_threshold
 
-def calculate_weekly_returns_and_crashes(df):
-    # Ensure the dataframe has a datetime index, which is necessary for resampling
-    if not pd.api.types.is_datetime64_any_dtype(df.index):
-        df['Datetime'] = pd.to_datetime(df['Datetime'])
-        df.set_index('Datetime', inplace=True)
-
-    # Resample to weekly frequency, taking the last value of each week
-    df_weekly = df.resample('W-FRI').last()
-
-    # Calculate weekly returns and add them to the weekly dataframe
-    df_weekly['Weekly_Return'] = df_weekly['close'].pct_change()
-
-    # Compute the mean and standard deviation of weekly returns
-    mean_returns = df_weekly['Weekly_Return'].mean()
-    std_returns = df_weekly['Weekly_Return'].std()
-
-    # Define crash based on the deviation threshold
-    deviation_threshold = 3.09  # This threshold can be adjusted as needed
-    df_weekly['Crash'] = df_weekly['Weekly_Return'] < (mean_returns - deviation_threshold * std_returns)
-
-    # Create a crash column in the original daily dataframe
-    # We use reindex to align weekly crash data with the daily dataframe
-    df['Weekly_Crash'] = df_weekly['Crash'].reindex(df.index, method='ffill').fillna(False)
-
+    # Adjust buy and sell signals based on crashes
+    df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
+                            (~df['Crash'].shift(1).fillna(False)))
+    df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
+                           (~df['Crash'].shift(1).fillna(False)))
     return df
 
 # Function to run backtesting using vectorbt's from_signals
@@ -239,7 +219,7 @@ end_date = st.sidebar.date_input('Ngày kết thúc', datetime.today().date())
 if start_date < end_date:
     symbol_data = symbol_data.loc[start_date:end_date]
 
-    # Calculate indicators, weekly returns, and crashes
+    # Calculate MACD, Ichimoku, and crash signals
     symbol_data = calculate_indicators_and_crashes(symbol_data, strategies)
 
     # Run backtest
@@ -251,7 +231,7 @@ if start_date < end_date:
     with tab1:
         st.markdown("**Tóm tắt:**")
         st.markdown("Tab này hiển thị các chỉ số quan trọng như tổng lợi nhuận, tỷ lệ thắng, và mức sụt giảm tối đa.")
-        summary_stats = portfolio.stats().loc[['Total Return [%]', 'Win Rate [%]', 'Max Drawdown [%]']]
+        summary_stats = portfolio.stats()[['Total Return [%]', 'Win Rate [%]', 'Max Drawdown [%]']]
         metrics_vi_summary = {
             'Total Return [%]': 'Tổng lợi nhuận [%]',
             'Win Rate [%]': 'Tỷ lệ thắng [%]',
@@ -263,7 +243,7 @@ if start_date < end_date:
             st.markdown(f'<div class="highlight">{index}: {value}</div>', unsafe_allow_html=True)
 
         # Add crash details
-        crash_details = symbol_data[symbol_data['Weekly_Crash']][['close']]
+        crash_details = symbol_data[symbol_data['Crash']][['close']]
         crash_details.reset_index(inplace=True)
         crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
         st.markdown("**Danh sách các điểm crash:**")
@@ -346,7 +326,7 @@ if start_date < end_date:
 
     with tab6:
         fig = portfolio.plot()
-        crash_df = symbol_data[symbol_data['Weekly_Crash']]
+        crash_df = symbol_data[symbol_data['Crash']]
         fig.add_scatter(
             x=crash_df.index,
             y=crash_df['close'],
