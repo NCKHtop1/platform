@@ -143,7 +143,6 @@ def calculate_indicators_and_crashes(df, strategies):
         df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
         df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
-    # Calculate weekly returns and detect crashes
     df = calculate_weekly_returns_and_crashes(df)
 
     return df
@@ -151,7 +150,7 @@ def calculate_indicators_and_crashes(df, strategies):
 # Function to calculate weekly returns and detect crashes
 def calculate_weekly_returns_and_crashes(df):
     # Resample to weekly frequency, taking the last value of each week (Friday)
-    df_weekly = df['close'].resample('W-FRI').last().dropna()
+    df_weekly = df['close'].resample('W-FRI').last()
 
     # Calculate weekly returns
     df_weekly['Return'] = df_weekly.pct_change()
@@ -164,7 +163,7 @@ def calculate_weekly_returns_and_crashes(df):
     deviation_threshold = 3.09
     df_weekly['Crash'] = df_weekly['Return'] < (mean_return - deviation_threshold * std_return)
 
-    # Align crash data back to the original dataframe
+    # Merge the weekly crash information back into the daily data
     df['Weekly_Crash'] = df.index.isin(df_weekly[df_weekly['Crash']].index)
 
     return df
