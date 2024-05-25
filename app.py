@@ -145,6 +145,9 @@ def calculate_indicators_and_crashes(df, strategies):
 
     df = calculate_weekly_returns_and_crashes(df)
 
+    df['Adjusted Buy'] = df['MACD Buy']  # Example logic, adjust as necessary
+    df['Adjusted Sell'] = df['MACD Sell']  # Example logic, adjust as necessary
+
     return df
 
 def calculate_weekly_returns_and_crashes(df):
@@ -234,10 +237,8 @@ if start_date < end_date:
     # Calculate indicators, weekly returns, and crashes
     symbol_data = calculate_indicators_and_crashes(symbol_data, strategies)
 
-    if 'Adjusted Buy' in symbol_data.columns and 'Adjusted Sell' in symbol_data.columns:
-        portfolio = run_backtest(symbol_data, init_cash, fees, direction)
-    else:
-        st.error("Adjusted Buy/Sell signals not found. Please check the indicator calculations.")
+    # Run backtest
+    portfolio = run_backtest(symbol_data, init_cash, fees, direction)
 
     # Create tabs for different views
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
@@ -245,7 +246,7 @@ if start_date < end_date:
     with tab1:
         st.markdown("**Tóm tắt:**")
         st.markdown("Tab này hiển thị các chỉ số quan trọng như tổng lợi nhuận, tỷ lệ thắng, và mức sụt giảm tối đa.")
-        summary_stats = portfolio.stats()[['Total Return [%]', 'Win Rate [%]', 'Max Drawdown [%]']]
+        summary_stats = portfolio.stats().loc[['Total Return [%]', 'Win Rate [%]', 'Max Drawdown [%]']]
         metrics_vi_summary = {
             'Total Return [%]': 'Tổng lợi nhuận [%]',
             'Win Rate [%]': 'Tỷ lệ thắng [%]',
