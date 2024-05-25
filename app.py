@@ -186,7 +186,7 @@ portfolio_options = st.sidebar.multiselect('Chọn danh mục', ['VN100', 'VN30'
 
 # Portfolio tab
 st.sidebar.header('Thông số kiểm tra')
-init_cash = st.sidebar.number_input('Vốn đầu tư ($):', min_value=1000, max_value=1_000_000, value=100_000, step=1000)
+init_cash = st.sidebar.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000)
 fees = st.sidebar.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
 direction_vi = st.sidebar.selectbox("Vị thế", ["Mua", "Bán"], index=0)
 direction = "longonly" if direction_vi == "Mua" else "shortonly"
@@ -242,6 +242,13 @@ if start_date < end_date:
         for index, value in summary_stats.items():
             st.markdown(f'<div class="highlight">{index}: {value}</div>', unsafe_allow_html=True)
 
+        # Add crash details
+        crash_details = symbol_data[symbol_data['Crash']][['close']]
+        crash_details.reset_index(inplace=True)
+        crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
+        st.markdown("**Danh sách các điểm crash:**")
+        st.dataframe(crash_details, height=200)
+
     with tab2:
         st.markdown("**Chi tiết kết quả kiểm thử:**")
         st.markdown("Tab này hiển thị hiệu suất tổng thể của chiến lược giao dịch đã chọn. \
@@ -265,13 +272,6 @@ if start_date < end_date:
         }
         stats_df.rename(index=metrics_vi, inplace=True)
         st.dataframe(stats_df, height=800)
-        
-        # Add crash details
-        crash_details = symbol_data[symbol_data['Crash']][['close']]
-        crash_details.reset_index(inplace=True)
-        crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
-        st.markdown("**Danh sách các điểm crash:**")
-        st.dataframe(crash_details, height=200)
 
     with tab3:
         st.markdown("**Tổng hợp lệnh mua/bán:**")
