@@ -4,6 +4,7 @@ import numpy as np
 from datetime import datetime
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
+import plotly.express as px
 import seaborn as sns
 import matplotlib.pyplot as plt
 import vectorbt as vbt
@@ -15,7 +16,7 @@ if "ACCEPT_TC" not in os.environ:
     os.environ["ACCEPT_TC"] = "tôi đồng ý"
 
 # Check if the image file exists
-image_path = 'image.png'
+image_path = '/mnt/data/image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
 else:
@@ -34,7 +35,7 @@ st.markdown("""
         height: auto;
         display: block;
         margin-left: auto;
-        margin-right: auto.
+        margin-right: auto;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -390,14 +391,16 @@ if start_date < end_date:
             stock_df = df_filtered[df_filtered['StockSymbol'] == stock]
             crash_likelihoods[stock] = calculate_crash_likelihood(stock_df)
 
-        # Plot heatmap
+        # Plot heatmap using Plotly
         if crash_likelihoods:
             st.markdown("**Xác suất sụt giảm:**")
             crash_likelihoods_df = pd.DataFrame(list(crash_likelihoods.items()), columns=['Stock', 'Crash Likelihood'])
             crash_likelihoods_df.set_index('Stock', inplace=True)
-            fig, ax = plt.subplots(figsize=(10, len(crash_likelihoods_df) / 2))
-            sns.heatmap(crash_likelihoods_df, annot=True, cmap='RdYlGn_r', ax=ax)
-            st.pyplot(fig)
+            heatmap_fig = px.imshow(crash_likelihoods_df.T, 
+                                    color_continuous_scale=['green', 'red'],
+                                    aspect='auto',
+                                    labels=dict(color='Crash Likelihood'))
+            st.plotly_chart(heatmap_fig)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
