@@ -4,10 +4,11 @@ import numpy as np
 from datetime import datetime
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
+import seaborn as sns
+import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 import os
-from vnstock3 import Vnstock
 
 # Accept the terms and conditions for vnstock3
 if "ACCEPT_TC" not in os.environ:
@@ -68,11 +69,10 @@ def load_data(sector):
 
 # Load unique stock symbols
 @st.cache_data
-def load_stock_symbols(sector):
-    file_path = SECTOR_FILES[sector]
+def load_stock_symbols(file_path):
     df = pd.read_csv(file_path)
-    stock_symbols_df = df.drop_duplicates(subset='StockSymbol')
-    return stock_symbols_df['StockSymbol'].tolist()
+    stock_symbols_df = df.drop_duplicates(subset='symbol')
+    return stock_symbols_df['symbol'].tolist()
 
 # Ichimoku Oscillator Class
 class IchimokuOscillator:
@@ -180,13 +180,37 @@ def run_backtest(df, init_cash, fees, direction):
     )
     return portfolio
 
-## Streamlit App
+# Load portfolio symbols
+def load_portfolio_symbols(portfolio_name):
+    file_map = {
+        'VN30': 'VN30.csv',
+        'VN100': 'VN100.csv',
+        'VNAllShare': 'VNAllShare.csv'
+    }
+    file_path = file_map.get(portfolio_name)
+    if file_path:
+        return load_stock_symbols(file_path)
+    return []
+
+# Calculate crash likelihood
+def calculate_crash_likelihood(df):
+    crash_counts = df['Crash'].resample('W').sum()
+    total_weeks = len(crash_counts)
+    crash_weeks = crash_counts[crash_counts > 0].count()
+    return crash_weeks / total_weeks if total_weeks > 0 else 0
+
+# Streamlit App
 st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
 # Sidebar for Portfolio Selection
 st.sidebar.header('Danh mục đầu tư')
-portfolio_options = st.sidebar.multiselect('Chọn danh mục', ['VN100', 'VN30', 'VNAllShare'])
+portfolio_options = st.sidebar.multiselect('Chọn danh mục', ['VN30', 'VN100', 'VNAllShare'])
+selected_stocks = []
+for portfolio_option in portfolio_options:
+    symbols = load_portfolio_symbols(portfolio_option)
+    selected_symbols = st.sidebar.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
+    selected_stocks.extend(selected_symbols)
 
 # Portfolio tab
 st.sidebar.header('Thông số kiểm tra')
@@ -208,26 +232,22 @@ strategies = st.sidebar.multiselect("Các chỉ báo", ["MACD", "Supertrend", "S
 # Filter data for the selected stock symbol
 selected_sector = st.sidebar.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
 df_full = load_data(selected_sector)
-stock_symbols = load_stock_symbols(selected_sector)
-selected_stock_symbol = st.sidebar.selectbox('Chọn mã cổ phiếu', stock_symbols)
-
-symbol_data = df_full[df_full['StockSymbol'] == selected_stock_symbol]
-symbol_data.sort_index(inplace=True)
+df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
 
 # Automatically set the start date to the earliest available date for the selected symbol
-first_available_date = symbol_data.index.min()
+first_available_date = df_filtered.index.min()
 default_start_date = first_available_date.date() if first_available_date is not None else datetime(2000, 1, 1).date()
 start_date = st.sidebar.date_input('Ngày bắt đầu', default_start_date)
 end_date = st.sidebar.date_input('Ngày kết thúc', datetime.today().date())
 
 if start_date < end_date:
-    symbol_data = symbol_data.loc[start_date:end_date]
+    df_filtered = df_filtered.loc[start_date:end_date]
 
-    # Calculate MACD, Ichimoku, and crash signals
-    symbol_data = calculate_indicators_and_crashes(symbol_data, strategies)
+    # Calculate indicators and crashes
+    df_filtered = calculate_indicators_and_crashes(df_filtered, strategies)
 
     # Run backtest
-    portfolio = run_backtest(symbol_data, init_cash, fees, direction)
+    portfolio = run_backtest(df_filtered, init_cash, fees, direction)
 
     # Create tabs for different views
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
@@ -247,7 +267,7 @@ if start_date < end_date:
             st.markdown(f'<div class="highlight">{index}: {value}</div>', unsafe_allow_html=True)
 
         # Add crash details
-        crash_details = symbol_data[symbol_data['Crash']][['close']]
+        crash_details = df_filtered[df_filtered['Crash']][['close']]
         crash_details.reset_index(inplace=True)
         crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
         st.markdown("**Danh sách các điểm crash:**")
@@ -330,7 +350,7 @@ if start_date < end_date:
 
     with tab6:
         fig = portfolio.plot()
-        crash_df = symbol_data[symbol_data['Crash']]
+        crash_df = df_filtered[df_filtered['Crash']]
         fig.add_scatter(
             x=crash_df.index,
             y=crash_df['close'],
@@ -346,12 +366,25 @@ if start_date < end_date:
     with tab7:
         st.markdown("**Danh mục đầu tư:**")
         st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
-        if portfolio_options:
-            stock = Vnstock()
-            for portfolio_option in portfolio_options:
-                st.markdown(f"**{portfolio_option}:**")
-                symbols = stock.listing.symbols_by_group(portfolio_option)
-                st.write(symbols)
+        for portfolio_option in portfolio_options:
+            symbols = load_portfolio_symbols(portfolio_option)
+            st.markdown(f"**{portfolio_option}:**")
+            st.write(symbols)
+
+    # Calculate crash likelihood for each selected stock and plot heatmap
+    crash_likelihoods = {}
+    for stock in selected_stocks:
+        stock_df = df_filtered[df_filtered['StockSymbol'] == stock]
+        crash_likelihoods[stock] = calculate_crash_likelihood(stock_df)
+
+    # Plot heatmap
+    if crash_likelihoods:
+        st.markdown("**Xác suất sụt giảm:**")
+        crash_likelihoods_df = pd.DataFrame(list(crash_likelihoods.items()), columns=['Stock', 'Crash Likelihood'])
+        crash_likelihoods_df.set_index('Stock', inplace=True)
+        fig, ax = plt.subplots(figsize=(10, len(crash_likelihoods_df) / 2))
+        sns.heatmap(crash_likelihoods_df, annot=True, cmap='RdYlGn_r', ax=ax)
+        st.pyplot(fig)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
