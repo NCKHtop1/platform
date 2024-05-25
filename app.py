@@ -173,6 +173,10 @@ def run_backtest(df, init_cash, fees, direction):
     entries = df['Adjusted Buy']
     exits = df['Adjusted Sell']
 
+    # Check if there are any entries and exits
+    if entries.empty or exits.empty or not entries.any() or not exits.any():
+        return None
+
     portfolio = vbt.Portfolio.from_signals(
         df['close'],
         entries,
@@ -257,8 +261,8 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
         # Run backtest
         portfolio = run_backtest(df_filtered, init_cash, fees, direction)
 
-        if portfolio.empty:
-            st.error("Portfolio is empty. Please check the selected stocks and date range.")
+        if portfolio is None or portfolio.wrapper.wrapper.shape[0] == 0:
+            st.error("Không có giao dịch nào được thực hiện trong khoảng thời gian này.")
         else:
             # Create tabs for different views on the main screen
             tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
