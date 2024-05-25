@@ -208,15 +208,17 @@ st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu
 
 # Sidebar for Portfolio Selection
 st.sidebar.header('Danh mục đầu tư')
-portfolio_options = st.sidebar.multiselect('Chọn danh mục', ['VN30', 'VN100', 'VNAllShare'])
-selected_stocks = []
-for portfolio_option in portfolio_options:
-    symbols = load_portfolio_symbols(portfolio_option)
-    selected_symbols = st.sidebar.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
-    selected_stocks.extend(selected_symbols)
+with st.sidebar.expander('Danh mục đầu tư'):
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30'], default=['VN30'])  # Only VN30 is available for now
+    selected_stocks = []
+    for portfolio_option in portfolio_options:
+        symbols = load_portfolio_symbols(portfolio_option)
+        selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
+        selected_stocks.extend(selected_symbols)
 
-# Collapsible section for Portfolio Parameters
-with st.sidebar.expander("Thông số kiểm tra", expanded=False):
+# Portfolio tab
+st.sidebar.header('Thông số kiểm tra')
+with st.sidebar.expander('Thông số kiểm tra'):
     init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000)
     fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
     direction_vi = st.selectbox("Vị thế", ["Mua", "Bán"], index=0)
@@ -229,22 +231,22 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=False):
     trailing_take_profit_percentage = st.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
     trailing_stop_loss_percentage = st.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
-# Sidebar: Choose the strategies to apply
-strategies = st.sidebar.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
+    # Sidebar: Choose the strategies to apply
+    strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
-# Filter data for the selected stock symbol
-selected_sector = st.sidebar.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
-df_full = load_data(selected_sector)
-df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
+    # Filter data for the selected stock symbol
+    selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
+    df_full = load_data(selected_sector)
+    df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
 
-# Automatically set the start date to the earliest available date for the selected symbol
-if not df_filtered.empty:
-    first_available_date = df_filtered.index.min()
-    default_start_date = first_available_date.date()
-else:
-    default_start_date = datetime(2000, 1, 1).date()
-start_date = st.sidebar.date_input('Ngày bắt đầu', default_start_date)
-end_date = st.sidebar.date_input('Ngày kết thúc', datetime.today().date())
+    # Automatically set the start date to the earliest available date for the selected symbol
+    if not df_filtered.empty:
+        first_available_date = df_filtered.index.min()
+        default_start_date = first_available_date.date()
+    else:
+        default_start_date = datetime(2000, 1, 1).date()
+    start_date = st.date_input('Ngày bắt đầu', default_start_date)
+    end_date = st.date_input('Ngày kết thúc', datetime.today().date())
 
 if start_date < end_date:
     df_filtered = df_filtered.loc[start_date:end_date]
@@ -330,9 +332,6 @@ if start_date < end_date:
                 height=600
             )
             st.plotly_chart(equity_fig)
-            st.markdown("**Đường cong giá trị:**")
-            st.markdown("Biểu đồ này hiển thị sự tăng trưởng giá trị danh mục của bạn theo thời gian, \
-                        cho phép bạn thấy cách chiến lược hoạt động trong các điều kiện thị trường khác nhau.")
 
         with tab5:
             drawdown_trace = go.Scatter(
@@ -353,9 +352,6 @@ if start_date < end_date:
                 height=600
             )
             st.plotly_chart(drawdown_fig)
-            st.markdown("**Mức sụt giảm tối đa:**")
-            st.markdown("Biểu đồ này minh họa sự sụt giảm từ đỉnh đến đáy của danh mục của bạn, \
-                        giúp bạn hiểu rõ hơn về tiềm năng thua lỗ của chiến lược.")
 
         with tab6:
             fig = portfolio.plot()
@@ -367,14 +363,11 @@ if start_date < end_date:
                 marker=dict(color='orange', size=10, symbol='triangle-down'),
                 name='Sụt giảm'
             )
-            st.markdown("**Biểu đồ:**")
-            st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các tín hiệu mua/bán và cảnh báo sụp đổ tiềm năng, \
-                        cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
             st.plotly_chart(fig, use_container_width=True)
 
         with tab7:
             st.markdown("**Danh mục đầu tư:**")
-            st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
+            st.markdown("Danh sách các mã cổ phiếu theo danh mục VN30.")
             for portfolio_option in portfolio_options:
                 symbols = load_portfolio_symbols(portfolio_option)
                 st.markdown(f"**{portfolio_option}:**")
