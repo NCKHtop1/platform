@@ -188,9 +188,9 @@ def run_backtest(df, init_cash, fees, direction):
 # Load portfolio symbols
 def load_portfolio_symbols(portfolio_name):
     file_map = {
-        'VN30': 'VN30.csv',
-        'VN100': 'VN100.csv',
-        'VNAllShare': 'VNAllShare.csv'
+        'VN30': '/mnt/data/VN30.csv',
+        'VN100': '/mnt/data/VN100.csv',
+        'VNAllShare': '/mnt/data/VNAllShare.csv'
     }
     file_path = file_map.get(portfolio_name)
     if file_path:
@@ -234,11 +234,9 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
     # Sidebar: Choose the strategies to apply
     strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
-# Filter data for the selected stock symbol
+# Load the selected sector data
 selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
 df_full = load_data(selected_sector)
-available_symbols = df_full['StockSymbol'].unique().tolist()
-selected_symbols_in_sector = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
 
 # Automatically set the start date to the earliest available date for the selected symbol
 if not df_full.empty:
@@ -250,7 +248,7 @@ start_date = st.date_input('Ngày bắt đầu', default_start_date)
 end_date = st.date_input('Ngày kết thúc', datetime.today().date())
 
 if start_date < end_date:
-    df_filtered = df_full[df_full['StockSymbol'].isin(selected_symbols_in_sector)]
+    df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
     df_filtered = df_filtered.loc[start_date:end_date]
 
     # Calculate indicators and crashes
