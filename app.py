@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from scipy.signal import find_peaks
-import plotly.graph_objects as go
 import plotly.express as px
 import vectorbt as vbt
 import pandas_ta as ta
@@ -213,9 +212,8 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     selected_stocks = []
     for portfolio_option in portfolio_options:
         symbols = load_portfolio_symbols(portfolio_option)
-        selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
-        selected_stocks.extend(selected_symbols)
-        
+        selected_stocks.extend(symbols)
+
     # Date input for portfolio
     portfolio_start_date = st.date_input('Ngày bắt đầu (Danh mục đầu tư)', datetime(2000, 1, 1))
     portfolio_end_date = st.date_input('Ngày kết thúc (Danh mục đầu tư)', datetime.today())
@@ -389,9 +387,11 @@ if start_date < end_date:
 
         # Calculate crash likelihood for each selected stock and plot heatmap
         crash_likelihoods = {}
+        df_full_portfolio = pd.DataFrame()
         for stock in selected_stocks:
-            stock_df = df_filtered[df_filtered['StockSymbol'] == stock]
-            crash_likelihoods[stock] = calculate_crash_likelihood(stock_df)
+            df_stock = df_full[df_full['StockSymbol'] == stock].loc[portfolio_start_date:portfolio_end_date]
+            df_full_portfolio = pd.concat([df_full_portfolio, df_stock])
+            crash_likelihoods[stock] = calculate_crash_likelihood(df_stock)
 
         # Plot heatmap using Plotly
         if crash_likelihoods:
@@ -402,10 +402,6 @@ if start_date < end_date:
                                     color_continuous_scale=['green', 'red'],
                                     aspect='auto',
                                     labels=dict(color='Crash Likelihood'))
-            
-            # Add annotations
-            heatmap_fig.update_traces(texttemplate='%{z:.2%}', textfont_size=12, textfont_color='black')
-
             st.plotly_chart(heatmap_fig)
 
 # If the end date is before the start date, show an error
