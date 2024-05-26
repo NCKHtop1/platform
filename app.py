@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from scipy.signal import find_peaks
+import plotly.graph_objects as go
 import plotly.express as px
 import vectorbt as vbt
 import pandas_ta as ta
@@ -209,14 +210,38 @@ st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu
 # Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'VN100', 'VNAllShare'])
-    selected_stocks = []
-    for portfolio_option in portfolio_options:
-        symbols = load_portfolio_symbols(portfolio_option)
-        selected_stocks.extend(symbols)
-
-    # Date input for portfolio
     portfolio_start_date = st.date_input('Ngày bắt đầu (Danh mục đầu tư)', datetime(2000, 1, 1))
     portfolio_end_date = st.date_input('Ngày kết thúc (Danh mục đầu tư)', datetime.today())
+    
+    if portfolio_options:
+        all_symbols = []
+        for portfolio_option in portfolio_options:
+            symbols = load_portfolio_symbols(portfolio_option)
+            all_symbols.extend(symbols)
+
+        if portfolio_start_date < portfolio_end_date:
+            portfolio_df_list = []
+            for symbol in all_symbols:
+                df = load_data('VNINDEX')  # Adjust this as necessary based on your data structure
+                symbol_df = df[df['StockSymbol'] == symbol]
+                symbol_df = symbol_df[portfolio_start_date:portfolio_end_date]
+                symbol_df = calculate_indicators_and_crashes(symbol_df, ["MACD", "Supertrend", "Stochastic", "RSI"])
+                portfolio_df_list.append(symbol_df)
+
+            combined_df = pd.concat(portfolio_df_list)
+            crash_likelihoods = {symbol: calculate_crash_likelihood(df) for symbol, df in combined_df.groupby('StockSymbol')}
+
+            # Plot heatmap using Plotly
+            st.markdown("**Xác suất sụt giảm:**")
+            crash_likelihoods_df = pd.DataFrame(list(crash_likelihoods.items()), columns=['Stock', 'Crash Likelihood'])
+            crash_likelihoods_df.set_index('Stock', inplace=True)
+            heatmap_fig = px.imshow(crash_likelihoods_df.T, 
+                                    color_continuous_scale=['green', 'red'],
+                                    aspect='auto',
+                                    labels=dict(color='Crash Likelihood'))
+            st.plotly_chart(heatmap_fig)
+        else:
+            st.error('Lỗi: Ngày kết thúc phải sau ngày bắt đầu.')
 
 # Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
@@ -384,25 +409,6 @@ if start_date < end_date:
                 symbols = load_portfolio_symbols(portfolio_option)
                 st.markdown(f"**{portfolio_option}:**")
                 st.write(symbols)
-
-        # Calculate crash likelihood for each selected stock and plot heatmap
-        crash_likelihoods = {}
-        df_full_portfolio = pd.DataFrame()
-        for stock in selected_stocks:
-            df_stock = df_full[df_full['StockSymbol'] == stock].loc[portfolio_start_date:portfolio_end_date]
-            df_full_portfolio = pd.concat([df_full_portfolio, df_stock])
-            crash_likelihoods[stock] = calculate_crash_likelihood(df_stock)
-
-        # Plot heatmap using Plotly
-        if crash_likelihoods:
-            st.markdown("**Xác suất sụt giảm:**")
-            crash_likelihoods_df = pd.DataFrame(list(crash_likelihoods.items()), columns=['Stock', 'Crash Likelihood'])
-            crash_likelihoods_df.set_index('Stock', inplace=True)
-            heatmap_fig = px.imshow(crash_likelihoods_df.T, 
-                                    color_continuous_scale=['green', 'red'],
-                                    aspect='auto',
-                                    labels=dict(color='Crash Likelihood'))
-            st.plotly_chart(heatmap_fig)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
