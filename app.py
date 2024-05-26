@@ -220,7 +220,7 @@ st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
 # Sidebar for Portfolio Selection
-with st.sidebar.expander("Danh mục và cổ phiếu", expanded=True):
+with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'VN100', 'VNAllShare'])
     selected_stocks = []
     if portfolio_options:
@@ -236,7 +236,7 @@ with st.sidebar.expander("Danh mục và cổ phiếu", expanded=True):
         selected_stocks = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
 
 # Portfolio tab
-with st.sidebar.expander("Thông tin cơ bản", expanded=True):
+with st.sidebar.expander("Thông số kiểm tra", expanded=True):
     init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000)
     fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
     direction_vi = st.selectbox("Vị thế", ["Mua", "Bán"], index=0)
@@ -254,14 +254,14 @@ with st.sidebar.expander("Thông tin cơ bản", expanded=True):
 
 # Ensure that the date range is within the available data
 if selected_stocks:
-    start_date = st.date_input('Ngày bắt đầu', datetime(2000, 1, 1).date())
-    end_date = st.date_input('Ngày kết thúc', datetime.today().date())
-
-    df_full = load_data(selected_sector if not portfolio_options else 'VNINDEX')  # Adjust this line if you have specific sector data for portfolios
+    df_full = load_data(selected_sector if not portfolio_options else 'VNINDEX')
 
     if not df_full.empty:
         first_available_date = df_full.index.min().date()
         last_available_date = df_full.index.max().date()
+
+        start_date = st.date_input('Ngày bắt đầu', first_available_date)
+        end_date = st.date_input('Ngày kết thúc', last_available_date)
 
         if start_date < first_available_date or end_date > last_available_date:
             st.error("Khoảng thời gian bạn chọn nằm ngoài phạm vi dữ liệu sẵn có.")
