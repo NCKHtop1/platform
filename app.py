@@ -42,19 +42,18 @@ st.markdown("""
 # Sector files mapping
 SECTOR_FILES = {
     'Ngân hàng': 'Banking.csv',
-    'Vật liệu xây dựng': 'Building Material.csv',
+    'Vật liệu xây dựng': 'Building_Material.csv',
     'Hóa chất': 'Chemical.csv',
-    'Dịch vụ tài chính': 'Financial Services.csv',
-    'Thực phẩm và đồ uống': 'Food and Beverage.csv',
-    'Dịch vụ công nghiệp': 'Industrial Services.csv',
-    'Công nghệ thông tin': 'Information Technology.csv',
+    'Dịch vụ tài chính': 'Financial_Services.csv',
+    'Thực phẩm và đồ uống': 'Food_and_Beverage.csv',
+    'Dịch vụ công nghiệp': 'Industrial_Services.csv',
+    'Công nghệ thông tin': 'Information_Technology.csv',
     'Khoáng sản': 'Mineral.csv',
-    'Dầu khí': 'Oil and Gas.csv',
-    'Bất động sản': 'Real Estate.csv',
+    'Dầu khí': 'Oil_and_Gas.csv',
+    'Bất động sản': 'Real_Estate.csv',
     'VNINDEX': 'Vnindex.csv'
 }
 
-# Load the dataset with conditional date parsing
 @st.cache_data
 def load_data(sector):
     file_path = SECTOR_FILES[sector]
@@ -70,7 +69,6 @@ def load_data(sector):
     df.set_index('Datetime', inplace=True)
     return df
 
-# Load unique stock symbols
 @st.cache_data
 def load_stock_symbols(file_path):
     if not os.path.exists(file_path):
