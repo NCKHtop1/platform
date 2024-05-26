@@ -54,9 +54,9 @@ SECTOR_FILES = {
 }
 
 PORTFOLIO_FILES = {
-    'VN30': '/mnt/data/VN30.csv',
-    'VN100': '/mnt/data/VN100.csv',
-    'VNAllShare': '/mnt/data/VNAllShare.csv'
+    'VN30': 'VN30.csv',
+    'VN100': 'VN100.csv',
+    'VNAllShare': 'VNAllShare.csv'
 }
 
 # Load the dataset with conditional date parsing
