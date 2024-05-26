@@ -33,7 +33,7 @@ st.markdown("""
         height: auto;
         display: block;
         margin-left: auto;
-        margin-right: auto;
+        margin-right: auto.
     }
     </style>
     """, unsafe_allow_html=True)
@@ -53,7 +53,6 @@ SECTOR_FILES = {
     'VNINDEX': 'Vnindex.csv'
 }
 
-# Portfolio files mapping
 PORTFOLIO_FILES = {
     'VN30': 'VN30.csv',
     'VN100': 'VN100.csv',
@@ -193,7 +192,12 @@ def run_backtest(df, init_cash, fees, direction):
 
 # Load portfolio symbols
 def load_portfolio_symbols(portfolio_name):
-    file_path = PORTFOLIO_FILES.get(portfolio_name)
+    file_map = {
+        'VN30': '/mnt/data/VN30.csv',
+        'VN100': '/mnt/data/VN100.csv',
+        'VNAllShare': '/mnt/data/VNAllShare.csv'
+    }
+    file_path = file_map.get(portfolio_name)
     if file_path:
         return load_stock_symbols(file_path)
     return []
@@ -215,40 +219,12 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     selected_stocks = []
     for portfolio_option in portfolio_options:
         symbols = load_portfolio_symbols(portfolio_option)
-        selected_stocks.extend(symbols)
+        selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
+        selected_stocks.extend(selected_symbols)
         
     # Date input for portfolio
-    portfolio_start_date = st.date_input('Ngày bắt đầu (Danh mục đầu tư)', datetime(2020, 1, 1))
+    portfolio_start_date = st.date_input('Ngày bắt đầu (Danh mục đầu tư)', datetime(2000, 1, 1))
     portfolio_end_date = st.date_input('Ngày kết thúc (Danh mục đầu tư)', datetime.today())
-
-if portfolio_start_date < portfolio_end_date:
-    df_portfolio = pd.DataFrame()
-    for sector in SECTOR_FILES:
-        df_sector = load_data(sector)
-        df_sector = df_sector[df_sector['StockSymbol'].isin(selected_stocks)]
-        df_portfolio = pd.concat([df_portfolio, df_sector])
-    
-    df_portfolio = df_portfolio.loc[portfolio_start_date:portfolio_end_date]
-
-    # Calculate crash likelihood for each selected stock and plot heatmap
-    crash_likelihoods = {}
-    for stock in selected_stocks:
-        stock_df = df_portfolio[df_portfolio['StockSymbol'] == stock]
-        crash_likelihoods[stock] = calculate_crash_likelihood(stock_df)
-
-    # Plot heatmap using Plotly
-    if crash_likelihoods:
-        st.markdown("**Xác suất sụt giảm:**")
-        crash_likelihoods_df = pd.DataFrame(list(crash_likelihoods.items()), columns=['Stock', 'Crash Likelihood'])
-        crash_likelihoods_df.set_index('Stock', inplace=True)
-        heatmap_fig = px.imshow(crash_likelihoods_df.T, 
-                                color_continuous_scale=['green', 'red'],
-                                aspect='auto',
-                                labels=dict(color='Crash Likelihood'))
-        st.plotly_chart(heatmap_fig)
-        
-else:
-    st.error('Lỗi: Ngày kết thúc phải sau ngày bắt đầu.')
 
 # Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
@@ -433,6 +409,40 @@ if start_date < end_date:
                                     aspect='auto',
                                     labels=dict(color='Crash Likelihood'))
             st.plotly_chart(heatmap_fig)
+
+# Portfolio analysis
+for portfolio_option in portfolio_options:
+    portfolio_symbols = load_portfolio_symbols(portfolio_option)
+    df_portfolio = pd.DataFrame()
+    for symbol in portfolio_symbols:
+        sector_file = next((SECTOR_FILES[sector] for sector in SECTOR_FILES if symbol in load_stock_symbols(SECTOR_FILES[sector])), None)
+        if sector_file:
+            df_sector = pd.read_csv(sector_file)
+            df_sector['Datetime'] = pd.to_datetime(df_sector['Datetime'], format='%d/%m/%Y', dayfirst=True)
+            df_sector.set_index('Datetime', inplace=True)
+            df_sector = df_sector[df_sector['StockSymbol'] == symbol]
+            df_portfolio = pd.concat([df_portfolio, df_sector])
+
+    df_portfolio = df_portfolio.loc[portfolio_start_date:portfolio_end_date]
+
+    # Calculate indicators and crashes for the portfolio
+    df_portfolio = calculate_indicators_and_crashes(df_portfolio, strategies)
+
+    crash_likelihoods_portfolio = {}
+    for symbol in portfolio_symbols:
+        stock_df = df_portfolio[df_portfolio['StockSymbol'] == symbol]
+        crash_likelihoods_portfolio[symbol] = calculate_crash_likelihood(stock_df)
+
+    # Plot heatmap using Plotly
+    if crash_likelihoods_portfolio:
+        st.markdown(f"**Xác suất sụt giảm cho {portfolio_option}:**")
+        crash_likelihoods_df_portfolio = pd.DataFrame(list(crash_likelihoods_portfolio.items()), columns=['Stock', 'Crash Likelihood'])
+        crash_likelihoods_df_portfolio.set_index('Stock', inplace=True)
+        heatmap_fig_portfolio = px.imshow(crash_likelihoods_df_portfolio.T,
+                                          color_continuous_scale=['green', 'red'],
+                                          aspect='auto',
+                                          labels=dict(color='Crash Likelihood'))
+        st.plotly_chart(heatmap_fig_portfolio)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
