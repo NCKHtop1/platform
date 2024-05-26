@@ -54,9 +54,9 @@ SECTOR_FILES = {
 }
 
 PORTFOLIO_FILES = {
-    'VN30': 'VN30.csv',
-    'VN100': 'VN100.csv',
-    'VNAllShare': 'VNAllShare.csv'
+    'VN30': '/mnt/data/VN30.csv',
+    'VN100': '/mnt/data/VN100.csv',
+    'VNAllShare': '/mnt/data/VNAllShare.csv'
 }
 
 # Load the dataset with conditional date parsing
@@ -192,12 +192,7 @@ def run_backtest(df, init_cash, fees, direction):
 
 # Load portfolio symbols
 def load_portfolio_symbols(portfolio_name):
-    file_map = {
-        'VN30': '/mnt/data/VN30.csv',
-        'VN100': '/mnt/data/VN100.csv',
-        'VNAllShare': '/mnt/data/VNAllShare.csv'
-    }
-    file_path = file_map.get(portfolio_name)
+    file_path = PORTFOLIO_FILES.get(portfolio_name)
     if file_path:
         return load_stock_symbols(file_path)
     return []
