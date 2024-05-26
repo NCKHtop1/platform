@@ -216,8 +216,8 @@ def calculate_crash_likelihood(df):
     return crash_weeks / total_weeks if total_weeks > 0 else 0
 
 # Streamlit App
-st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
-st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
+st.title('Mô Hình Cảnh Báo Sớm cho Danh Mục và Cổ Phiếu')
+st.write('Ứng dụng này cung cấp phân tích tín hiệu mua/bán và cảnh báo sớm cho danh mục và cổ phiếu, nhằm giúp dự đoán sự sụt giảm giá mạnh trên thị trường chứng khoán HOSE và chỉ số VNINDEX.')
 
 # Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
