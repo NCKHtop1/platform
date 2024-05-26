@@ -402,6 +402,10 @@ if start_date < end_date:
                                     color_continuous_scale=['green', 'red'],
                                     aspect='auto',
                                     labels=dict(color='Crash Likelihood'))
+            
+            # Add annotations
+            heatmap_fig.update_traces(texttemplate='%{z:.2%}', textfont_size=12, textfont_color='black')
+
             st.plotly_chart(heatmap_fig)
 
 # If the end date is before the start date, show an error
