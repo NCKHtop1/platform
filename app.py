@@ -33,7 +33,7 @@ st.markdown("""
         height: auto;
         display: block;
         margin-left: auto;
-        margin-right: auto.
+        margin-right: auto;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -53,39 +53,25 @@ SECTOR_FILES = {
     'VNINDEX': 'Vnindex.csv'
 }
 
-PORTFOLIO_FILES = {
-    'VN30': 'VN30.csv',
-    'VN100': 'VN100.csv',
-    'VNAllShare': 'VNAllShare.csv'
-}
-
 # Load the dataset with conditional date parsing
 @st.cache_data
 def load_data(sector):
     file_path = SECTOR_FILES[sector]
-    try:
-        if sector == 'VNINDEX':
-            df = pd.read_csv(file_path)
-            df['Datetime'] = pd.to_datetime(df['Datetime'], format='%m/%d/%Y')  # Format for Vnindex
-        else:
-            df = pd.read_csv(file_path)
-            df['Datetime'] = pd.to_datetime(df['Datetime'], format='%d/%m/%Y', dayfirst=True)
-        df.set_index('Datetime', inplace=True)
-        return df
-    except Exception as e:
-        st.error(f"Error loading data for {sector}: {e}")
-        return pd.DataFrame()
+    if sector == 'VNINDEX':
+        df = pd.read_csv(file_path)
+        df['Datetime'] = pd.to_datetime(df['Datetime'], format='%m/%d/%Y')  # Format for Vnindex
+    else:
+        df = pd.read_csv(file_path)
+        df['Datetime'] = pd.to_datetime(df['Datetime'], format='%d/%m/%Y', dayfirst=True)
+    df.set_index('Datetime', inplace=True)
+    return df
 
 # Load unique stock symbols
 @st.cache_data
 def load_stock_symbols(file_path):
-    try:
-        df = pd.read_csv(file_path)
-        stock_symbols_df = df.drop_duplicates(subset='symbol')
-        return stock_symbols_df['symbol'].tolist()
-    except Exception as e:
-        st.error(f"Error loading stock symbols from {file_path}: {e}")
-        return []
+    df = pd.read_csv(file_path)
+    stock_symbols_df = df.drop_duplicates(subset='symbol')
+    return stock_symbols_df['symbol'].tolist()
 
 # Ichimoku Oscillator Class
 class IchimokuOscillator:
@@ -200,7 +186,12 @@ def run_backtest(df, init_cash, fees, direction):
 
 # Load portfolio symbols
 def load_portfolio_symbols(portfolio_name):
-    file_path = PORTFOLIO_FILES.get(portfolio_name)
+    file_map = {
+        'VN30': 'VN30.csv',
+        'VN100': 'VN100.csv',
+        'VNAllShare': 'VNAllShare.csv'
+    }
+    file_path = file_map.get(portfolio_name)
     if file_path:
         return load_stock_symbols(file_path)
     return []
@@ -446,6 +437,14 @@ for portfolio_option in portfolio_options:
                                           aspect='auto',
                                           labels=dict(color='Crash Likelihood'))
         st.plotly_chart(heatmap_fig_portfolio)
+
+    # Display crash details for the portfolio
+    crash_details_portfolio = df_portfolio[df_portfolio['Crash']]
+    if not crash_details_portfolio.empty:
+        crash_details_portfolio = crash_details_portfolio[['StockSymbol', 'close']].reset_index()
+        crash_details_portfolio.rename(columns={'Datetime': 'Ngày crash', 'StockSymbol': 'Mã cổ phiếu', 'close': 'Giá'}, inplace=True)
+        st.markdown(f"**Danh sách các điểm crash cho {portfolio_option}:**")
+        st.dataframe(crash_details_portfolio, height=200)
 
 # If the end date is before the start date, show an error
 if start_date > end_date:
