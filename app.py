@@ -15,7 +15,7 @@ if "ACCEPT_TC" not in os.environ:
     os.environ["ACCEPT_TC"] = "tôi đồng ý"
 
 # Check if the image file exists
-image_path = 'image.png'
+image_path = '/mnt/data/image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
 else:
@@ -261,7 +261,10 @@ if start_date < first_available_date.date() or end_date > datetime.today().date(
 else:
     if start_date < end_date:
         df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
-        df_filtered = df_filtered.loc[start_date:end_date]
+        try:
+            df_filtered = df_filtered.loc[start_date:end_date]
+        except KeyError:
+            st.error("Lỗi: Một số ngày bạn chọn không có trong dữ liệu.")
 
         # Calculate indicators and crashes
         df_filtered = calculate_indicators_and_crashes(df_filtered, strategies)
