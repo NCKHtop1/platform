@@ -265,9 +265,8 @@ if start_date < first_available_date.date() or end_date > datetime.today().date(
 else:
     if start_date < end_date:
         try:
-            # Filter the data for the selected stocks and dates
             df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
-            df_filtered = df_filtered.loc[pd.to_datetime(start_date):pd.to_datetime(end_date)]
+            df_filtered = df_filtered.loc[start_date:end_date]
 
             # Calculate indicators and crashes
             df_filtered = calculate_indicators_and_crashes(df_filtered, strategies)
