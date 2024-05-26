@@ -265,6 +265,12 @@ if start_date < first_available_date.date() or end_date > datetime.today().date(
 else:
     if start_date < end_date:
         try:
+            # Ensure dates exist within the index
+            if start_date not in df_full.index:
+                start_date = df_full.index[df_full.index.get_loc(start_date, method='nearest')]
+            if end_date not in df_full.index:
+                end_date = df_full.index[df_full.index.get_loc(end_date, method='nearest')]
+
             df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
             df_filtered = df_filtered.loc[start_date:end_date]
 
