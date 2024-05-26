@@ -223,6 +223,9 @@ st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'VN100', 'VNAllShare'])
     selected_stocks = []
+    selected_sector = None
+    df_full = pd.DataFrame()
+
     if portfolio_options:
         for portfolio_option in portfolio_options:
             symbols = load_portfolio_symbols(portfolio_option)
