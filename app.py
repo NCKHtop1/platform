@@ -63,21 +63,29 @@ PORTFOLIO_FILES = {
 @st.cache_data
 def load_data(sector):
     file_path = SECTOR_FILES[sector]
-    if sector == 'VNINDEX':
-        df = pd.read_csv(file_path)
-        df['Datetime'] = pd.to_datetime(df['Datetime'], format='%m/%d/%Y')  # Format for Vnindex
-    else:
-        df = pd.read_csv(file_path)
-        df['Datetime'] = pd.to_datetime(df['Datetime'], format='%d/%m/%Y', dayfirst=True)
-    df.set_index('Datetime', inplace=True)
-    return df
+    try:
+        if sector == 'VNINDEX':
+            df = pd.read_csv(file_path)
+            df['Datetime'] = pd.to_datetime(df['Datetime'], format='%m/%d/%Y')  # Format for Vnindex
+        else:
+            df = pd.read_csv(file_path)
+            df['Datetime'] = pd.to_datetime(df['Datetime'], format='%d/%m/%Y', dayfirst=True)
+        df.set_index('Datetime', inplace=True)
+        return df
+    except Exception as e:
+        st.error(f"Error loading data for {sector}: {e}")
+        return pd.DataFrame()
 
 # Load unique stock symbols
 @st.cache_data
 def load_stock_symbols(file_path):
-    df = pd.read_csv(file_path)
-    stock_symbols_df = df.drop_duplicates(subset='symbol')
-    return stock_symbols_df['symbol'].tolist()
+    try:
+        df = pd.read_csv(file_path)
+        stock_symbols_df = df.drop_duplicates(subset='symbol')
+        return stock_symbols_df['symbol'].tolist()
+    except Exception as e:
+        st.error(f"Error loading stock symbols from {file_path}: {e}")
+        return []
 
 # Ichimoku Oscillator Class
 class IchimokuOscillator:
