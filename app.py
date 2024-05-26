@@ -58,6 +58,9 @@ SECTOR_FILES = {
 @st.cache_data
 def load_data(sector):
     file_path = SECTOR_FILES[sector]
+    if not os.path.exists(file_path):
+        st.error(f"File not found: {file_path}")
+        return pd.DataFrame()
     if sector == 'VNINDEX':
         df = pd.read_csv(file_path)
         df['Datetime'] = pd.to_datetime(df['Datetime'], format='%m/%d/%Y')  # Format for Vnindex
@@ -70,6 +73,9 @@ def load_data(sector):
 # Load unique stock symbols
 @st.cache_data
 def load_stock_symbols(file_path):
+    if not os.path.exists(file_path):
+        st.error(f"File not found: {file_path}")
+        return []
     df = pd.read_csv(file_path)
     stock_symbols_df = df.drop_duplicates(subset='symbol')
     return stock_symbols_df['symbol'].tolist()
@@ -188,14 +194,15 @@ def run_backtest(df, init_cash, fees, direction):
 # Load portfolio symbols
 def load_portfolio_symbols(portfolio_name):
     file_map = {
-        'VN30': '/mnt/data/VN30.csv',
-        'VN100': '/mnt/data/VN100.csv',
-        'VNAllShare': '/mnt/data/VNAllShare.csv'
+        'VN30': 'VN30.csv',
+        'VN100': 'VN100.csv',
+        'VNAllShare': 'VNAllShare.csv'
     }
     file_path = file_map.get(portfolio_name)
-    if file_path:
-        return load_stock_symbols(file_path)
-    return []
+    if not os.path.exists(file_path):
+        st.error(f"File not found: {file_path}")
+        return []
+    return load_stock_symbols(file_path)
 
 # Calculate crash likelihood
 def calculate_crash_likelihood(df):
@@ -214,8 +221,9 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     selected_stocks = []
     for portfolio_option in portfolio_options:
         symbols = load_portfolio_symbols(portfolio_option)
-        selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
-        selected_stocks.extend(selected_symbols)
+        if symbols:
+            selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
+            selected_stocks.extend(selected_symbols)
 
 # Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
