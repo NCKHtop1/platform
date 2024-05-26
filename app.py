@@ -220,7 +220,7 @@ st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
 # Sidebar for Portfolio Selection
-with st.sidebar.expander("Danh mục đầu tư", expanded=True):
+with st.sidebar.expander("Danh mục đầu tư và cổ phiếu", expanded=True):
     portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'VN100', 'VNAllShare'])
     selected_stocks = []
     if portfolio_options:
