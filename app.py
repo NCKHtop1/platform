@@ -42,15 +42,15 @@ st.markdown("""
 # Sector files mapping
 SECTOR_FILES = {
     'Ngân hàng': 'Banking.csv',
-    'Vật liệu xây dựng': 'Building_Material.csv',
+    'Vật liệu xây dựng': 'Building Material.csv',
     'Hóa chất': 'Chemical.csv',
-    'Dịch vụ tài chính': 'Financial_Services.csv',
-    'Thực phẩm và đồ uống': 'Food_and_Beverage.csv',
-    'Dịch vụ công nghiệp': 'Industrial_Services.csv',
-    'Công nghệ thông tin': 'Information_Technology.csv',
+    'Dịch vụ tài chính': 'Financial Services.csv',
+    'Thực phẩm và đồ uống': 'Food_and Beverage.csv',
+    'Dịch vụ công nghiệp': 'Industrial Services.csv',
+    'Công nghệ thông tin': 'Information Technology.csv',
     'Khoáng sản': 'Mineral.csv',
-    'Dầu khí': 'Oil_and_Gas.csv',
-    'Bất động sản': 'Real_Estate.csv',
+    'Dầu khí': 'Oil and Gas.csv',
+    'Bất động sản': 'Real Estate.csv',
     'VNINDEX': 'Vnindex.csv'
 }
 
