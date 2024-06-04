@@ -169,25 +169,16 @@ def calculate_indicators_and_crashes(df, strategies):
     df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
                            (~df['Crash'].shift(1).fillna(False)))
     return df
-#function t_plus
-def apply_t_plus(df, t_plus):
-    # Convert T+ from selected options to integer days
-    t_plus_days = int(t_plus)
 
-    if t_plus_days > 0:
-        # When t_plus_days is set, apply the minimum holding constraint
-        # Logic to ensure sells are delayed by t_plus_days after a buy
-        df['Adjusted Sell'] = df['Adjusted Sell'] & df['Adjusted Buy'].shift(t_plus_days).fillna(False).cumsum().shift(1).fillna(0).eq(df['Adjusted Buy'].sum())
-    return df
 # Function to run backtesting using vectorbt's from_signals
-def run_backtest(df, init_cash, fees, direction, t_plus):
-    df = apply_t_plus(df, t_plus)
+def run_backtest(df, init_cash, fees, direction):
     entries = df['Adjusted Buy']
     exits = df['Adjusted Sell']
 
+    # Check if there are any entries and exits
     if entries.empty or exits.empty or not entries.any() or not exits.any():
         return None
-        
+
     portfolio = vbt.Portfolio.from_signals(
         df['close'],
         entries,
@@ -197,7 +188,7 @@ def run_backtest(df, init_cash, fees, direction, t_plus):
         direction=direction
     )
     return portfolio
-    
+
 # Load portfolio symbols
 def load_portfolio_symbols(portfolio_name):
     file_map = {
