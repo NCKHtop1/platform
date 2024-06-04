@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from datetime import timedelta
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import seaborn as sns
@@ -10,6 +9,10 @@ import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 import os
+
+# Accept the terms and conditions for vnstock3
+if "ACCEPT_TC" not in os.environ:
+    os.environ["ACCEPT_TC"] = "tôi đồng ý"
 
 # Check if the image file exists
 image_path = 'image.png'
@@ -27,7 +30,7 @@ st.markdown("""
     .css-1aumxhk {padding: 2rem;}
     .stImage img {
         width: 100%;
-        max-width: 1200px;
+        max-width: 1200px;  /* Adjust max-width as needed */
         height: auto;
         display: block;
         margin-left: auto;
