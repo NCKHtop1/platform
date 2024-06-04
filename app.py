@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 import os
+
 # Check if the image file exists
 image_path = 'image.png'
 if not os.path.exists(image_path):
@@ -26,7 +27,7 @@ st.markdown("""
     .css-1aumxhk {padding: 2rem;}
     .stImage img {
         width: 100%;
-        max-width: 1200px;  /* Adjust max-width as needed */
+        max-width: 1200px;
         height: auto;
         display: block;
         margin-left: auto;
@@ -64,50 +65,7 @@ def load_data(sector):
         df['Datetime'] = pd.to_datetime(df['Datetime'], format='%d/%m/%Y', dayfirst=True)
     df.set_index('Datetime', inplace=True)
     return df
-# Ensure that the date range is within the available data
-if selected_stocks:
-    if portfolio_options:
-        sector = 'VNINDEX'
-    else:
-        sector = selected_sector
 
-    df_full = load_data(sector)
-
-    if not df_full.empty:
-        # Filter data for the selected stocks
-        df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
-        
-        if df_filtered.empty:
-            st.error("Không có dữ liệu cho cổ phiếu đã chọn.")
-        else:
-            # Get the available date range for the selected stocks
-            first_available_date = df_filtered.index.min().date()
-            last_available_date = df_filtered.index.max().date()
-
-            # Ensure selected date range is within the available data range
-            start_date = st.date_input('Ngày bắt đầu', first_available_date)
-            end_date = st.date_input('Ngày kết thúc', last_available_date)
-
-            # Adjust the start and end dates if they fall outside the available range
-            if start_date < first_available_date:
-                start_date = first_available_date
-                st.warning("Ngày bắt đầu đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
-
-            if end_date > last_available_date:
-                end_date = last_available_date
-                st.warning("Ngày kết thúc đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
-
-            if start_date >= end_date:
-                st.error("Lỗi: Ngày kết thúc phải sau ngày bắt đầu.")
-            else:
-                try:
-                    df_filtered = df_filtered.loc[start_date:end_date]
-
-                    if df_filtered.empty:
-                        st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
-                    else:
-                        # Calculate indicators and crashes
-                        df_filtered = calculate_indicators_and_crashes(df_filtered, strategies)
 @st.cache_data
 def load_stock_symbols(file_path):
     if not os.path.exists(file_path):
