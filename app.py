@@ -179,7 +179,7 @@ def apply_t_plus(df, t_plus):
         # Logic to ensure sells are delayed by t_plus_days after a buy
         df['Adjusted Sell'] = df['Adjusted Sell'] & df['Adjusted Buy'].shift(t_plus_days).fillna(False).cumsum().shift(1).fillna(0).eq(df['Adjusted Buy'].sum())
     return df
-# Function to run backtesting using vectorbt's from_signals
+# Function to run backtest using vectorbt's from_signals
 def run_backtest(df, init_cash, fees, direction, t_plus):
     entries = df['Adjusted Buy']
     exits = df['Adjusted Sell']
@@ -187,6 +187,10 @@ def run_backtest(df, init_cash, fees, direction, t_plus):
     # Check if there are any entries and exits
     if entries.empty or exits.empty or not entries.any() or not exits.any():
         return None
+
+    # Apply T+ logic
+    df = apply_t_plus(df, t_plus)
+    exits = df['Adjusted Sell']
 
     portfolio = vbt.Portfolio.from_signals(
         df['close'],
@@ -197,7 +201,7 @@ def run_backtest(df, init_cash, fees, direction, t_plus):
         direction=direction
     )
     return portfolio
-
+    
 # Load portfolio symbols
 def load_portfolio_symbols(portfolio_name):
     file_map = {
