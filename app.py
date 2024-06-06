@@ -344,67 +344,49 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
 # Ensure that the date range is within the available data
 if selected_stocks:
-    df_full = load_detailed_data(selected_stocks)
+    if portfolio_options:
+        sector = 'VNINDEX'
+    else:
+        sector = selected_sector
+
+    df_full = load_data(sector)
 
     if not df_full.empty:
-        try:
-            first_available_date = pd.Timestamp(df_full.index.min())
-            last_available_date = pd.Timestamp(df_full.index.max())
+        first_available_date = df_full.index.min().date()
+        last_available_date = df_full.index.max().date()
 
-            start_date = st.date_input('Ngày bắt đầu', first_available_date)
-            end_date = st.date_input('Ngày kết thúc', last_available_date)
+        # Ensure selected date range is within the available data range
+        start_date = st.date_input('Ngày bắt đầu', first_available_date)
+        end_date = st.date_input('Ngày kết thúc', last_available_date)
 
-            start_date = pd.Timestamp(start_date) if not isinstance(start_date, pd.Timestamp) else start_date
-            end_date = pd.Timestamp(end_date) if not isinstance(end_date, pd.Timestamp) else end_date
+        if start_date < first_available_date:
+            start_date = first_available_date
+            st.warning("Ngày bắt đầu đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
 
-            if start_date < first_available_date:
-                start_date = first_available_date
-                st.warning("Ngày bắt đầu đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
-            if end_date > last_available_date:
-                end_date = last_available_date
-                st.warning("Ngày kết thúc đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
+        if end_date > last_available_date:
+            end_date = last_available_date
+            st.warning("Ngày kết thúc đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
 
-            if start_date >= end_date:
-                st.error("Lỗi: Ngày kết thúc phải sau ngày bắt đầu.")
-            else:
-                df_filtered = ensure_datetime_compatibility(start_date, end_date, df_full)
+        if start_date >= end_date:
+            st.error("Lỗi: Ngày kết thúc phải sau ngày bắt đầu.")
+        else:
+            try:
+                df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
+                df_filtered = df_filtered.loc[start_date:end_date]
 
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
                 else:
+                    # Calculate indicators and crashes
                     df_filtered = calculate_indicators_and_crashes(df_filtered, strategies)
 
-                    optimizer = PortfolioOptimizer()
-                    data_matrix = df_filtered.pivot_table(values='close', index=df_filtered.index, columns='StockSymbol').dropna()
-                    optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
-
-                    # Create a bar chart with color coding based on optimal weights
-                    fig = go.Figure()
-                    for i, stock in enumerate(data_matrix.columns):
-                        weight = optimal_weights[i]
-                        color = 'red' if weight < 0 else 'yellow' if 0 <= weight <= 0.05 else 'green'
-                        fig.add_trace(go.Bar(
-                            x=[stock],
-                            y=[weight],
-                            name=stock,
-                            marker_color=color
-                        ))
-
-                    fig.update_layout(
-                        title='Optimal Weights for Selected Stocks',
-                        xaxis_title='Stock',
-                        yaxis_title='Weight',
-                        width=800,
-                        height=600
-                    )
-
-                    st.plotly_chart(fig)
-
+                    # Run backtest
                     portfolio = run_backtest(df_filtered, init_cash, fees, direction, t_plus)
 
                     if portfolio is None or len(portfolio.orders.records) == 0:
                         st.error("Không có giao dịch nào được thực hiện trong khoảng thời gian này.")
                     else:
+                        # Create tabs for different views on the main screen
                         tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
 
                         with tab1:
@@ -421,6 +403,7 @@ if selected_stocks:
                             for index, value in summary_stats.items():
                                 st.markdown(f'<div class="highlight">{index}: {value}</div>', unsafe_allow_html=True)
 
+                            # Add crash details
                             crash_details = df_filtered[df_filtered['Crash']][['close']]
                             crash_details.reset_index(inplace=True)
                             crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
@@ -546,10 +529,10 @@ if selected_stocks:
                             fig, ax = plt.subplots(figsize=(10, len(crash_likelihoods_df) / 2))
                             sns.heatmap(crash_likelihoods_df, annot=True, cmap='RdYlGn_r', ax=ax)
                             st.pyplot(fig)
-        except KeyError as e:
-            st.error(f"Key error: {e}")
-        except Exception as e:
-            st.error(f"An unexpected error occurred: {e}")
+            except KeyError as e:
+                st.error(f"Key error: {e}")
+            except Exception as e:
+                st.error(f"An unexpected error occurred: {e}")
 
 else:
     st.write("Please select a portfolio or sector to view data.")
