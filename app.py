@@ -314,7 +314,7 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 if selected_stocks:
     df_full = load_detailed_data(selected_stocks)
 
-    if not df_full.empty:
+    if not df_full.empty():
         try:
             # Convert dates only once and use converted dates for comparisons
             first_available_date = pd.Timestamp(df_full.index.min())
@@ -497,10 +497,10 @@ if selected_stocks:
                             fig, ax = plt.subplots(figsize=(10, len(crash_likelihoods_df) / 2))
                             sns.heatmap(crash_likelihoods_df, annot=True, cmap='RdYlGn_r', ax=ax)
                             st.pyplot(fig)
-            except KeyError as e:
-                st.error(f"Key error: {e}")
-            except Exception as e:
-                st.error(f"An unexpected error occurred: {e}")
+        except KeyError as e:
+            st.error(f"Key error: {e}")
+        except Exception as e:
+            st.error(f"An unexpected error occurred: {e}")
 
 else:
     st.write("Please select a portfolio or sector to view data.")
