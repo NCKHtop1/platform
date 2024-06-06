@@ -35,12 +35,12 @@ SECTOR_FILES = {
     'Vật liệu xây dựng': 'Building Material.csv',
     'Hóa chất': 'Chemical.csv',
     'Dịch vụ tài chính': 'Financial Services.csv',
-    'Thực phẩm và đồ uống': 'Food and Beverage.csv',
-    'Dịch vụ công nghiệp': 'Industrial Services.csv',
-    'Công nghệ thông tin': 'Information Technology.csv',
+    'Thực phẩm và đồ uống': 'Food and Beverage.csv',  # Fix file name
+    'Dịch vụ công nghiệp': 'Industrial Services.csv',  # Fix file name
+    'Công nghệ thông tin': 'Information Technology.csv',  # Fix file name
     'Khoáng sản': 'Mineral.csv',
-    'Dầu khí': 'Oil and Gas.csv',
-    'Bất động sản': 'Real Estate.csv',
+    'Dầu khí': 'Oil and Gas.csv',  # Fix file name
+    'Bất động sản': 'Real Estate.csv',  # Fix file name
     'VNINDEX': 'Vnindex.csv'
 }
 
@@ -355,7 +355,7 @@ if selected_stocks:
         else:
             try:
                 df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
-                df_filtered = df_filtered.loc[start_date:end_date]
+                df_filtered = df_filtered.loc[(df_filtered.index >= start_date) & (df_filtered.index <= end_date)]
 
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
