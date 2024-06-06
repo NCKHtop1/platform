@@ -10,13 +10,13 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
+
 # Check if the image file exists
 image_path = 'image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
 else:
     st.image(image_path, use_column_width=True)
-
 
 # Custom CSS for better UI
 st.markdown("""
@@ -70,7 +70,14 @@ def ensure_datetime_compatibility(start_date, end_date, df):
         start_date = pd.Timestamp(start_date)
     if not isinstance(end_date, pd.Timestamp):
         end_date = pd.Timestamp(end_date)
-    return df[(df.index >= start_date) & (df.index <= end_date)]
+    
+    # Check if the dates are within the dataframe's range
+    if start_date not in df.index:
+        start_date = df.index[df.index.get_loc(start_date, method='nearest')]
+    if end_date not in df.index:
+        end_date = df.index[df.index.get_loc(end_date, method='nearest')]
+    
+    return df[start_date:end_date]
 
 # Load and filter detailed data
 def load_detailed_data(selected_stocks):
@@ -202,53 +209,58 @@ def calculate_indicators_and_crashes(df, strategies):
         st.error("No data available for the selected date range.")
         return df
 
-    if "MACD" in strategies:
-        macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
-        if 'MACD_12_26_9' in macd.columns:
-            df['MACD Line'] = macd['MACD_12_26_9']
-            df['Signal Line'] = macd['MACDs_12_26_9']
-            df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
-            df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
+    try:
+        if "MACD" in strategies:
+            macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
+            if 'MACD_12_26_9' in macd.columns:
+                df['MACD Line'] = macd['MACD_12_26_9']
+                df['Signal Line'] = macd['MACDs_12_26_9']
+                df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
+                df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
 
-    if "Supertrend" in strategies:
-        supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
-        if 'SUPERTd_7_3.0' in supertrend.columns:
-            df['Supertrend'] = supertrend['SUPERTd_7_3.0']
-            df['Supertrend Buy'] = supertrend['SUPERTd_7_3.0'] == 1  # Buy when supertrend is positive
-            df['Supertrend Sell'] = supertrend['SUPERTd_7_3.0'] == -1  # Sell when supertrend is negative
+        if "Supertrend" in strategies:
+            supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
+            if 'SUPERTd_7_3.0' in supertrend.columns:
+                df['Supertrend'] = supertrend['SUPERTd_7_3.0']
+                df['Supertrend Buy'] = supertrend['SUPERTd_7_3.0'] == 1  # Buy when supertrend is positive
+                df['Supertrend Sell'] = supertrend['SUPERTd_7_3.0'] == -1  # Sell when supertrend is negative
 
-    if "Stochastic" in strategies:
-        stochastic = df.ta.stoch(append=True)
-        if 'STOCHk_14_3_3' in stochastic.columns and 'STOCHd_14_3_3' in stochastic.columns:
-            df['Stochastic K'] = stochastic['STOCHk_14_3_3']
-            df['Stochastic D'] = stochastic['STOCHd_14_3_3']
-            df['Stochastic Buy'] = (df['Stochastic K'] > df['Stochastic D']) & (df['Stochastic K'].shift(1) <= df['Stochastic D'].shift(1))
-            df['Stochastic Sell'] = (df['Stochastic K'] < df['Stochastic D']) & (df['Stochastic K'].shift(1) >= df['Stochastic D'].shift(1))
+        if "Stochastic" in strategies:
+            stochastic = df.ta.stoch(append=True)
+            if 'STOCHk_14_3_3' in stochastic.columns and 'STOCHd_14_3_3' in stochastic.columns:
+                df['Stochastic K'] = stochastic['STOCHk_14_3_3']
+                df['Stochastic D'] = stochastic['STOCHd_14_3_3']
+                df['Stochastic Buy'] = (df['Stochastic K'] > df['Stochastic D']) & (df['Stochastic K'].shift(1) <= df['Stochastic D'].shift(1))
+                df['Stochastic Sell'] = (df['Stochastic K'] < df['Stochastic D']) & (df['Stochastic K'].shift(1) >= df['Stochastic D'].shift(1))
 
-    if "RSI" in strategies:
-        df['RSI'] = ta.rsi(df['close'], length=14)
-        df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
-        df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
+        if "RSI" in strategies:
+            df['RSI'] = ta.rsi(df['close'], length=14)
+            df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
+            df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
-    peaks, _ = find_peaks(df['close'])
-    df['Peaks'] = df.index.isin(df.index[peaks])
+        peaks, _ = find_peaks(df['close'])
+        df['Peaks'] = df.index.isin(df.index[peaks])
 
-    # Forward-fill peak prices to compute drawdowns
-    peak_prices = df['close'].where(df['Peaks']).ffill()
-    drawdowns = (peak_prices - df['close']) / peak_prices
+        # Forward-fill peak prices to compute drawdowns
+        peak_prices = df['close'].where(df['Peaks']).ffill()
+        drawdowns = (peak_prices - df['close']) / peak_prices
 
-    # Mark significant drawdowns as crashes
-    crash_threshold = 0.175
-    df['Crash'] = drawdowns >= crash_threshold
+        # Mark significant drawdowns as crashes
+        crash_threshold = 0.175
+        df['Crash'] = drawdowns >= crash_threshold
 
-    # Filter crashes to keep only one per week (on Fridays)
-    df['Crash'] = df['Crash'] & (df.index.weekday == 4)
+        # Filter crashes to keep only one per week (on Fridays)
+        df['Crash'] = df['Crash'] & (df.index.weekday == 4)
 
-    # Adjust buy and sell signals based on crashes
-    df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
-                            (~df['Crash'].shift(1).fillna(False)))
-    df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
-                           (~df['Crash'].shift(1).fillna(False)))
+        # Adjust buy and sell signals based on crashes
+        df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
+                                (~df['Crash'].shift(1).fillna(False)))
+        df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
+                               (~df['Crash'].shift(1).fillna(False)))
+    except KeyError as e:
+        st.error(f"KeyError: {e}")
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
     return df
 
 # Function to apply T+ holding constraint
