@@ -35,7 +35,7 @@ SECTOR_FILES = {
     'Vật liệu xây dựng': 'Building Material.csv',
     'Hóa chất': 'Chemical.csv',
     'Dịch vụ tài chính': 'Financial Services.csv',
-    'Thực phẩm và đồ uống': 'Food_and Beverage.csv',
+    'Thực phẩm và đồ uống': 'Food and Beverage.csv',
     'Dịch vụ công nghiệp': 'Industrial Services.csv',
     'Công nghệ thông tin': 'Information Technology.csv',
     'Khoáng sản': 'Mineral.csv',
