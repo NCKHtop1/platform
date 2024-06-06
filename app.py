@@ -42,7 +42,7 @@ SECTOR_FILES = {
     'Vật liệu xây dựng': 'Building Material.csv',
     'Hóa chất': 'Chemical.csv',
     'Dịch vụ tài chính': 'Financial Services.csv',
-    'Thực phẩm và đồ uống': 'Food and Beverage.csv',
+    'Thực phẩm và đồ uống': 'Food_and Beverage.csv',
     'Dịch vụ công nghiệp': 'Industrial Services.csv',
     'Công nghệ thông tin': 'Information Technology.csv',
     'Khoáng sản': 'Mineral.csv',
@@ -57,8 +57,12 @@ def load_data(sector):
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
-    df = pd.read_csv(file_path)
-    df['Datetime'] = pd.to_datetime(df['Datetime'], format='%Y-%m-%d')
+    if sector == 'VNINDEX':
+        df = pd.read_csv(file_path)
+        df['Datetime'] = pd.to_datetime(df['Datetime'], format='%m/%d/%Y')  # Format for Vnindex
+    else:
+        df = pd.read_csv(file_path)
+        df['Datetime'] = pd.to_datetime(df['Datetime'], format='%d/%m/%Y', dayfirst=True)
     df.set_index('Datetime', inplace=True)
     return df
 
@@ -358,7 +362,7 @@ if selected_stocks:
         else:
             try:
                 df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
-                df_filtered = df_filtered.loc[(df_filtered.index >= pd.to_datetime(start_date)) & (df_filtered.index <= pd.to_datetime(end_date))]
+                df_filtered = df_filtered.loc[(df_filtered.index >= start_date) & (df_filtered.index <= end_date)]
 
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
