@@ -48,7 +48,6 @@ def load_data(file_path):
         return pd.DataFrame()
     df = pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True)
     df.set_index('Datetime', inplace=True)
-    df = df[~df.index.duplicated(keep='first')]
     return df
 
 def load_portfolio_symbols(portfolio_name):
@@ -74,7 +73,6 @@ def load_detailed_data(selected_stocks):
         if not df.empty:
             sector_data = df[df['StockSymbol'].isin(selected_stocks)]
             data = pd.concat([data, sector_data])
-    data = data[~data.index.duplicated(keep='first')]
     return data
 
 class PortfolioOptimizer:
