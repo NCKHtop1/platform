@@ -82,12 +82,12 @@ if selected_stocks:
         stock_data = df_sector[df_sector['StockSymbol'] == stock]
         if not stock_data.empty:
             stock_min, stock_max = stock_data.index.min(), stock_data.index.max()
-            min_date = stock_min if not min_date or stock_min > min_date else min_date
-            max_date = stock_max if not max_date or stock_max < max_date else max_date
+            min_date = stock_min if min_date is None or stock_min > min_date else min_date
+            max_date = stock_max if max_date is None or stock_max < max_date else max_date
 
     if min_date and max_date:
-        start_date = st.sidebar.date_input("Start Date", min_date, min_value=min_date, max_value=max_date)
-        end_date = st.sidebar.date_input("End Date", max_date, min_value=min_date, max_value=max_date)
+        start_date = st.sidebar.date_input("Start Date", min_date)
+        end_date = st.sidebar.date_input("End Date", max_date)
 
         # Convert start_date and end_date to Pandas datetime objects
         start_date = pd.to_datetime(start_date)
@@ -121,7 +121,7 @@ def filter_stocks_by_date_range(df, start_date, end_date):
     filtered_symbols = []
     for symbol in df['StockSymbol'].unique():
         stock_data = df[df['StockSymbol'] == symbol]
-        if not stock_data.empty and stock_data.index.min().date() <= start_date and stock_data.index.max().date() >= end_date:
+        if not stock_data.empty and stock_data.index.min() <= start_date and stock_data.index.max() >= end_date:
             filtered_symbols.append(symbol)
     return filtered_symbols
 
