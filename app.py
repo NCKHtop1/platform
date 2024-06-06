@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
+import os
 from scipy.optimize import minimize
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
@@ -9,7 +10,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
-import os
 
 # Custom CSS for better UI
 st.markdown("""
@@ -17,19 +17,10 @@ st.markdown("""
     .main {background-color: #f0f2f6;}
     .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
     .stSidebar {background-color: #f0f2f6;}
-    .css-1aumxhk {padding: 2rem;}
-    .stImage img {
-        width: 100%;
-        max-width: 1200px;
-        height: auto;
-        display: block;
-        margin-left: auto;
-        margin-right: auto.
-    }
     </style>
     """, unsafe_allow_html=True)
 
-# Sector files mapping
+# Sector and Portfolio files mapping
 SECTOR_FILES = {
     'Ngân hàng': 'Banking.csv',
     'Vật liệu xây dựng': 'Building Material.csv',
@@ -50,25 +41,31 @@ PORTFOLIO_FILES = {
     'VNAllShare': 'VNAllShare.csv'
 }
 
-@st.cache_data
+@st.cache(allow_output_mutation=True)
 def load_data(file_path):
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
-    df = pd.read_csv(file_path)
-    df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
+    df = pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True)
     df.set_index('Datetime', inplace=True)
     return df
 
-@st.cache_data
-def load_stock_symbols(file_path):
+def load_portfolio_symbols(portfolio_name):
+    file_path = PORTFOLIO_FILES.get(portfolio_name, '')
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
         return []
-    df = pd.read_csv(file_path)
-    return df['symbol'].tolist()
+    return pd.read_csv(file_path)['symbol'].tolist()
 
-# Load detailed data for selected stocks
+# Ensure datetime comparison compatibility
+def ensure_datetime_compatibility(start_date, end_date, df):
+    if isinstance(start_date, datetime.date):
+        start_date = pd.Timestamp(start_date)
+    if isinstance(end_date, datetime.date):
+        end_date = pd.Timestamp(end_date)
+    return df[(df.index >= start_date) & (df.index <= end_date)]
+
+# Load and filter detailed data
 def load_detailed_data(selected_stocks):
     data = pd.DataFrame()
     for sector, file_path in SECTOR_FILES.items():
@@ -286,7 +283,7 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
 
     if portfolio_options:
         for portfolio_option in portfolio_options:
-            symbols = load_stock_symbols(PORTFOLIO_FILES[portfolio_option])
+            symbols = load_portfolio_symbols(portfolio_option)
             if symbols:
                 selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
                 selected_stocks.extend(selected_symbols)
@@ -338,7 +335,7 @@ if selected_stocks:
         else:
             try:
                 df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
-                df_filtered = df_filtered.loc[(df_filtered.index >= start_date) & (df_filtered.index <= end_date)]
+                df_filtered = ensure_datetime_compatibility(start_date, end_date, df_filtered)
 
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
@@ -479,7 +476,7 @@ if selected_stocks:
                                 st.write(f"{stock}: {weight:.4f}")
 
                             for portfolio_option in portfolio_options:
-                                symbols = load_stock_symbols(PORTFOLIO_FILES[portfolio_option])
+                                symbols = load_portfolio_symbols(portfolio_option)
                                 st.markdown(f"**{portfolio_option}:**")
                                 st.write(symbols)
 
