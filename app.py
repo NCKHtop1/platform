@@ -372,9 +372,9 @@ if selected_stocks:
                         ))
 
                     fig.update_layout(
-                        title='Trọng số tối ưu cho các mã cổ phiếu đã chọn',
-                        xaxis_title='Cổ phiếu',
-                        yaxis_title='Trọng số',
+                        title='Optimal Weights for Selected Stocks',
+                        xaxis_title='Stock',
+                        yaxis_title='Weight',
                         width=800,
                         height=600
                     )
@@ -506,7 +506,7 @@ if selected_stocks:
                             data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
                             optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
 
-                            st.write("Trọng số tối ưu cho các mã cổ phiếu đã chọn:")
+                            st.write("Optimal Weights for Selected Stocks:")
                             for stock, weight in zip(data_matrix.columns, optimal_weights):
                                 st.write(f"{stock}: {weight:.4f}")
 
