@@ -299,6 +299,36 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
             if symbols:
                 selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
                 selected_stocks.extend(selected_symbols)
+                
+                if selected_symbols:
+                    optimizer = PortfolioOptimizer()
+                    df_selected_stocks = load_detailed_data(selected_symbols)
+                    data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
+                    optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
+
+                    # Plot optimal weights with color coding
+                    fig = go.Figure()
+
+                    for i, stock in enumerate(data_matrix.columns):
+                        color = 'green' if optimal_weights[i] > 0.05 else 'yellow' if 0.0 < optimal_weights[i] <= 0.05 else 'red'
+                        fig.add_trace(go.Bar(
+                            x=data_matrix.index,
+                            y=[weight[i] for weight in optimal_weights],
+                            name=stock,
+                            marker_color=color
+                        ))
+
+                    fig.update_layout(
+                        barmode='stack',
+                        title='Optimal Weights for Selected Stocks',
+                        xaxis_title='Date',
+                        yaxis_title='Weight',
+                        width=800,
+                        height=600
+                    )
+
+                    st.plotly_chart(fig)
+                    st.stop()  # Stop execution to prevent displaying the backtesting screen
 
     else:
         selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
@@ -354,32 +384,6 @@ if selected_stocks:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
                 else:
                     df_filtered = calculate_indicators_and_crashes(df_filtered, strategies)
-
-                    optimizer = PortfolioOptimizer()
-                    data_matrix = df_filtered.pivot_table(values='close', index=df_filtered.index, columns='StockSymbol').dropna()
-                    optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
-
-                    # Create a bar chart with color coding based on optimal weights
-                    fig = go.Figure()
-                    for i, stock in enumerate(data_matrix.columns):
-                        weight = optimal_weights[i]
-                        color = 'red' if weight < 0 else 'yellow' if 0 <= weight <= 0.05 else 'green'
-                        fig.add_trace(go.Bar(
-                            x=[stock],
-                            y=[weight],
-                            name=stock,
-                            marker_color=color
-                        ))
-
-                    fig.update_layout(
-                        title='Optimal Weights for Selected Stocks',
-                        xaxis_title='Stock',
-                        yaxis_title='Weight',
-                        width=800,
-                        height=600
-                    )
-
-                    st.plotly_chart(fig)
 
                     portfolio = run_backtest(df_filtered, init_cash, fees, direction, t_plus)
 
@@ -502,7 +506,7 @@ if selected_stocks:
                             st.markdown("**Danh mục đầu tư:**")
                             st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
                             optimizer = PortfolioOptimizer()
-                            df_selected_stocks = df_filtered[df_filtered['StockSymbol'].isin(selected_stocks)]
+                            df_selected_stocks = df_full[df_full['StockSymbol'].isin(selected_stocks)]
                             data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
                             optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
 
