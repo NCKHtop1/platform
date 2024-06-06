@@ -391,12 +391,8 @@ if selected_stocks:
         last_available_date = df_full.index.max()
 
         # Ensure selected date range is within the available data range
-        start_date = st.date_input('Ngày bắt đầu', first_available_date)
-        end_date = st.date_input('Ngày kết thúc', last_available_date)
-
-        # Convert start_date and end_date to Pandas datetime objects
-        start_date = pd.to_datetime(start_date)
-        end_date = pd.to_datetime(end_date)
+        start_date = pd.to_datetime(st.date_input('Ngày bắt đầu', first_available_date))
+        end_date = pd.to_datetime(st.date_input('Ngày kết thúc', last_available_date))
 
         if start_date < first_available_date:
             start_date = first_available_date
