@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from scipy.optimize import minimize
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import seaborn as sns
@@ -9,15 +10,6 @@ import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 import os
-
-#https://github.com/bilal114/react-date-range-calendar.git
-
-# Check if the image file exists
-image_path = 'image.png'
-if not os.path.exists(image_path):
-    st.error(f"Image file not found: {image_path}")
-else:
-    st.image(image_path, use_column_width=True)
 
 # Custom CSS for better UI
 st.markdown("""
@@ -75,6 +67,56 @@ def load_stock_symbols(file_path):
     df = pd.read_csv(file_path)
     stock_symbols_df = df.drop_duplicates(subset='symbol')
     return stock_symbols_df['symbol'].tolist()
+
+class PortfolioOptimizer:
+    def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
+        X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
+        mu = np.mean(X, axis=0)  # Calculate the mean returns of the assets
+        Sigma = np.cov(X, rowvar=False)  # Calculate the covariance matrix of the returns
+
+        w = self.MSRP_solver(mu, Sigma)  # Use the MSRP solver to get the optimal weights
+        return w  # Return the optimal weights
+
+    def MSRP_solver(self, mu: np.ndarray, Sigma: np.ndarray) -> np.ndarray:
+        N = Sigma.shape[0]  # Number of assets (stocks)
+        if np.all(mu <= 1e-8):  # Check if mean returns are close to zero
+            return np.zeros(N)  # Return zero weights if no returns
+
+        Dmat = 2 * Sigma  # Quadratic term for the optimizer
+        Amat = np.vstack((mu, np.ones(N)))  # Combine mean returns and sum constraint for constraints
+        bvec = np.array([1, 1])  # Right-hand side of constraints (1 for mean returns and sum)
+        dvec = np.zeros(N)  # Linear term (zero for this problem)
+
+        # Call the QP solver
+        w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=2)
+        return w / np.sum(abs(w))  # Normalize weights to sum to 1
+
+    def solve_QP(self, Dmat: np.ndarray, dvec: np.ndarray, Amat: np.ndarray, bvec: np.ndarray, meq: int = 0) -> np.ndarray:
+        def portfolio_obj(x):
+            return 0.5 * np.dot(x, np.dot(Dmat, x)) + np.dot(dvec, x)
+
+        def portfolio_constr_eq(x):
+            return np.dot(Amat[:meq], x) - bvec[:meq]
+
+        def portfolio_constr_ineq(x):
+            if Amat.shape[0] - meq == 0:
+                return np.array([])
+            else:
+                return np.dot(Amat[meq:], x) - bvec[meq:]
+
+        cons = [{'type': 'eq', 'fun': portfolio_constr_eq}]
+
+        if meq < len(bvec):
+            cons.append({'type': 'ineq', 'fun': portfolio_constr_ineq})
+
+        initial_guess = np.ones(Dmat.shape[0]) / Dmat.shape[0]
+
+        res = minimize(portfolio_obj, initial_guess, constraints=cons, method='SLSQP')
+
+        if not res.success:
+            raise ValueError('Quadratic programming failed to find a solution.')
+
+        return res.x
 
 # Ichimoku Oscillator Class
 class IchimokuOscillator:
@@ -435,6 +477,15 @@ if selected_stocks:
                         with tab7:
                             st.markdown("**Danh mục đầu tư:**")
                             st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
+                            optimizer = PortfolioOptimizer()
+                            df_selected_stocks = df_full[df_full['StockSymbol'].isin(selected_stocks)]
+                            data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
+                            optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
+
+                            st.write("Optimal Weights for Selected Stocks:")
+                            for stock, weight in zip(data_matrix.columns, optimal_weights):
+                                st.write(f"{stock}: {weight:.4f}")
+
                             for portfolio_option in portfolio_options:
                                 symbols = load_portfolio_symbols(portfolio_option)
                                 st.markdown(f"**{portfolio_option}:**")
