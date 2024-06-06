@@ -30,7 +30,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # Check if the image file exists
-image_path = '/mnt/data/image.png'
+image_path = 'image.png'
 if not os.path.exists(image_path):
     st.error("Image file not found: " + image_path)
 else:
@@ -387,8 +387,8 @@ if selected_stocks:
     df_full = load_data(sector)
 
     if not df_full.empty:
-        first_available_date = df_full.index.min().date()
-        last_available_date = df_full.index.max().date()
+        first_available_date = df_full.index.min()
+        last_available_date = df_full.index.max()
 
         # Ensure selected date range is within the available data range
         start_date = st.date_input('Ngày bắt đầu', first_available_date)
