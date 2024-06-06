@@ -59,9 +59,9 @@ def load_portfolio_symbols(portfolio_name):
 
 # Ensure datetime comparison compatibility
 def ensure_datetime_compatibility(start_date, end_date, df):
-    if isinstance(start_date, datetime.date):
+    if not isinstance(start_date, pd.Timestamp):
         start_date = pd.Timestamp(start_date)
-    if isinstance(end_date, datetime.date):
+    if not isinstance(end_date, pd.Timestamp):
         end_date = pd.Timestamp(end_date)
     return df[(df.index >= start_date) & (df.index <= end_date)]
 
@@ -315,27 +315,30 @@ if selected_stocks:
     df_full = load_detailed_data(selected_stocks)
 
     if not df_full.empty:
-        first_available_date = df_full.index.min()
-        last_available_date = df_full.index.max()
+        try:
+            # Convert dates only once and use converted dates for comparisons
+            first_available_date = pd.Timestamp(df_full.index.min())
+            last_available_date = pd.Timestamp(df_full.index.max())
 
-        # Ensure selected date range is within the available data range
-        start_date = st.date_input('Ngày bắt đầu', first_available_date)
-        end_date = st.date_input('Ngày kết thúc', last_available_date)
+            start_date = st.date_input('Ngày bắt đầu', first_available_date)
+            end_date = st.date_input('Ngày kết thúc', last_available_date)
 
-        if start_date < first_available_date.date():
-            start_date = first_available_date.date()
-            st.warning("Ngày bắt đầu đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
+            # Convert user input dates to timestamps if not already
+            start_date = pd.Timestamp(start_date) if not isinstance(start_date, pd.Timestamp) else start_date
+            end_date = pd.Timestamp(end_date) if not isinstance(end_date, pd.Timestamp) else end_date
 
-        if end_date > last_available_date.date():
-            end_date = last_available_date.date()
-            st.warning("Ngày kết thúc đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
+            # Ensure date range is within limits and use the ensured function
+            if start_date < first_available_date:
+                start_date = first_available_date
+                st.warning("Ngày bắt đầu đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
+            if end_date > last_available_date:
+                end_date = last_available_date
+                st.warning("Ngày kết thúc đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
 
-        if start_date >= end_date:
-            st.error("Lỗi: Ngày kết thúc phải sau ngày bắt đầu.")
-        else:
-            try:
-                df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
-                df_filtered = ensure_datetime_compatibility(start_date, end_date, df_filtered)
+            if start_date >= end_date:
+                st.error("Lỗi: Ngày kết thúc phải sau ngày bắt đầu.")
+            else:
+                df_filtered = ensure_datetime_compatibility(start_date, end_date, df_full)
 
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
