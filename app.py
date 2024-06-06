@@ -11,6 +11,13 @@ import vectorbt as vbt
 import pandas_ta as ta
 import os
 
+# Check if the image file exists
+image_path = 'image.png'
+if not os.path.exists(image_path):
+    st.error(f"Image file not found: {image_path}")
+else:
+    st.image(image_path, use_column_width=True)
+
 # Custom CSS for better UI
 st.markdown("""
     <style>
@@ -35,12 +42,12 @@ SECTOR_FILES = {
     'Vật liệu xây dựng': 'Building Material.csv',
     'Hóa chất': 'Chemical.csv',
     'Dịch vụ tài chính': 'Financial Services.csv',
-    'Thực phẩm và đồ uống': 'Food and Beverage.csv',  # Fix file name
-    'Dịch vụ công nghiệp': 'Industrial Services.csv',  # Fix file name
-    'Công nghệ thông tin': 'Information Technology.csv',  # Fix file name
+    'Thực phẩm và đồ uống': 'Food_and Beverage.csv',
+    'Dịch vụ công nghiệp': 'Industrial Services.csv',
+    'Công nghệ thông tin': 'Information Technology.csv',
     'Khoáng sản': 'Mineral.csv',
-    'Dầu khí': 'Oil and Gas.csv',  # Fix file name
-    'Bất động sản': 'Real Estate.csv',  # Fix file name
+    'Dầu khí': 'Oil and Gas.csv',
+    'Bất động sản': 'Real Estate.csv',
     'VNINDEX': 'Vnindex.csv'
 }
 
