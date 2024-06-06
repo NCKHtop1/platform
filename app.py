@@ -125,71 +125,48 @@ class PortfolioOptimizer:
 
         return res.x
 
-    def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit', shortselling: bool = True, leverage: int = None) -> np.ndarray:
-        X = np.diff(np.log(data), axis=0)
-        X = X[~np.isnan(X).any(axis=1)]  # Remove rows with NaN values
+# Ichimoku Oscillator Class
+class IchimokuOscillator:
+    def __init__(self, conversion_periods=8, base_periods=13, lagging_span2_periods=26, displacement=13):
+        self.conversion_periods = conversion_periods
+        self.base_periods = base_periods
+        self.lagging_span2_periods = lagging_span2_periods
+        self.displacement = displacement
 
-        if shrinkage:
-            if shrinkage_type == 'ledoit':
-                Sigma = self.ledoit_wolf_shrinkage(X)
-            elif shrinkage_type == 'ledoit_cc':
-                Sigma = self.ledoitwolf_cc(X)
-            elif shrinkage_type == 'oas':
-                Sigma = self.oas_shrinkage(X)
-            elif shrinkage_type == 'graphical_lasso':
-                Sigma = self.graphical_lasso_shrinkage(X)
-            elif shrinkage_type == 'mcd':
-                Sigma = self.mcd_shrinkage(X)
-            else:
-                raise ValueError('Invalid shrinkage type. Choose from: ledoit, ledoit_cc, oas, graphical_lasso, mcd')
-        else:
-            Sigma = np.cov(X, rowvar=False)
+    def donchian_channel(self, series, length):
+        lowest = series.rolling(window=length, min_periods=1).min()
+        highest = series.rolling(window=length, min_periods=1).max()
+        return (lowest + highest) / 2
 
-        if not shortselling:
-            N = Sigma.shape[0]
-            Dmat = 2 * Sigma
-            Amat = np.vstack((np.ones(N), np.eye(N)))
-            bvec = np.array([1] + [0] * N)
-            dvec = np.zeros(N)
-            w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=1)
-        else:
-            ones = np.ones(Sigma.shape[0])
-            w = np.linalg.solve(Sigma, ones)
-            w /= np.sum(w)
+    def calculate(self, df):
+        df['conversion_line'] = self.donchian_channel(df['close'], self.conversion_periods)
+        df['base_line'] = self.donchian_channel(df['close'], self.base_periods)
+        df['leading_span_a'] = (df['conversion_line'] + df['base_line']) / 2
+        df['leading_span_b'] = self.donchian_channel(df['close'], self.lagging_span2_periods)
+        df['cloud_min'] = np.minimum(df['leading_span_a'].shift(self.displacement - 1), df['leading_span_b'].shift(self.displacement - 1))
+        df['cloud_max'] = np.maximum(df['leading_span_a'].shift(self.displacement - 1), df['leading_span_b'].shift(self.displacement - 1))
+        return df
 
-        if leverage is not None and leverage < np.inf:
-            w = leverage * w / np.sum(np.abs(w))
+# Function to calculate MACD signals
+def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
+    def ema(values, length):
+        alpha = 2 / (length + 1)
+        ema_values = np.zeros_like(values)
+        ema_values[0] = values[0]
+        for i in range(1, len(values)):
+            ema_values[i] = values[i] * alpha + ema_values[i - 1] * (1 - alpha)
+        return ema_values
 
-        return w
+    fast_ma = ema(prices, fast_length)
+    slow_ma = ema(prices, slow_length)
+    macd_line = fast_ma - slow_ma
 
-    def ledoitwolf_cc(self, returns: np.ndarray) -> np.ndarray:
-        T, N = returns.shape
-        returns = returns - np.mean(returns, axis=0, keepdims=True)
-        df = pd.DataFrame(returns)
-        Sigma = df.cov().values
-        Cor = df.corr().values
-        diagonals = np.diag(Sigma)
-        var = diagonals.reshape(len(Sigma), 1)
-        vols = var ** 0.5
+    signal_line = ema(macd_line, signal_length)
+    histogram = macd_line - signal_line
 
-        rbar = np.mean((Cor.sum(1) - 1) / (Cor.shape[1] - 1))
-        cc_cor = np.matrix([[rbar] * N for _ in range(N)])
-        np.fill_diagonal(cc_cor, 1)
-        F = np.diag((diagonals ** 0.5)) @ cc_cor @ np.diag((diagonals ** 0.5))
+    return macd_line, signal_line, histogram
 
-        y = returns ** 2
-        mat1 = (y.transpose() @ y) / T - Sigma ** 2
-        pihat = mat1.sum()
-
-        mat2 = ((returns ** 3).transpose() @ returns) / T - var * Sigma
-        np.fill_diagonal(mat2, 0)
-        rhohat = np.diag(mat1).sum() + rbar * ((1 / vols) @ vols.transpose() * mat2).sum()
-        gammahat = np.linalg.norm(Sigma - F, "fro") ** 2
-        kappahat = (pihat - rhohat) / gammahat
-        delta = max(0, min(1, kappahat / T))
-
-        return delta * F + (1 - delta) * Sigma
-
+# Function to calculate buy/sell signals and crashes
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
         st.error("No data available for the selected date range.")
@@ -246,13 +223,23 @@ def calculate_indicators_and_crashes(df, strategies):
 
 # Function to apply T+ holding constraint
 def apply_t_plus(df, t_plus):
+    # Convert T+ from selected options to integer days
     t_plus_days = int(t_plus)
 
     if t_plus_days > 0:
+        # Create a new column to track the buy date
         df['Buy Date'] = np.nan
+
+        # Track the buy date for each buy signal
         df.loc[df['Adjusted Buy'], 'Buy Date'] = df.index[df['Adjusted Buy']]
+
+        # Forward-fill the buy date to keep the most recent buy date
         df['Buy Date'] = df['Buy Date'].ffill()
+
+        # Calculate the earliest sell date allowed based on the T+ days
         df['Earliest Sell Date'] = df['Buy Date'] + pd.to_timedelta(t_plus_days, unit='D')
+
+        # Only allow sell signals if the current date is after the earliest sell date
         df['Adjusted Sell'] = df['Adjusted Sell'] & (df.index > df['Earliest Sell Date'])
 
     return df
@@ -263,6 +250,7 @@ def run_backtest(df, init_cash, fees, direction, t_plus):
     entries = df['Adjusted Buy']
     exits = df['Adjusted Sell']
 
+    # Check if there are any entries and exits
     if entries.empty or exits.empty or not entries.any() or not exits.any():
         return None
 
@@ -299,7 +287,6 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
             if symbols:
                 selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
                 selected_stocks.extend(selected_symbols)
-
     else:
         selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
         df_full = load_data(SECTOR_FILES[selected_sector])
@@ -329,15 +316,18 @@ if selected_stocks:
 
     if not df_full.empty:
         try:
+            # Convert dates only once and use converted dates for comparisons
             first_available_date = pd.Timestamp(df_full.index.min())
             last_available_date = pd.Timestamp(df_full.index.max())
 
             start_date = st.date_input('Ngày bắt đầu', first_available_date)
             end_date = st.date_input('Ngày kết thúc', last_available_date)
 
+            # Convert user input dates to timestamps if not already
             start_date = pd.Timestamp(start_date) if not isinstance(start_date, pd.Timestamp) else start_date
             end_date = pd.Timestamp(end_date) if not isinstance(end_date, pd.Timestamp) else end_date
 
+            # Ensure date range is within limits and use the ensured function
             if start_date < first_available_date:
                 start_date = first_available_date
                 st.warning("Ngày bắt đầu đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
@@ -353,39 +343,16 @@ if selected_stocks:
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
                 else:
+                    # Calculate indicators and crashes
                     df_filtered = calculate_indicators_and_crashes(df_filtered, strategies)
 
-                    optimizer = PortfolioOptimizer()
-                    data_matrix = df_filtered.pivot_table(values='close', index=df_filtered.index, columns='StockSymbol').dropna()
-                    optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
-
-                    # Create a bar chart with color coding based on optimal weights
-                    fig = go.Figure()
-                    for i, stock in enumerate(data_matrix.columns):
-                        weight = optimal_weights[i]
-                        color = 'red' if weight < 0 else 'yellow' if 0 <= weight <= 0.05 else 'green'
-                        fig.add_trace(go.Bar(
-                            x=[stock],
-                            y=[weight],
-                            name=stock,
-                            marker_color=color
-                        ))
-
-                    fig.update_layout(
-                        title='Trọng số tối ưu cho các mã cổ phiếu đã chọn',
-                        xaxis_title='Cổ phiếu',
-                        yaxis_title='Trọng số',
-                        width=800,
-                        height=600
-                    )
-
-                    st.plotly_chart(fig)
-
+                    # Run backtest
                     portfolio = run_backtest(df_filtered, init_cash, fees, direction, t_plus)
 
                     if portfolio is None or len(portfolio.orders.records) == 0:
                         st.error("Không có giao dịch nào được thực hiện trong khoảng thời gian này.")
                     else:
+                        # Create tabs for different views on the main screen
                         tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
 
                         with tab1:
@@ -402,6 +369,7 @@ if selected_stocks:
                             for index, value in summary_stats.items():
                                 st.markdown(f'<div class="highlight">{index}: {value}</div>', unsafe_allow_html=True)
 
+                            # Add crash details
                             crash_details = df_filtered[df_filtered['Crash']][['close']]
                             crash_details.reset_index(inplace=True)
                             crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
@@ -502,11 +470,11 @@ if selected_stocks:
                             st.markdown("**Danh mục đầu tư:**")
                             st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
                             optimizer = PortfolioOptimizer()
-                            df_selected_stocks = df_filtered[df_filtered['StockSymbol'].isin(selected_stocks)]
+                            df_selected_stocks = df_full[df_full['StockSymbol'].isin(selected_stocks)]
                             data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
                             optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
 
-                            st.write("Trọng số tối ưu cho các mã cổ phiếu đã chọn:")
+                            st.write("Optimal Weights for Selected Stocks:")
                             for stock, weight in zip(data_matrix.columns, optimal_weights):
                                 st.write(f"{stock}: {weight:.4f}")
 
@@ -515,11 +483,13 @@ if selected_stocks:
                                 st.markdown(f"**{portfolio_option}:**")
                                 st.write(symbols)
 
+                        # Calculate crash likelihood for each selected stock and plot heatmap
                         crash_likelihoods = {}
                         for stock in selected_stocks:
                             stock_df = df_filtered[df_filtered['StockSymbol'] == stock]
                             crash_likelihoods[stock] = calculate_crash_likelihood(stock_df)
 
+                        # Plot heatmap
                         if crash_likelihoods:
                             st.markdown("**Xác suất sụt giảm:**")
                             crash_likelihoods_df = pd.DataFrame(list(crash_likelihoods.items()), columns=['Stock', 'Crash Likelihood'])
