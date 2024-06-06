@@ -10,13 +10,13 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
-
 # Check if the image file exists
 image_path = 'image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
 else:
     st.image(image_path, use_column_width=True)
+
 
 # Custom CSS for better UI
 st.markdown("""
@@ -54,9 +54,6 @@ def load_data(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
     df = pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True)
-    if not df['Datetime'].is_unique:
-        # Handle duplicates - average if multiple entries per day
-        df = df.groupby('Datetime').mean().reset_index()
     df.set_index('Datetime', inplace=True)
     return df
 
@@ -69,17 +66,11 @@ def load_portfolio_symbols(portfolio_name):
 
 # Ensure datetime comparison compatibility
 def ensure_datetime_compatibility(start_date, end_date, df):
-    # Ensure the dates are Timestamps
-    start_date = pd.Timestamp(start_date)
-    end_date = pd.Timestamp(end_date)
-    
-    # Check if the dates are within the dataframe's range
-    if start_date not in df.index:
-        start_date = df.index[df.index.get_loc(start_date, method='nearest')]
-    if end_date not in df.index:
-        end_date = df.index[df.index.get_loc(end_date, method='nearest')]
-    
-    return df[start_date:end_date]
+    if not isinstance(start_date, pd.Timestamp):
+        start_date = pd.Timestamp(start_date)
+    if not isinstance(end_date, pd.Timestamp):
+        end_date = pd.Timestamp(end_date)
+    return df[(df.index >= start_date) & (df.index <= end_date)]
 
 # Load and filter detailed data
 def load_detailed_data(selected_stocks):
