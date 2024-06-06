@@ -11,13 +11,6 @@ import vectorbt as vbt
 import pandas_ta as ta
 import os
 
-# Check if the image file exists
-image_path = 'image.png'
-if not os.path.exists(image_path):
-    st.error(f"Image file not found: {image_path}")
-else:
-    st.image(image_path, use_column_width=True)
-
 # Custom CSS for better UI
 st.markdown("""
     <style>
@@ -51,34 +44,34 @@ SECTOR_FILES = {
     'VNINDEX': 'Vnindex.csv'
 }
 
+PORTFOLIO_FILES = {
+    'VN30': 'VN30.csv',
+    'VN100': 'VN100.csv',
+    'VNAllShare': 'VNAllShare.csv'
+}
+
+# Load stock symbols from the portfolio files
+def load_portfolio_symbols(portfolio_name):
+    file_path = PORTFOLIO_FILES.get(portfolio_name)
+    if not os.path.exists(file_path):
+        st.error(f"File not found: {file_path}")
+        return []
+    return pd.read_csv(file_path)['symbol'].tolist()
+
+# Load data from sector files
 @st.cache_data
-def load_data(sector):
+def load_sector_data(sector):
     file_path = SECTOR_FILES[sector]
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
-    if sector == 'VNINDEX':
-        df = pd.read_csv(file_path)
-        df['Datetime'] = pd.to_datetime(df['Datetime'], format='%m/%d/%Y')  # Format for Vnindex
-    else:
-        df = pd.read_csv(file_path)
-        df['Datetime'] = pd.to_datetime(df['Datetime'], format='%d/%m/%Y', dayfirst=True)
-    df.set_index('Datetime', inplace=True)
-    return df
-
-@st.cache_data
-def load_stock_symbols(file_path):
-    if not os.path.exists(file_path):
-        st.error(f"File not found: {file_path}")
-        return []
-    df = pd.read_csv(file_path)
-    return df['symbol'].tolist()
+    return pd.read_csv(file_path, parse_dates=['Datetime']).set_index('Datetime')
 
 # Load detailed data for selected stocks
 def load_detailed_data(selected_stocks):
     data = pd.DataFrame()
     for sector, file_path in SECTOR_FILES.items():
-        df = load_data(sector)
+        df = load_sector_data(sector)
         if not df.empty:
             sector_data = df[df['StockSymbol'].isin(selected_stocks)]
             data = pd.concat([data, sector_data])
@@ -273,19 +266,6 @@ def run_backtest(df, init_cash, fees, direction, t_plus):
     )
     return portfolio
 
-# Load portfolio symbols
-def load_portfolio_symbols(portfolio_name):
-    file_map = {
-        'VN30': 'VN30.csv',
-        'VN100': 'VN100.csv',
-        'VNAllShare': 'VNAllShare.csv'
-    }
-    file_path = file_map.get(portfolio_name)
-    if not os.path.exists(file_path):
-        st.error(f"File not found: {file_path}")
-        return []
-    return load_stock_symbols(file_path)
-
 # Calculate crash likelihood
 def calculate_crash_likelihood(df):
     crash_counts = df['Crash'].resample('W').sum()
@@ -311,7 +291,7 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
                 selected_stocks.extend(selected_symbols)
     else:
         selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
-        df_full = load_data(selected_sector)
+        df_full = load_sector_data(selected_sector)
         available_symbols = df_full['StockSymbol'].unique().tolist()
         selected_stocks = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
 
