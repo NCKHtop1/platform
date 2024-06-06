@@ -6,8 +6,6 @@ import os
 from scipy.optimize import minimize
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
-import seaborn as sns
-import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 
@@ -313,9 +311,31 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
                     data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
                     optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
 
+                    # Display optimal weights
                     st.write("Optimal Weights for Selected Stocks:")
                     for stock, weight in zip(data_matrix.columns, optimal_weights):
                         st.write(f"{stock}: {weight:.4f}")
+
+                    # Plot portfolio weights over time
+                    fig = go.Figure()
+                    for stock in data_matrix.columns:
+                        fig.add_trace(go.Bar(
+                            x=data_matrix.index,
+                            y=optimal_weights,
+                            name=stock,
+                            width=0.7
+                        ))
+
+                    fig.update_layout(
+                        barmode='stack',
+                        title='Portfolio Weights Over Time - IVP',
+                        xaxis_title='Date',
+                        yaxis_title='Weight',
+                        width=800,
+                        height=600
+                    )
+
+                    st.plotly_chart(fig)
 
                     st.stop()  # Stop execution to prevent displaying the backtesting screen
 
