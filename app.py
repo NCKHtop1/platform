@@ -314,7 +314,7 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 if selected_stocks:
     df_full = load_detailed_data(selected_stocks)
 
-    if not df_full.empty():
+    if not df_full.empty:
         try:
             # Convert dates only once and use converted dates for comparisons
             first_available_date = pd.Timestamp(df_full.index.min())
