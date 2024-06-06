@@ -30,7 +30,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # Check if the image file exists
-image_path = 'image.png'
+image_path = '/mnt/data/image.png'
 if not os.path.exists(image_path):
     st.error("Image file not found: " + image_path)
 else:
@@ -106,7 +106,6 @@ else:
     st.sidebar.warning("Please select at least one stock.")
 
 # Rest of your analysis and Streamlit code...
-
 def unify_date_format(df, date_column_name):
     """
     Converts all dates in the specified column of the dataframe to a unified format.
