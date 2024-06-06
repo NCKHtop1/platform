@@ -286,7 +286,7 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
 
     if portfolio_options:
         for portfolio_option in portfolio_options:
-            symbols = load_portfolio_symbols(portfolio_option)
+            symbols = load_stock_symbols(PORTFOLIO_FILES[portfolio_option])
             if symbols:
                 selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
                 selected_stocks.extend(selected_symbols)
@@ -318,19 +318,19 @@ if selected_stocks:
     df_full = load_detailed_data(selected_stocks)
 
     if not df_full.empty:
-        first_available_date = df_full.index.min().date()
-        last_available_date = df_full.index.max().date()
+        first_available_date = df_full.index.min()
+        last_available_date = df_full.index.max()
 
         # Ensure selected date range is within the available data range
         start_date = st.date_input('Ngày bắt đầu', first_available_date)
         end_date = st.date_input('Ngày kết thúc', last_available_date)
 
-        if start_date < first_available_date:
-            start_date = first_available_date
+        if start_date < first_available_date.date():
+            start_date = first_available_date.date()
             st.warning("Ngày bắt đầu đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
 
-        if end_date > last_available_date:
-            end_date = last_available_date
+        if end_date > last_available_date.date():
+            end_date = last_available_date.date()
             st.warning("Ngày kết thúc đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
 
         if start_date >= end_date:
@@ -479,7 +479,7 @@ if selected_stocks:
                                 st.write(f"{stock}: {weight:.4f}")
 
                             for portfolio_option in portfolio_options:
-                                symbols = load_portfolio_symbols(portfolio_option)
+                                symbols = load_stock_symbols(PORTFOLIO_FILES[portfolio_option])
                                 st.markdown(f"**{portfolio_option}:**")
                                 st.write(symbols)
 
