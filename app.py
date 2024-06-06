@@ -533,8 +533,8 @@ if selected_stocks:
                             st.pyplot(fig)
         except KeyError as e:
             st.error(f"Key error: {e}")
-        # except Exception as e:
-        #     st.error(f"An unexpected error occurred: {e}")
+        except Exception as e:
+            st.error(f"An unexpected error occurred: {e}")
 
 else:
     st.write("Please select a portfolio or sector to view data.")
