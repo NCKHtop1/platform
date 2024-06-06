@@ -54,8 +54,7 @@ def load_data(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
     df = pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True)
-    df = df[~df['Datetime'].duplicated()]  # Ensure unique datetime indices
-    df.set_index('Datetime', inplace=True)
+    df = df.drop_duplicates(subset='Datetime').set_index('Datetime').sort_index()  # Ensuring unique and sorted index
     return df
 
 def load_portfolio_symbols(portfolio_name):
@@ -67,11 +66,11 @@ def load_portfolio_symbols(portfolio_name):
 
 # Ensure datetime comparison compatibility
 def ensure_datetime_compatibility(start_date, end_date, df):
-    if not isinstance(start_date, pd.Timestamp):
-        start_date = pd.Timestamp(start_date)
-    if not isinstance(end_date, pd.Timestamp):
-        end_date = pd.Timestamp(end_date)
-    return df[(df.index >= start_date) & (df.index <= end_date)]
+    if start_date not in df.index:
+        start_date = df.index[df.index.get_loc(start_date, method='nearest')]
+    if end_date not in df.index:
+        end_date = df.index[df.index.get_loc(end_date, method='nearest')]
+    return df[start_date:end_date]
 
 # Load and filter detailed data
 def load_detailed_data(selected_stocks):
@@ -380,9 +379,9 @@ if selected_stocks:
                         ))
 
                     fig.update_layout(
-                        title='Trọng số tối ưu cho các mã cổ phiếu đã chọn',
-                        xaxis_title='Cổ phiếu',
-                        yaxis_title='Trọng số',
+                        title='Optimal Weights for Selected Stocks',
+                        xaxis_title='Stock',
+                        yaxis_title='Weight',
                         width=800,
                         height=600
                     )
@@ -514,7 +513,7 @@ if selected_stocks:
                             data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
                             optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
 
-                            st.write("Trọng số tối ưu cho các mã cổ phiếu đã chọn:")
+                            st.write("Optimal Weights for Selected Stocks:")
                             for stock, weight in zip(data_matrix.columns, optimal_weights):
                                 st.write(f"{stock}: {weight:.4f}")
 
