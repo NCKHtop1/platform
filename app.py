@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import seaborn as sns
@@ -10,9 +10,7 @@ import vectorbt as vbt
 import pandas_ta as ta
 import os
 
-# Accept the terms and conditions for vnstock3
-if "ACCEPT_TC" not in os.environ:
-    os.environ["ACCEPT_TC"] = "tôi đồng ý"
+#https://github.com/bilal114/react-date-range-calendar.git
 
 # Check if the image file exists
 image_path = 'image.png'
@@ -30,7 +28,7 @@ st.markdown("""
     .css-1aumxhk {padding: 2rem;}
     .stImage img {
         width: 100%;
-        max-width: 1200px;  /* Adjust max-width as needed */
+        max-width: 1200px;
         height: auto;
         display: block;
         margin-left: auto;
@@ -174,8 +172,32 @@ def calculate_indicators_and_crashes(df, strategies):
                            (~df['Crash'].shift(1).fillna(False)))
     return df
 
+# Function to apply T+ holding constraint
+def apply_t_plus(df, t_plus):
+    # Convert T+ from selected options to integer days
+    t_plus_days = int(t_plus)
+
+    if t_plus_days > 0:
+        # Create a new column to track the buy date
+        df['Buy Date'] = np.nan
+
+        # Track the buy date for each buy signal
+        df.loc[df['Adjusted Buy'], 'Buy Date'] = df.index[df['Adjusted Buy']]
+
+        # Forward-fill the buy date to keep the most recent buy date
+        df['Buy Date'] = df['Buy Date'].ffill()
+
+        # Calculate the earliest sell date allowed based on the T+ days
+        df['Earliest Sell Date'] = df['Buy Date'] + pd.to_timedelta(t_plus_days, unit='D')
+
+        # Only allow sell signals if the current date is after the earliest sell date
+        df['Adjusted Sell'] = df['Adjusted Sell'] & (df.index > df['Earliest Sell Date'])
+
+    return df
+
 # Function to run backtesting using vectorbt's from_signals
-def run_backtest(df, init_cash, fees, direction):
+def run_backtest(df, init_cash, fees, direction, t_plus):
+    df = apply_t_plus(df, t_plus)
     entries = df['Adjusted Buy']
     exits = df['Adjusted Sell']
 
@@ -291,7 +313,7 @@ if selected_stocks:
                     df_filtered = calculate_indicators_and_crashes(df_filtered, strategies)
 
                     # Run backtest
-                    portfolio = run_backtest(df_filtered, init_cash, fees, direction)
+                    portfolio = run_backtest(df_filtered, init_cash, fees, direction, t_plus)
 
                     if portfolio is None or len(portfolio.orders.records) == 0:
                         st.error("Không có giao dịch nào được thực hiện trong khoảng thời gian này.")
