@@ -306,21 +306,21 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
                     data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
                     optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
 
-                    st.write("Optimal Weights for Selected Stocks:")
-                    for stock, weight in zip(data_matrix.columns, optimal_weights):
-                        st.write(f"{stock}: {weight:.4f}")
-
+                    # Plot optimal weights with color coding
                     fig = go.Figure()
+
                     for i, stock in enumerate(data_matrix.columns):
+                        color = 'green' if optimal_weights[i] > 0.05 else 'yellow' if 0.0 < optimal_weights[i] <= 0.05 else 'red'
                         fig.add_trace(go.Bar(
                             x=data_matrix.index,
                             y=[weight[i] for weight in optimal_weights],
-                            name=stock
+                            name=stock,
+                            marker_color=color
                         ))
 
                     fig.update_layout(
                         barmode='stack',
-                        title='Portfolio Weights Over Time - IVP',
+                        title='Optimal Weights for Selected Stocks',
                         xaxis_title='Date',
                         yaxis_title='Weight',
                         width=800,
@@ -328,7 +328,6 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
                     )
 
                     st.plotly_chart(fig)
-
                     st.stop()  # Stop execution to prevent displaying the backtesting screen
 
     else:
