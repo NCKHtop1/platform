@@ -6,6 +6,8 @@ import os
 from scipy.optimize import minimize
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
+import seaborn as sns
+import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 
@@ -75,155 +77,68 @@ def load_detailed_data(selected_stocks):
 
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
-        """
-        Markowitz Maximum Sharpe-Ratio Portfolio (MSRP)
-        Returns the optimal asset weights for the MSRP portfolio, given historical price data of assets.
+        X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
+        mu = np.mean(X, axis=0)  # Calculate the mean returns of the assets
+        Sigma = np.cov(X, rowvar=False)  # Calculate the covariance matrix of the returns
 
-        Original equation to solve:
-            max (w^T mu) / sqrt(w^T Sigma w)
-            subject to sum(w) = 1
-
-        Quadratic Programming (QP) reformulation:
-            min (1/2) * w^T Sigma w
-            subject to w^T mu = 1
-                      sum(w) = 1
-
-        Args:
-            data (np.ndarray): Historical price data of assets
-
-        Returns:
-            w (np.ndarray): Optimal asset weights
-        """
-        X = np.diff(np.log(data), axis=0)           # Calculate log returns from historical price data
-        mu = np.mean(X, axis=0)                     # Calculate the mean returns of the assets
-        Sigma = np.cov(X, rowvar=False)             # Calculate the covariance matrix of the returns
-
-        w = self.MSRP_solver(mu, Sigma)             # Use the MSRP solver to get the optimal weights
-        return w                                    # Return the optimal weights
+        w = self.MSRP_solver(mu, Sigma)  # Use the MSRP solver to get the optimal weights
+        return w  # Return the optimal weights
 
     def MSRP_solver(self, mu: np.ndarray, Sigma: np.ndarray) -> np.ndarray:
-        """
-        Method for solving Markowitz Maximum Sharpe-Ratio Portfolio (MSRP)
-        Returns the optimal asset weights for the MSRP portfolio, given mean returns and covariance matrix.
+        N = Sigma.shape[0]  # Number of assets (stocks)
+        if np.all(mu <= 1e-8):  # Check if mean returns are close to zero
+            return np.zeros(N)  # Return zero weights if no returns
 
-        Original equation to solve:
-            max (w^T mu) / sqrt(w^T Sigma w)
-            subject to sum(w) = 1
-
-        Quadratic Programming (QP) reformulation:
-            min (1/2) * w^T Sigma w
-            subject to w^T mu = 1
-                      sum(w) = 1
-
-        Args:
-            mu (np.ndarray): Mean returns
-            Sigma (np.ndarray): Covariance matrix
-
-        Returns:
-            w (np.ndarray): Optimal asset weights
-        """
-        N = Sigma.shape[0]          # Number of assets (stocks)
-        if np.all(mu <= 1e-8):      # Check if mean returns are close to zero
-            return np.zeros(N)      # Return zero weights if no returns
-
-        Dmat = 2 * Sigma                    # Quadratic term for the optimizer
+        Dmat = 2 * Sigma  # Quadratic term for the optimizer
         Amat = np.vstack((mu, np.ones(N)))  # Combine mean returns and sum constraint for constraints
-        bvec = np.array([1, 1])             # Right-hand side of constraints (1 for mean returns and sum)
-        dvec = np.zeros(N)                  # Linear term (zero for this problem)
+        bvec = np.array([1, 1])  # Right-hand side of constraints (1 for mean returns and sum)
+        dvec = np.zeros(N)  # Linear term (zero for this problem)
 
         # Call the QP solver
         w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=2)
-        return w / np.sum(abs(w))                # Normalize weights to sum to 1
+        return w / np.sum(abs(w))  # Normalize weights to sum to 1
 
     def solve_QP(self, Dmat: np.ndarray, dvec: np.ndarray, Amat: np.ndarray, bvec: np.ndarray, meq: int = 0) -> np.ndarray:
-        """
-        Quadratic programming solver.
-        Returns the optimal asset weights for the QP problem.
-
-        Args:
-            Dmat (np.ndarray): Matrix of quadratic coefficients
-            dvec (np.ndarray): Vector of linear coefficients
-            Amat (np.ndarray): Matrix of linear constraints
-            bvec (np.ndarray): Vector of linear constraints
-            meq (int): Number of equality constraints
-
-        Returns:
-            x (np.ndarray): Optimal asset weights
-        """
         def portfolio_obj(x):
-            """
-            Objective function for the QP problem.
-            Minimize 0.5 * x^T * Dmat * x + dvec^T * x.
-            """
             return 0.5 * np.dot(x, np.dot(Dmat, x)) + np.dot(dvec, x)
 
         def portfolio_constr_eq(x):
-            """
-            Equality constraints for the QP problem.
-            """
             return np.dot(Amat[:meq], x) - bvec[:meq]
 
         def portfolio_constr_ineq(x):
-            """
-            Inequality constraints for the QP problem.
-            """
             if Amat.shape[0] - meq == 0:
                 return np.array([])
             else:
                 return np.dot(Amat[meq:], x) - bvec[meq:]
 
-        # Define constraints for the optimizer
         cons = [{'type': 'eq', 'fun': portfolio_constr_eq}]
 
         if meq < len(bvec):
             cons.append({'type': 'ineq', 'fun': portfolio_constr_ineq})
 
-        # Initial guess for the weights
         initial_guess = np.ones(Dmat.shape[0]) / Dmat.shape[0]
 
-        # Use the 'SLSQP' method to minimize the objective function subject to constraints
         res = minimize(portfolio_obj, initial_guess, constraints=cons, method='SLSQP')
 
-        # Check if the optimization was successful
         if not res.success:
             raise ValueError('Quadratic programming failed to find a solution.')
 
-        # Return the optimal weights
         return res.x
 
-    def GMV_portfolio(self, data: np.ndarray, shrinkage: bool =False, shrinkage_type = 'ledoit', shortselling: bool =True, leverage: int =None) -> np.ndarray:
-        """
-        Global Minimum Variance Portfolio
-        Returns the optimal asset weights for the GMVP, given historical price data of assets.
-
-        Args:
-            data (np.ndarray): Historical price data of assets
-            shrinkage (bool): Flag to use Ledoit-Wolf shrinkage estimator
-            shortselling (bool): Flag to allow short-selling
-            leverage (int): Leverage factor
-
-        Returns:
-            w (np.ndarray): Optimal asset weights
-        """
+    def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit', shortselling: bool = True, leverage: int = None) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)
         X = X[~np.isnan(X).any(axis=1)]  # Remove rows with NaN values
 
-        # Calculate covariance matrix
         if shrinkage:
             if shrinkage_type == 'ledoit':
-                # Use Ledoit-Wolf shrinkage estimator
                 Sigma = self.ledoit_wolf_shrinkage(X)
             elif shrinkage_type == 'ledoit_cc':
-                # Use Ledoit-Wolf shrinkage estimator with custom covariance
                 Sigma = self.ledoitwolf_cc(X)
             elif shrinkage_type == 'oas':
-                # Use Oracle Approximating Shrinkage (OAS) estimator
                 Sigma = self.oas_shrinkage(X)
             elif shrinkage_type == 'graphical_lasso':
-                # Use Graphical Lasso estimator
                 Sigma = self.graphical_lasso_shrinkage(X)
             elif shrinkage_type == 'mcd':
-                # Use Minimum Covariance Determinant (MCD) estimator
                 Sigma = self.mcd_shrinkage(X)
             else:
                 raise ValueError('Invalid shrinkage type. Choose from: ledoit, ledoit_cc, oas, graphical_lasso, mcd')
@@ -234,7 +149,7 @@ class PortfolioOptimizer:
             N = Sigma.shape[0]
             Dmat = 2 * Sigma
             Amat = np.vstack((np.ones(N), np.eye(N)))
-            bvec = np.array([1] + [0] * (N+1))  # Update bvec to have length N+1
+            bvec = np.array([1] + [0] * N)
             dvec = np.zeros(N)
             w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=1)
         else:
@@ -248,21 +163,8 @@ class PortfolioOptimizer:
         return w
 
     def ledoitwolf_cc(self, returns: np.ndarray) -> np.ndarray:
-        """
-        Implementation of Ledoit-Wolf shrinkage estimator with custom covariance.
-        The Ledoit-Wolf shrinkage method is a technique used to improve the estimation of
-        the covariance matrix by shrinking the sample covariance matrix towards a target matrix.
-
-        Returns the Ledoit-Wolf shrinkage covariance matrix.
-
-        Args:
-            returns (np.ndarray): Historical returns data
-
-        Returns:
-            np.ndarray: Ledoit-Wolf shrinkage covariance matrix
-        """
         T, N = returns.shape
-        returns = returns - np.mean(returns, axis=0, keepdims=True)  # Subtract mean using numpy mean
+        returns = returns - np.mean(returns, axis=0, keepdims=True)
         df = pd.DataFrame(returns)
         Sigma = df.cov().values
         Cor = df.corr().values
@@ -273,13 +175,13 @@ class PortfolioOptimizer:
         rbar = np.mean((Cor.sum(1) - 1) / (Cor.shape[1] - 1))
         cc_cor = np.matrix([[rbar] * N for _ in range(N)])
         np.fill_diagonal(cc_cor, 1)
-        F = np.diag((diagonals ** 0.5)) @ cc_cor @ np.diag((diagonals ** 0.5))  # vol-cor decomposition
+        F = np.diag((diagonals ** 0.5)) @ cc_cor @ np.diag((diagonals ** 0.5))
 
         y = returns ** 2
-        mat1 = (y.transpose() @ y) / T - Sigma ** 2  # y is centered, cross term cancels
+        mat1 = (y.transpose() @ y) / T - Sigma ** 2
         pihat = mat1.sum()
 
-        mat2 = ((returns ** 3).transpose() @ returns) / T - var * Sigma  # cross term cancels
+        mat2 = ((returns ** 3).transpose() @ returns) / T - var * Sigma
         np.fill_diagonal(mat2, 0)
         rhohat = np.diag(mat1).sum() + rbar * ((1 / vols) @ vols.transpose() * mat2).sum()
         gammahat = np.linalg.norm(Sigma - F, "fro") ** 2
@@ -287,6 +189,99 @@ class PortfolioOptimizer:
         delta = max(0, min(1, kappahat / T))
 
         return delta * F + (1 - delta) * Sigma
+
+def calculate_indicators_and_crashes(df, strategies):
+    if df.empty:
+        st.error("No data available for the selected date range.")
+        return df
+
+    if "MACD" in strategies:
+        macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
+        if 'MACD_12_26_9' in macd.columns:
+            df['MACD Line'] = macd['MACD_12_26_9']
+            df['Signal Line'] = macd['MACDs_12_26_9']
+            df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
+            df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
+
+    if "Supertrend" in strategies:
+        supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
+        if 'SUPERTd_7_3.0' in supertrend.columns:
+            df['Supertrend'] = supertrend['SUPERTd_7_3.0']
+            df['Supertrend Buy'] = supertrend['SUPERTd_7_3.0'] == 1  # Buy when supertrend is positive
+            df['Supertrend Sell'] = supertrend['SUPERTd_7_3.0'] == -1  # Sell when supertrend is negative
+
+    if "Stochastic" in strategies:
+        stochastic = df.ta.stoch(append=True)
+        if 'STOCHk_14_3_3' in stochastic.columns and 'STOCHd_14_3_3' in stochastic.columns:
+            df['Stochastic K'] = stochastic['STOCHk_14_3_3']
+            df['Stochastic D'] = stochastic['STOCHd_14_3_3']
+            df['Stochastic Buy'] = (df['Stochastic K'] > df['Stochastic D']) & (df['Stochastic K'].shift(1) <= df['Stochastic D'].shift(1))
+            df['Stochastic Sell'] = (df['Stochastic K'] < df['Stochastic D']) & (df['Stochastic K'].shift(1) >= df['Stochastic D'].shift(1))
+
+    if "RSI" in strategies:
+        df['RSI'] = ta.rsi(df['close'], length=14)
+        df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
+        df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
+
+    peaks, _ = find_peaks(df['close'])
+    df['Peaks'] = df.index.isin(df.index[peaks])
+
+    # Forward-fill peak prices to compute drawdowns
+    peak_prices = df['close'].where(df['Peaks']).ffill()
+    drawdowns = (peak_prices - df['close']) / peak_prices
+
+    # Mark significant drawdowns as crashes
+    crash_threshold = 0.175
+    df['Crash'] = drawdowns >= crash_threshold
+
+    # Filter crashes to keep only one per week (on Fridays)
+    df['Crash'] = df['Crash'] & (df.index.weekday == 4)
+
+    # Adjust buy and sell signals based on crashes
+    df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
+                            (~df['Crash'].shift(1).fillna(False)))
+    df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
+                           (~df['Crash'].shift(1).fillna(False)))
+    return df
+
+# Function to apply T+ holding constraint
+def apply_t_plus(df, t_plus):
+    t_plus_days = int(t_plus)
+
+    if t_plus_days > 0:
+        df['Buy Date'] = np.nan
+        df.loc[df['Adjusted Buy'], 'Buy Date'] = df.index[df['Adjusted Buy']]
+        df['Buy Date'] = df['Buy Date'].ffill()
+        df['Earliest Sell Date'] = df['Buy Date'] + pd.to_timedelta(t_plus_days, unit='D')
+        df['Adjusted Sell'] = df['Adjusted Sell'] & (df.index > df['Earliest Sell Date'])
+
+    return df
+
+# Function to run backtesting using vectorbt's from_signals
+def run_backtest(df, init_cash, fees, direction, t_plus):
+    df = apply_t_plus(df, t_plus)
+    entries = df['Adjusted Buy']
+    exits = df['Adjusted Sell']
+
+    if entries.empty or exits.empty or not entries.any() or not exits.any():
+        return None
+
+    portfolio = vbt.Portfolio.from_signals(
+        df['close'],
+        entries,
+        exits,
+        init_cash=init_cash,
+        fees=fees,
+        direction=direction
+    )
+    return portfolio
+
+# Calculate crash likelihood
+def calculate_crash_likelihood(df):
+    crash_counts = df['Crash'].resample('W').sum()
+    total_weeks = len(crash_counts)
+    crash_weeks = crash_counts[crash_counts > 0].count()
+    return crash_weeks / total_weeks if total_weeks > 0 else 0
 
 # Streamlit App
 st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
@@ -311,19 +306,16 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
                     data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
                     optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
 
-                    # Display optimal weights
                     st.write("Optimal Weights for Selected Stocks:")
                     for stock, weight in zip(data_matrix.columns, optimal_weights):
                         st.write(f"{stock}: {weight:.4f}")
 
-                    # Plot portfolio weights over time
                     fig = go.Figure()
-                    for stock in data_matrix.columns:
+                    for i, stock in enumerate(data_matrix.columns):
                         fig.add_trace(go.Bar(
                             x=data_matrix.index,
-                            y=optimal_weights,
-                            name=stock,
-                            width=0.7
+                            y=[weight[i] for weight in optimal_weights],
+                            name=stock
                         ))
 
                     fig.update_layout(
@@ -368,18 +360,15 @@ if selected_stocks:
 
     if not df_full.empty:
         try:
-            # Convert dates only once and use converted dates for comparisons
             first_available_date = pd.Timestamp(df_full.index.min())
             last_available_date = pd.Timestamp(df_full.index.max())
 
             start_date = st.date_input('Ngày bắt đầu', first_available_date)
             end_date = st.date_input('Ngày kết thúc', last_available_date)
 
-            # Convert user input dates to timestamps if not already
             start_date = pd.Timestamp(start_date) if not isinstance(start_date, pd.Timestamp) else start_date
             end_date = pd.Timestamp(end_date) if not isinstance(end_date, pd.Timestamp) else end_date
 
-            # Ensure date range is within limits and use the ensured function
             if start_date < first_available_date:
                 start_date = first_available_date
                 st.warning("Ngày bắt đầu đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
@@ -395,16 +384,13 @@ if selected_stocks:
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
                 else:
-                    # Calculate indicators and crashes
                     df_filtered = calculate_indicators_and_crashes(df_filtered, strategies)
 
-                    # Run backtest
                     portfolio = run_backtest(df_filtered, init_cash, fees, direction, t_plus)
 
                     if portfolio is None or len(portfolio.orders.records) == 0:
                         st.error("Không có giao dịch nào được thực hiện trong khoảng thời gian này.")
                     else:
-                        # Create tabs for different views on the main screen
                         tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
 
                         with tab1:
@@ -421,7 +407,6 @@ if selected_stocks:
                             for index, value in summary_stats.items():
                                 st.markdown(f'<div class="highlight">{index}: {value}</div>', unsafe_allow_html=True)
 
-                            # Add crash details
                             crash_details = df_filtered[df_filtered['Crash']][['close']]
                             crash_details.reset_index(inplace=True)
                             crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
@@ -535,13 +520,11 @@ if selected_stocks:
                                 st.markdown(f"**{portfolio_option}:**")
                                 st.write(symbols)
 
-                        # Calculate crash likelihood for each selected stock and plot heatmap
                         crash_likelihoods = {}
                         for stock in selected_stocks:
                             stock_df = df_filtered[df_filtered['StockSymbol'] == stock]
                             crash_likelihoods[stock] = calculate_crash_likelihood(stock_df)
 
-                        # Plot heatmap
                         if crash_likelihoods:
                             st.markdown("**Xác suất sụt giảm:**")
                             crash_likelihoods_df = pd.DataFrame(list(crash_likelihoods.items()), columns=['Stock', 'Crash Likelihood'])
