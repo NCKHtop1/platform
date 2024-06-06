@@ -11,6 +11,13 @@ import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 
+# Check if the image file exists
+image_path = 'image.png'
+if not os.path.exists(image_path):
+    st.error(f"Image file not found: {image_path}")
+else:
+    st.image(image_path, use_column_width=True)
+
 # Custom CSS for better UI
 st.markdown("""
     <style>
@@ -47,6 +54,7 @@ def load_data(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
     df = pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True)
+    df = df[~df['Datetime'].duplicated()]  # Ensure unique datetime indices
     df.set_index('Datetime', inplace=True)
     return df
 
@@ -372,9 +380,9 @@ if selected_stocks:
                         ))
 
                     fig.update_layout(
-                        title='Optimal Weights for Selected Stocks',
-                        xaxis_title='Stock',
-                        yaxis_title='Weight',
+                        title='Trọng số tối ưu cho các mã cổ phiếu đã chọn',
+                        xaxis_title='Cổ phiếu',
+                        yaxis_title='Trọng số',
                         width=800,
                         height=600
                     )
@@ -506,7 +514,7 @@ if selected_stocks:
                             data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
                             optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
 
-                            st.write("Optimal Weights for Selected Stocks:")
+                            st.write("Trọng số tối ưu cho các mã cổ phiếu đã chọn:")
                             for stock, weight in zip(data_matrix.columns, optimal_weights):
                                 st.write(f"{stock}: {weight:.4f}")
 
