@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from scipy.optimize import minimize
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import seaborn as sns
@@ -68,96 +67,16 @@ def load_stock_symbols(file_path):
     stock_symbols_df = df.drop_duplicates(subset='symbol')
     return stock_symbols_df['symbol'].tolist()
 
-class PortfolioOptimizer:
-    def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
-        X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
-        mu = np.mean(X, axis=0)  # Calculate the mean returns of the assets
-        Sigma = np.cov(X, rowvar=False)  # Calculate the covariance matrix of the returns
-
-        w = self.MSRP_solver(mu, Sigma)  # Use the MSRP solver to get the optimal weights
-        return w  # Return the optimal weights
-
-    def MSRP_solver(self, mu: np.ndarray, Sigma: np.ndarray) -> np.ndarray:
-        N = Sigma.shape[0]  # Number of assets (stocks)
-        if np.all(mu <= 1e-8):  # Check if mean returns are close to zero
-            return np.zeros(N)  # Return zero weights if no returns
-
-        Dmat = 2 * Sigma  # Quadratic term for the optimizer
-        Amat = np.vstack((mu, np.ones(N)))  # Combine mean returns and sum constraint for constraints
-        bvec = np.array([1, 1])  # Right-hand side of constraints (1 for mean returns and sum)
-        dvec = np.zeros(N)  # Linear term (zero for this problem)
-
-        # Call the QP solver
-        w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=2)
-        return w / np.sum(abs(w))  # Normalize weights to sum to 1
-
-    def solve_QP(self, Dmat: np.ndarray, dvec: np.ndarray, Amat: np.ndarray, bvec: np.ndarray, meq: int = 0) -> np.ndarray:
-        def portfolio_obj(x):
-            return 0.5 * np.dot(x, np.dot(Dmat, x)) + np.dot(dvec, x)
-
-        def portfolio_constr_eq(x):
-            return np.dot(Amat[:meq], x) - bvec[:meq]
-
-        def portfolio_constr_ineq(x):
-            if Amat.shape[0] - meq == 0:
-                return np.array([])
-            else:
-                return np.dot(Amat[meq:], x) - bvec[meq:]
-
-        cons = [{'type': 'eq', 'fun': portfolio_constr_eq}]
-
-        if meq < len(bvec):
-            cons.append({'type': 'ineq', 'fun': portfolio_constr_ineq})
-
-        initial_guess = np.ones(Dmat.shape[0]) / Dmat.shape[0]
-
-        res = minimize(portfolio_obj, initial_guess, constraints=cons, method='SLSQP')
-
-        if not res.success:
-            raise ValueError('Quadratic programming failed to find a solution.')
-
-        return res.x
-
-# Ichimoku Oscillator Class
-class IchimokuOscillator:
-    def __init__(self, conversion_periods=8, base_periods=13, lagging_span2_periods=26, displacement=13):
-        self.conversion_periods = conversion_periods
-        self.base_periods = base_periods
-        self.lagging_span2_periods = lagging_span2_periods
-        self.displacement = displacement
-
-    def donchian_channel(self, series, length):
-        lowest = series.rolling(window=length, min_periods=1).min()
-        highest = series.rolling(window=length, min_periods=1).max()
-        return (lowest + highest) / 2
-
-    def calculate(self, df):
-        df['conversion_line'] = self.donchian_channel(df['close'], self.conversion_periods)
-        df['base_line'] = self.donchian_channel(df['close'], self.base_periods)
-        df['leading_span_a'] = (df['conversion_line'] + df['base_line']) / 2
-        df['leading_span_b'] = self.donchian_channel(df['close'], self.lagging_span2_periods)
-        df['cloud_min'] = np.minimum(df['leading_span_a'].shift(self.displacement - 1), df['leading_span_b'].shift(self.displacement - 1))
-        df['cloud_max'] = np.maximum(df['leading_span_a'].shift(self.displacement - 1), df['leading_span_b'].shift(self.displacement - 1))
-        return df
-
-# Function to calculate MACD signals
-def calculate_macd(prices, fast_length=12, slow_length=26, signal_length=9):
-    def ema(values, length):
-        alpha = 2 / (length + 1)
-        ema_values = np.zeros_like(values)
-        ema_values[0] = values[0]
-        for i in range(1, len(values)):
-            ema_values[i] = values[i] * alpha + ema_values[i - 1] * (1 - alpha)
-        return ema_values
-
-    fast_ma = ema(prices, fast_length)
-    slow_ma = ema(prices, slow_length)
-    macd_line = fast_ma - slow_ma
-
-    signal_line = ema(macd_line, signal_length)
-    histogram = macd_line - signal_line
-
-    return macd_line, signal_line, histogram
+def filter_stocks_by_date_range(df, start_date, end_date):
+    """
+    Filter stocks that have data within the specified date range.
+    """
+    filtered_symbols = []
+    for symbol in df['StockSymbol'].unique():
+        stock_data = df[df['StockSymbol'] == symbol]
+        if not stock_data.empty and stock_data.index.min() <= start_date and stock_data.index.max() >= end_date:
+            filtered_symbols.append(symbol)
+    return filtered_symbols
 
 # Function to calculate buy/sell signals and crashes
 def calculate_indicators_and_crashes(df, strategies):
@@ -477,15 +396,6 @@ if selected_stocks:
                         with tab7:
                             st.markdown("**Danh mục đầu tư:**")
                             st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
-                            optimizer = PortfolioOptimizer()
-                            df_selected_stocks = df_full[df_full['StockSymbol'].isin(selected_stocks)]
-                            data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
-                            optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
-
-                            st.write("Optimal Weights for Selected Stocks:")
-                            for stock, weight in zip(data_matrix.columns, optimal_weights):
-                                st.write(f"{stock}: {weight:.4f}")
-
                             for portfolio_option in portfolio_options:
                                 symbols = load_portfolio_symbols(portfolio_option)
                                 st.markdown(f"**{portfolio_option}:**")
@@ -509,3 +419,79 @@ if selected_stocks:
                 st.error(f"Key error: {e}")
             except Exception as e:
                 st.error(f"An unexpected error occurred: {e}")
+
+def MSR_portfolio(data: np.ndarray) -> np.ndarray:
+    """
+    Markowitz Maximum Sharpe-Ratio Portfolio (MSRP)
+    Returns the optimal asset weights for the MSRP portfolio, given historical price data of assets.
+    """
+    X = np.diff(np.log(data), axis=0)           # Calculate log returns from historical price data
+    mu = np.mean(X, axis=0)                     # Calculate the mean returns of the assets
+    Sigma = np.cov(X, rowvar=False)             # Calculate the covariance matrix of the returns
+
+    w = MSRP_solver(mu, Sigma)                  # Use the MSRP solver to get the optimal weights
+    return w                                    # Return the optimal weights
+
+def MSRP_solver(mu: np.ndarray, Sigma: np.ndarray) -> np.ndarray:
+    """
+    Method for solving Markowitz Maximum Sharpe-Ratio Portfolio (MSRP)
+    Returns the optimal asset weights for the MSRP portfolio, given mean returns and covariance matrix.
+    """
+    N = Sigma.shape[0]          # Number of assets (stocks)
+    if np.all(mu <= 1e-8):      # Check if mean returns are close to zero
+        return np.zeros(N)      # Return zero weights if no returns
+
+    Dmat = 2 * Sigma                    # Quadratic term for the optimizer
+    Amat = np.vstack((mu, np.ones(N)))  # Combine mean returns and sum constraint for constraints
+    bvec = np.array([1, 1])             # Right-hand side of constraints (1 for mean returns and sum)
+    dvec = np.zeros(N)                  # Linear term (zero for this problem)
+
+    # Call the QP solver
+    w = solve_QP(Dmat, dvec, Amat, bvec, meq=2)
+    return w / np.sum(abs(w))           # Normalize weights to sum to 1
+
+def solve_QP(Dmat: np.ndarray, dvec: np.ndarray, Amat: np.ndarray, bvec: np.ndarray, meq: int = 0) -> np.ndarray:
+    """
+    Quadratic programming solver.
+    Returns the optimal asset weights for the QP problem.
+    """
+    def portfolio_obj(x):
+        """
+        Objective function for the QP problem.
+        Minimize 0.5 * x^T * Dmat * x + dvec^T * x.
+        """
+        return 0.5 * np.dot(x, np.dot(Dmat, x)) + np.dot(dvec, x)
+
+    def portfolio_constr_eq(x):
+        """
+        Equality constraints for the QP problem.
+        """
+        return np.dot(Amat[:meq], x) - bvec[:meq]
+
+    def portfolio_constr_ineq(x):
+        """
+        Inequality constraints for the QP problem.
+        """
+        if Amat.shape[0] - meq == 0:
+            return np.array([])
+        else:
+            return np.dot(Amat[meq:], x) - bvec[meq:]
+
+    # Define constraints for the optimizer
+    cons = [{'type': 'eq', 'fun': portfolio_constr_eq}]
+
+    if meq < len(bvec):
+        cons.append({'type': 'ineq', 'fun': portfolio_constr_ineq})
+
+    # Initial guess for the weights
+    initial_guess = np.ones(Dmat.shape[0]) / Dmat.shape[0]
+
+    # Use the 'SLSQP' method to minimize the objective function subject to constraints
+    res = minimize(portfolio_obj, initial_guess, constraints=cons, method='SLSQP')
+
+    # Check if the optimization was successful
+    if not res.success:
+        raise ValueError('Quadratic programming failed to find a solution.')
+
+    # Return the optimal weights
+    return res.x
