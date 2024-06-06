@@ -10,13 +10,13 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
-
 # Check if the image file exists
 image_path = 'image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
 else:
     st.image(image_path, use_column_width=True)
+
 
 # Custom CSS for better UI
 st.markdown("""
@@ -345,10 +345,17 @@ if selected_stocks:
             start_date = pd.Timestamp(start_date) if not isinstance(start_date, pd.Timestamp) else start_date
             end_date = pd.Timestamp(end_date) if not isinstance(end_date, pd.Timestamp) else end_date
 
+            if start_date < first_available_date:
+                start_date = first_available_date
+                st.warning("Ngày bắt đầu đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
+            if end_date > last_available_date:
+                end_date = last_available_date
+                st.warning("Ngày kết thúc đã được điều chỉnh để nằm trong phạm vi dữ liệu có sẵn.")
+
             if start_date >= end_date:
                 st.error("Lỗi: Ngày kết thúc phải sau ngày bắt đầu.")
             else:
-                df_filtered = df_full.loc[start_date:end_date]
+                df_filtered = ensure_datetime_compatibility(start_date, end_date, df_full)
 
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
