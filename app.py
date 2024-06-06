@@ -106,6 +106,7 @@ else:
     st.sidebar.warning("Please select at least one stock.")
 
 # Rest of your analysis and Streamlit code...
+
 def unify_date_format(df, date_column_name):
     """
     Converts all dates in the specified column of the dataframe to a unified format.
