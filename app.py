@@ -9,21 +9,21 @@ import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 
-# Check if the image file exists
-image_path = 'image.png'
-if not os.path.exists(image_path):
-    st.error(f"Image file not found: {image_path}")
-else:
-    st.image(image_path, use_column_width=True)
+# # Check if the image file exists
+# image_path = 'image.png'
+# if not os.path.exists(image_path):
+#     st.error(f"Image file not found: {image_path}")
+# else:
+#     st.image(image_path, use_column_width=True)
 
-# Custom CSS for better UI
-st.markdown("""
-    <style>
-    .main {background-color: #f0f2f6;}
-    .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
-    .stSidebar {background-color: #f0f2f6;}
-    </style>
-    """, unsafe_allow_html=True)
+# # Custom CSS for better UI
+# st.markdown("""
+#     <style>
+#     .main {background-color: #f0f2f6;}
+#     .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
+#     .stSidebar {background-color: #f0f2f6;}
+#     </style>
+#     """, unsafe_allow_html=True)
 
 # Define file paths relative to the location of this script
 SECTOR_FILES = {
