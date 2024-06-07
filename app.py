@@ -206,7 +206,7 @@ def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_typ
 # Hàm để tải dữ liệu giá đóng cửa từ tệp CSV của ngành
 def load_sector_data(sector_file, symbols):
     df = pd.read_csv(sector_file, index_col='Datetime', parse_dates=True)
-    return df[df['StockSymbol'].isin(symbols)][['StockSymbol', 'Close']].pivot(columns='StockSymbol', values='Close')
+    return df[df['StockSymbol'].isin(symbols)][['StockSymbol', 'close']].pivot(columns='StockSymbol', values='lose')
 
 # Hàm để lọc các mã cổ phiếu thuộc VN30 trong ngành đã chọn
 def filter_vn30_symbols(sector, vn30_symbols):
@@ -229,18 +229,27 @@ if selected_symbols:
     except Exception as e:
         st.error(f"Failed to load sector data: {e}")
 
-# Tính toán trọng số danh mục tối ưu
-if not sector_data.empty:
-    optimizer = PortfolioOptimizer()
-    optimal_weights = optimizer.MSR_portfolio(sector_data.values)
+# Assuming sector_data is a dictionary where each value is a DataFrame or Series
+if sector_data:  # Check if the dictionary is not empty
+    # Combine all Series/DataFrames into a single DataFrame
+    combined_data = pd.concat(sector_data.values(), axis=1)
+    
+    # Ensure there's no issue with combining; handle cases where some data might be missing
+    combined_data.dropna(inplace=True)  # Drop rows with any NaN values which might cause issues in calculations
 
-    # Hiển thị trọng số tối ưu trong biểu đồ cột
-    fig = go.Figure(data=[
-        go.Bar(name='Optimal Weights', x=list(sector_data.columns), y=optimal_weights)
-    ])
-    fig.update_layout(title='Optimal Portfolio Weights for VN30 in Selected Sector', xaxis_title='Stock', yaxis_title='Weight')
-
-    st.plotly_chart(fig)
+    if not combined_data.empty:
+        optimizer = PortfolioOptimizer()
+        optimal_weights = optimizer.MSR_portfolio(combined_data.values)
+        
+        # Hiển thị trọng số tối ưu trong biểu đồ cột
+        fig = go.Figure(data=[
+            go.Bar(name='Optimal Weights', x=list(sector_data.keys()), y=optimal_weights)
+        ])
+        fig.update_layout(title='Optimal Portfolio Weights for VN30 in Selected Sector', xaxis_title='Stock', yaxis_title='Weight')
+        
+        st.plotly_chart(fig)
+else:
+    st.error("No data available for the selected sector.")
 
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
