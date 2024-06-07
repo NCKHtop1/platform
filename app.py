@@ -206,7 +206,7 @@ def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_typ
 # Hàm để tải dữ liệu giá đóng cửa từ tệp CSV của ngành
 def load_sector_data(sector_file, symbols):
     df = pd.read_csv(sector_file, index_col='Datetime', parse_dates=True)
-    return df[df['StockSymbol'].isin(symbols)][['StockSymbol', 'close']].pivot(columns='StockSymbol', values='lose')
+    return df[df['StockSymbol'].isin(symbols)][['StockSymbol', 'close']].pivot(columns='StockSymbol', values='close')
 
 # Hàm để lọc các mã cổ phiếu thuộc VN30 trong ngành đã chọn
 def filter_vn30_symbols(sector, vn30_symbols):
