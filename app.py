@@ -11,7 +11,7 @@ import vectorbt as vbt
 import pandas_ta as ta
 
 # Check if the image file exists
-image_path = '/mnt/data/image.png'
+image_path = 'image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
 else:
@@ -26,25 +26,25 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Define file paths relative to the location of this script
+# Sector and Portfolio files mapping
 SECTOR_FILES = {
-    'Ngân hàng': '/mnt/data/Banking.csv',
-    'Vật liệu xây dựng': '/mnt/data/Building Material.csv',
-    'Hóa chất': '/mnt/data/Chemical.csv',
-    'Dịch vụ tài chính': '/mnt/data/Financial Services.csv',
-    'Thực phẩm và đồ uống': '/mnt/data/Food and Beverage.csv',
-    'Dịch vụ công nghiệp': '/mnt/data/Industrial Services.csv',
-    'Công nghệ thông tin': '/mnt/data/Information Technology.csv',
-    'Khoáng sản': '/mnt/data/Mineral.csv',
-    'Dầu khí': '/mnt/data/Oil and Gas.csv',
-    'Bất động sản': '/mnt/data/Real Estate.csv',
-    'VNINDEX': '/mnt/data/Vnindex.csv'
+    'Ngân hàng': 'Banking.csv',
+    'Vật liệu xây dựng': 'Building Material.csv',
+    'Hóa chất': 'Chemical.csv',
+    'Dịch vụ tài chính': 'Financial Services.csv',
+    'Thực phẩm và đồ uống': 'Food and Beverage.csv',
+    'Dịch vụ công nghiệp': 'Industrial Services.csv',
+    'Công nghệ thông tin': 'Information Technology.csv',
+    'Khoáng sản': 'Mineral.csv',
+    'Dầu khí': 'Oil and Gas.csv',
+    'Bất động sản': 'Real Estate.csv',
+    'VNINDEX': 'Vnindex.csv'
 }
 
 PORTFOLIO_FILES = {
-    'VN30': '/mnt/data/VN30.csv',
-    'VN100': '/mnt/data/VN100.csv',
-    'VNAllShare': '/mnt/data/VNAllShare.csv'
+    'VN30': 'VN30.csv',
+    'VN100': 'VN100.csv',
+    'VNAllShare': 'VNAllShare.csv'
 }
 
 # Load data function
