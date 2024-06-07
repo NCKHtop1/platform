@@ -26,26 +26,25 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Define file paths relative to the location of this script
-base_path = os.path.dirname(__file__)
+# Sector and Portfolio files mapping
 SECTOR_FILES = {
-    'Ngân hàng': os.path.join(base_path, 'Banking.csv'),
-    'Vật liệu xây dựng': os.path.join(base_path, 'Building Material.csv'),
-    'Hóa chất': os.path.join(base_path, 'Chemical.csv'),
-    'Dịch vụ tài chính': os.path.join(base_path, 'Financial Services.csv'),
-    'Thực phẩm và đồ uống': os.path.join(base_path, 'Food and Beverage.csv'),
-    'Dịch vụ công nghiệp': os.path.join(base_path, 'Industrial Services.csv'),
-    'Công nghệ thông tin': os.path.join(base_path, 'Information Technology.csv'),
-    'Khoáng sản': os.path.join(base_path, 'Mineral.csv'),
-    'Dầu khí': os.path.join(base_path, 'Oil and Gas.csv'),
-    'Bất động sản': os.path.join(base_path, 'Real Estate.csv'),
-    'VNINDEX': os.path.join(base_path, 'Vnindex.csv')
+    'Ngân hàng': 'Banking.csv',
+    'Vật liệu xây dựng': 'Building Material.csv',
+    'Hóa chất': 'Chemical.csv',
+    'Dịch vụ tài chính': 'Financial Services.csv',
+    'Thực phẩm và đồ uống': 'Food and Beverage.csv',
+    'Dịch vụ công nghiệp': 'Industrial Services.csv',
+    'Công nghệ thông tin': 'Information Technology.csv',
+    'Khoáng sản': 'Mineral.csv',
+    'Dầu khí': 'Oil and Gas.csv',
+    'Bất động sản': 'Real Estate.csv',
+    'VNINDEX': 'Vnindex.csv'
 }
 
 PORTFOLIO_FILES = {
-    'VN30': os.path.join(base_path, 'VN30.csv'),
-    'VN100': os.path.join(base_path, 'VN100.csv'),
-    'VNAllShare': os.path.join(base_path, 'VNAllShare.csv')
+    'VN30': 'VN30.csv',
+    'VN100': 'VN100.csv',
+    'VNAllShare': 'VNAllShare.csv'
 }
 
 @st.cache(allow_output_mutation=True)
@@ -53,9 +52,7 @@ def load_data(file_path):
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
-    df = pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True)
-    df.set_index('Datetime', inplace=True)
-    return df
+    return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
 
 def load_portfolio_symbols(portfolio_name):
     file_path = PORTFOLIO_FILES.get(portfolio_name, '')
@@ -70,14 +67,13 @@ def ensure_datetime_compatibility(start_date, end_date, df):
         start_date = pd.Timestamp(start_date)
     if not isinstance(end_date, pd.Timestamp):
         end_date = pd.Timestamp(end_date)
-    
-    # Check if the dates are within the dataframe's range
-    if start_date not in df.index:
-        start_date = df.index[df.index.get_loc(start_date, method='nearest')]
-    if end_date not in df.index:
-        end_date = df.index[df.index.get_loc(end_date, method='nearest')]
-    
-    return df[start_date:end_date]
+
+    if start_date < df.index.min():
+        start_date = df.index.min()
+    if end_date > df.index.max():
+        end_date = df.index.max()
+
+    return df.loc[start_date:end_date]
 
 # Load and filter detailed data
 def load_detailed_data(selected_stocks):
