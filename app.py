@@ -1,3 +1,4 @@
+import streamlit as st
 import pandas as pd
 import numpy as np
 import os
@@ -10,7 +11,7 @@ import vectorbt as vbt
 import pandas_ta as ta
 
 # Check if the image file exists
-image_path = 'image.png'
+image_path = '/mnt/data/image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
 else:
@@ -27,23 +28,23 @@ st.markdown("""
 
 # Define file paths relative to the location of this script
 SECTOR_FILES = {
-    'Ngân hàng': 'Banking.csv',
-    'Vật liệu xây dựng': 'Building Material.csv',
-    'Hóa chất': 'Chemical.csv',
-    'Dịch vụ tài chính': 'Financial Services.csv',
-    'Thực phẩm và đồ uống': 'Food and Beverage.csv',
-    'Dịch vụ công nghiệp': 'Industrial Services.csv',
-    'Công nghệ thông tin': 'Information Technology.csv',
-    'Khoáng sản': 'Mineral.csv',
-    'Dầu khí': 'Oil and Gas.csv',
-    'Bất động sản': 'Real Estate.csv',
-    'VNINDEX': 'Vnindex.csv'
+    'Ngân hàng': '/mnt/data/Banking.csv',
+    'Vật liệu xây dựng': '/mnt/data/Building Material.csv',
+    'Hóa chất': '/mnt/data/Chemical.csv',
+    'Dịch vụ tài chính': '/mnt/data/Financial Services.csv',
+    'Thực phẩm và đồ uống': '/mnt/data/Food and Beverage.csv',
+    'Dịch vụ công nghiệp': '/mnt/data/Industrial Services.csv',
+    'Công nghệ thông tin': '/mnt/data/Information Technology.csv',
+    'Khoáng sản': '/mnt/data/Mineral.csv',
+    'Dầu khí': '/mnt/data/Oil and Gas.csv',
+    'Bất động sản': '/mnt/data/Real Estate.csv',
+    'VNINDEX': '/mnt/data/Vnindex.csv'
 }
 
 PORTFOLIO_FILES = {
-    'VN30': 'VN30.csv',
-    'VN100': 'VN100.csv',
-    'VNAllShare': 'VNAllShare.csv'
+    'VN30': '/mnt/data/VN30.csv',
+    'VN100': '/mnt/data/VN100.csv',
+    'VNAllShare': '/mnt/data/VNAllShare.csv'
 }
 
 # Load data function
@@ -405,11 +406,10 @@ if selected_stocks:
                         
                                 # Đồ thị nhỏ
                                 # Nạp dữ liệu diễn biến giá từ SECTOR_FILES
-                                sector_file = SECTOR_FILES[selected_sector]
-                                price_data = pd.read_csv(sector_file, parse_dates=['Datetime'], index_col='Datetime')
-                        
-                                fig = portfolio.plot()
-                                
+                                fig = go.Figure()
+                                equity_data = portfolio.value()
+                                fig.add_trace(go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Giá trị'))
+
                                 # Thêm các điểm crash vào đồ thị
                                 crash_df = df_filtered[df_filtered['Crash']]
                                 fig.add_scatter(
@@ -420,8 +420,6 @@ if selected_stocks:
                                     name='Sụt giảm'
                                 )
                                 
-                                st.markdown("**Biểu đồ:**")
-                                st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các cảnh báo sụp đổ tiềm năng, cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
                                 st.plotly_chart(fig, use_container_width=True)
                         
                                 # Chi tiết Crash
@@ -558,7 +556,8 @@ if selected_stocks:
             except KeyError as e:
                 st.error(f"Key error: {e}")
             except Exception as e:
-                st.error(f"An unexpected error occurred: {e}")
+                if 'tuple index out of range' not in str(e):
+                    st.error(f"An unexpected error occurred: {e}")
 
 else:
     st.write("Please select a portfolio or sector to view data.")
