@@ -386,7 +386,7 @@ if selected_stocks:
                             try:
                                 st.markdown("<h2 style='text-align: center;'>Tóm tắt</h2>", unsafe_allow_html=True)
                                 
-                                # Indicator and Win Rate
+                                # Chỉ báo và Tỷ lệ thắng
                                 indicator_name = ", ".join(strategies)
                                 win_rate = portfolio.stats()['Win Rate [%]']
                                 win_rate_color = "green" if win_rate > 50 else "red"
@@ -394,7 +394,7 @@ if selected_stocks:
                                 st.markdown(f"<h3 style='color: {win_rate_color}; text-align: center;'>{win_rate:.2f}%</h3>", unsafe_allow_html=True)
                                 st.markdown(f"<h4 style='text-align: center;'>{indicator_name}</h4>", unsafe_allow_html=True)
                         
-                                # Performance Data
+                                # Dữ liệu Hiệu suất
                                 cumulative_return = portfolio.stats()['Total Return [%]']
                                 annualized_return = portfolio.stats().get('Annual Return [%]', 0)
                         
@@ -404,43 +404,45 @@ if selected_stocks:
                                 st.markdown(f"<p style='text-align: center;'>Lợi nhuận trung bình hàng năm: <strong>{annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
                                 st.markdown("<hr>", unsafe_allow_html=True)
                         
-                                # Small Graph
-                                equity_data = portfolio.value()  # Ensure equity_data is defined
+                                # Đồ thị nhỏ
+                                # Nạp dữ liệu diễn biến giá từ SECTOR_FILES
+                                sector_file = SECTOR_FILES[selected_sector]
+                                price_data = pd.read_csv(sector_file, parse_dates=['Datetime'], index_col='Datetime')
+                        
                                 fig = go.Figure()
-                                fig.add_trace(go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Giá trị', line=dict(color='green')))
+                                fig.add_trace(go.Scatter(x=price_data.index, y=price_data['close'], mode='lines', name='Giá trị', line=dict(color='green')))
                                 
-                                # Add crash points to the graph
+                                # Thêm các điểm crash vào đồ thị
                                 crash_points = df_filtered[df_filtered['Crash']]
                                 fig.add_trace(go.Scatter(
                                     x=crash_points.index,
                                     y=crash_points['close'],
                                     mode='markers',
                                     marker=dict(color='orange', size=8, symbol='triangle-down'),
-                                    name='Crash Points'
+                                    name='Điểm Crash'
                                 ))
                                 
                                 fig.update_layout(
-                                    title='Giá trị danh mục',
+                                    title='Diễn biến giá',
                                     xaxis_title='Ngày',
-                                    yaxis_title='Giá trị',
+                                    yaxis_title='Giá',
                                     showlegend=False,
                                     margin=dict(l=20, r=20, t=30, b=20),
                                     height=300
                                 )
                                 st.plotly_chart(fig, use_container_width=True)
                         
-                                # Crash Details
+                                # Chi tiết Crash
                                 crash_details = df_filtered[df_filtered['Crash']][['close']]
                                 crash_details.reset_index(inplace=True)
                                 crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
                                 
-                                # Display the button for detailed crash information
+                                # Hiển thị nút để xem chi tiết thông tin crash
                                 if st.button('Xem chi tiết'):
                                     st.markdown("**Danh sách các điểm crash:**")
                                     st.dataframe(crash_details, height=200)
                             except Exception as e:
-                                st.error(f"An unexpected error occurred: {e}")
-                        
+                                st.error(f"Đã xảy ra lỗi: {e}")
 
                         with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
