@@ -408,10 +408,8 @@ if selected_stocks:
                                 # Nạp dữ liệu diễn biến giá từ SECTOR_FILES
                                 sector_file = SECTOR_FILES[selected_sector]
                                 price_data = pd.read_csv(sector_file, parse_dates=['Datetime'], index_col='Datetime')
-                                
-                                # Tạo biểu đồ chi tiết đơn giản
-                                fig = go.Figure()
-                                fig.add_trace(go.Scatter(x=price_data.index, y=price_data['close'], mode='lines', name='Giá trị', line=dict(color='green')))
+                        
+                                fig = portfolio.plot()
                                 
                                 # Thêm các điểm crash vào đồ thị
                                 crash_df = df_filtered[df_filtered['Crash']]
@@ -423,14 +421,8 @@ if selected_stocks:
                                     name='Sụt giảm'
                                 )
                                 
-                                fig.update_layout(
-                                    title='Diễn biến giá',
-                                    xaxis_title='Ngày',
-                                    yaxis_title='Giá',
-                                    showlegend=False,
-                                    margin=dict(l=20, r=20, t=30, b=20),
-                                    height=300
-                                )
+                                st.markdown("**Biểu đồ:**")
+                                st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các cảnh báo sụp đổ tiềm năng, cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
                                 st.plotly_chart(fig, use_container_width=True)
                         
                                 # Chi tiết Crash
@@ -444,8 +436,6 @@ if selected_stocks:
                                     st.dataframe(crash_details, height=200)
                             except Exception as e:
                                 st.error(f"Đã xảy ra lỗi: {e}")
-
-
 
                         with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
