@@ -386,7 +386,7 @@ if selected_stocks:
                             try:
                                 st.markdown("<h2 style='text-align: center;'>Tóm tắt</h2>", unsafe_allow_html=True)
                                 
-                                # Chỉ báo và Tỷ lệ thắng
+                                # Indicator name and Win Rate
                                 indicator_name = ", ".join(strategies)
                                 win_rate = portfolio.stats()['Win Rate [%]']
                                 win_rate_color = "green" if win_rate > 50 else "red"
@@ -394,7 +394,7 @@ if selected_stocks:
                                 st.markdown(f"<h3 style='color: {win_rate_color}; text-align: center;'>{win_rate:.2f}%</h3>", unsafe_allow_html=True)
                                 st.markdown(f"<h4 style='text-align: center;'>{indicator_name}</h4>", unsafe_allow_html=True)
                         
-                                # Dữ liệu Hiệu suất
+                                # Performance Data
                                 cumulative_return = portfolio.stats()['Total Return [%]']
                                 annualized_return = portfolio.stats().get('Annual Return [%]', 0)
                         
@@ -404,35 +404,37 @@ if selected_stocks:
                                 st.markdown(f"<p style='text-align: center;'>Lợi nhuận trung bình hàng năm: <strong>{annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
                                 st.markdown("<hr>", unsafe_allow_html=True)
                         
-                                # Đồ thị nhỏ
-                                # Nạp dữ liệu diễn biến giá từ SECTOR_FILES
-                                fig = go.Figure()
-                                equity_data = portfolio.value()
-                                fig.add_trace(go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Giá trị'))
-
-                                # Thêm các điểm crash vào đồ thị
+                                # Small chart similar to "orders" graph from another tab
+                                price_data = df_filtered['close']
                                 crash_df = df_filtered[df_filtered['Crash']]
+                        
+                                # Prepare the figure
+                                fig = go.Figure()
+                                fig.add_trace(go.Scatter(x=price_data.index, y=price_data, mode='lines', name='Giá trị', line=dict(color='green')))
+                                
+                                # Add crash points to the figure
                                 fig.add_scatter(
                                     x=crash_df.index,
                                     y=crash_df['close'],
                                     mode='markers',
                                     marker=dict(color='orange', size=10, symbol='triangle-down'),
-                                    name='Sụt giảm'
+                                    name='Crash points'
                                 )
                                 
                                 st.plotly_chart(fig, use_container_width=True)
                         
-                                # Chi tiết Crash
+                                # Crash Details
                                 crash_details = crash_df[['close']]
                                 crash_details.reset_index(inplace=True)
                                 crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
                                 
-                                # Hiển thị nút để xem chi tiết thông tin crash
+                                # Button to view detailed crash information
                                 if st.button('Xem chi tiết'):
                                     st.markdown("**Danh sách các điểm crash:**")
                                     st.dataframe(crash_details, height=200)
                             except Exception as e:
                                 st.error(f"Đã xảy ra lỗi: {e}")
+
 
                         with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
