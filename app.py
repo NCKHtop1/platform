@@ -398,12 +398,13 @@ if selected_stocks:
                             annualized_return = portfolio.stats().get('Annual Return [%]', 0)
                         
                             st.markdown("<hr>", unsafe_allow_html=True)
-                            st.markdown(f"<p style='text-align: center;'>Hiệu suất tính toán trên mã: <strong>{selected_stocks}</strong></p>", unsafe_allow_html=True)
+                            st.markdown(f"<p style='text-align: center;'>Hiệu suất tính toán trên mã: <strong>{', '.join(selected_stocks)}</strong></p>", unsafe_allow_html=True)
                             st.markdown(f"<p style='text-align: center;'>Tổng lợi nhuận: <strong>{cumulative_return:.2f}%</strong></p>", unsafe_allow_html=True)
                             st.markdown(f"<p style='text-align: center;'>Lợi nhuận trung bình hàng năm: <strong>{annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
                             st.markdown("<hr>", unsafe_allow_html=True)
                         
                             # Small Graph
+                            equity_data = portfolio.value()  # Ensure equity_data is defined
                             fig = go.Figure()
                             fig.add_trace(go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Giá trị', line=dict(color='green')))
                             
@@ -430,6 +431,7 @@ if selected_stocks:
                             if st.button('Xem chi tiết'):
                                 st.markdown("**Danh sách các điểm crash:**")
                                 st.dataframe(crash_details, height=200)
+
 
                         with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
