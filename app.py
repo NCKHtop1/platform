@@ -9,21 +9,21 @@ import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 
-# # Check if the image file exists
-# image_path = 'image.png'
-# if not os.path.exists(image_path):
-#     st.error(f"Image file not found: {image_path}")
-# else:
-#     st.image(image_path, use_column_width=True)
+# Check if the image file exists
+image_path = 'image.png'
+if not os.path.exists(image_path):
+    st.error(f"Image file not found: {image_path}")
+else:
+    st.image(image_path, use_column_width=True)
 
-# # Custom CSS for better UI
-# st.markdown("""
-#     <style>
-#     .main {background-color: #f0f2f6;}
-#     .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
-#     .stSidebar {background-color: #f0f2f6;}
-#     </style>
-#     """, unsafe_allow_html=True)
+# Custom CSS for better UI
+st.markdown("""
+    <style>
+    .main {background-color: #f0f2f6;}
+    .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
+    .stSidebar {background-color: #f0f2f6;}
+    </style>
+    """, unsafe_allow_html=True)
 
 # Define file paths relative to the location of this script
 SECTOR_FILES = {
@@ -383,37 +383,53 @@ if selected_stocks:
                         
                         with tab1:
                             try:
-                                # Title and Header Styling
                                 st.markdown("<h2 style='text-align: center;'>Tóm tắt</h2>", unsafe_allow_html=True)
                                 
-                                # Indicators and Win Rate section
-                                indicator_name = ", ".join(strategies)  # Join list of strategies into a single string
-                                win_rate = portfolio.stats().get('Win Rate [%]', 0)  # Safeguard with .get
-                                win_rate_color = "green" if win_rate > 50 else "red"  # Better readability with if else formatting
-                                
+                                # Chỉ báo và Tỷ lệ thắng
+                                indicator_name = ", ".join(strategies)
+                                win_rate = portfolio.stats()['Win Rate [%]']
+                                win_rate_color = "green" if win_rate > 50 else "red"
+                        
                                 st.markdown(f"<h3 style='color: {win_rate_color}; text-align: center;'>{win_rate:.2f}%</h3>", unsafe_allow_html=True)
                                 st.markdown(f"<h4 style='text-align: center;'>{indicator_name}</h4>", unsafe_allow_html=True)
-                                
-                                # Performance Data section
-                                cumulative_return = portfolio.stats().get('Total Return [%]', 0)  # Safeguard with .get
-                                annualized_return = portfolio.stats().get('Annual Return [%]', 0)  # Safeguard with .get
-                                
+                        
+                                # Dữ liệu Hiệu suất
+                                cumulative_return = portfolio.stats()['Total Return [%]']
+                                annualized_return = portfolio.stats().get('Annual Return [%]', 0)
+                        
                                 st.markdown("<hr>", unsafe_allow_html=True)
                                 st.markdown(f"<p style='text-align: center;'>Hiệu suất tính toán trên mã: <strong>{', '.join(selected_stocks)}</strong></p>", unsafe_allow_html=True)
                                 st.markdown(f"<p style='text-align: center;'>Tổng lợi nhuận: <strong>{cumulative_return:.2f}%</strong></p>", unsafe_allow_html=True)
                                 st.markdown(f"<p style='text-align: center;'>Lợi nhuận trung bình hàng năm: <strong>{annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
                                 st.markdown("<hr>", unsafe_allow_html=True)
                         
-                                # Order Chart section with better padding and styling
-                                fig = portfolio.plot_orders()  # Call the appropriate function to plot order chart
-                                st.markdown("**Biểu đồ lệnh order:**")
+                                # Đồ thị nhỏ
+                                # Nạp dữ liệu diễn biến giá từ SECTOR_FILES
+                                sector_file = SECTOR_FILES[selected_sector]
+                                price_data = pd.read_csv(sector_file, parse_dates=['Datetime'], index_col='Datetime')
+                        
+                                fig = portfolio.plot()
+                                
+                                # Thêm các điểm crash vào đồ thị
+                                crash_df = df_filtered[df_filtered['Crash']]
+                                fig.add_scatter(
+                                    x=crash_df.index,
+                                    y=crash_df['close'],
+                                    mode='markers',
+                                    marker=dict(color='orange', size=10, symbol='triangle-down'),
+                                    name='Sụt giảm'
+                                )
+                                
+                                st.markdown("**Biểu đồ:**")
+                                st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các cảnh báo sụp đổ tiềm năng, cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
                                 st.plotly_chart(fig, use_container_width=True)
                         
-                                # Handling Crash Details and Button
-                                crash_details = crash_df[['close']].reset_index()
-                                crash_details.rename(columns={'index': 'Ngày crash', 'close': 'Giá'}, inplace=True)
+                                # Chi tiết Crash
+                                crash_details = crash_df[['close']]
+                                crash_details.reset_index(inplace=True)
+                                crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
                                 
-                                # Show Crash Details on Button Click
+                                # Hiển thị nút để xem chi tiết thông tin crash
                                 if st.button('Xem chi tiết'):
                                     st.markdown("**Danh sách các điểm crash:**")
                                     st.dataframe(crash_details, height=200)
