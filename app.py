@@ -237,17 +237,18 @@ if sector_data:  # Check if the dictionary is not empty
     # Ensure there's no issue with combining; handle cases where some data might be missing
     combined_data.dropna(inplace=True)  # Drop rows with any NaN values which might cause issues in calculations
 
-    if not combined_data.empty:
-        optimizer = PortfolioOptimizer()
-        optimal_weights = optimizer.MSR_portfolio(combined_data.values)
-        
-        # Hiển thị trọng số tối ưu trong biểu đồ cột
-        fig = go.Figure(data=[
-            go.Bar(name='Optimal Weights', x=list(sector_data.keys()), y=optimal_weights)
-        ])
-        fig.update_layout(title='Optimal Portfolio Weights for VN30 in Selected Sector', xaxis_title='Stock', yaxis_title='Weight')
-        
-        st.plotly_chart(fig)
+# Correctly checking if a DataFrame is not empty
+if not combined_data.empty:  # This is the correct way to check if a DataFrame is not empty
+    optimizer = PortfolioOptimizer()
+    optimal_weights = optimizer.MSR_portfolio(combined_data.values)
+    
+    # Displaying optimal weights in a bar chart
+    fig = go.Figure(data=[
+        go.Bar(name='Optimal Weights', x=combined_data.columns, y=optimal_weights)
+    ])
+    fig.update_layout(title='Optimal Portfolio Weights for VN30 in Selected Sector', xaxis_title='Stock', yaxis_title='Weight')
+    
+    st.plotly_chart(fig)
 else:
     st.error("No data available for the selected sector.")
 
