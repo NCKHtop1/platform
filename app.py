@@ -53,7 +53,14 @@ def load_data(file_path):
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
-    return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
+    df = pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True)
+    df.set_index('Datetime', inplace=True)
+
+    # Nhóm dữ liệu theo ngày và lấy giá trị trung bình (hoặc bạn có thể chọn phương thức tổng hợp khác)
+    df = df.groupby(df.index).agg('mean')  # Hoặc 'sum', 'first', 'last', tùy vào yêu cầu của bạn
+
+    return df
+
 
 def load_portfolio_symbols(portfolio_name):
     file_path = PORTFOLIO_FILES.get(portfolio_name, '')
@@ -64,17 +71,12 @@ def load_portfolio_symbols(portfolio_name):
 
 # Ensure datetime comparison compatibility
 def ensure_datetime_compatibility(start_date, end_date, df):
-    if not isinstance(start_date, pd.Timestamp):
-        start_date = pd.Timestamp(start_date)
-    if not isinstance(end_date, pd.Timestamp):
-        end_date = pd.Timestamp(end_date)
-
-    # Sử dụng 'nearest' để tránh KeyError khi ngày không duy nhất
-    if start_date not in df.index.unique():
+    # Làm tròn hoặc điều chỉnh ngày để phù hợp với chỉ mục có sẵn
+    if start_date not in df.index:
         start_date = df.index[df.index.get_loc(start_date, method='nearest')]
-    if end_date not in df.index.unique():
+    if end_date not in df.index:
         end_date = df.index[df.index.get_loc(end_date, method='nearest')]
-
+    
     return df.loc[start_date:end_date]
 
 # Load and filter detailed data
