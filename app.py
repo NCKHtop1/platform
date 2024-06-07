@@ -384,7 +384,7 @@ if selected_stocks:
                         
                         with tab1:
                             try:
-                                st.markdown("<h2 style='text-align: center; color: #4CAF50;'>Bảng Tổng Kết</h2>", unsafe_allow_html=True)
+                                st.markdown("<h2 style='text-align: center; color: #4CAF50;'>Tóm tắt chiến lược</h2>", unsafe_allow_html=True)
                                 
                                 # Hiển thị tên chỉ báo và tỷ lệ thắng
                                 indicator_name = ", ".join(strategies)
