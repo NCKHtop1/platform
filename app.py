@@ -137,43 +137,42 @@ class PortfolioOptimizer:
 
         return res.x
 
-def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit', shortselling: bool = True, leverage: int = None) -> np.ndarray:
-    X = np.diff(np.log(data), axis=0)
-    X = X[~np.isnan(X).any(axis=1)]  # Remove rows with NaN values
+    def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit', shortselling: bool = True, leverage: int = None) -> np.ndarray:
+        X = np.diff(np.log(data), axis=0)
+        X = X[~np.isnan(X).any(axis=1)]  # Remove rows with NaN values
 
-    if shrinkage:
-        if shrinkage_type == 'ledoit':
-            Sigma = self.ledoit_wolf_shrinkage(X)
-        elif shrinkage_type == 'ledoit_cc':
-            Sigma = self.ledoitwolf_cc(X)
-        elif shrinkage_type == 'oas':
-            Sigma = self.oas_shrinkage(X)
-        elif shrinkage_type == 'graphical_lasso':
-            Sigma = self.graphical_lasso_shrinkage(X)
-        elif shrinkage_type == 'mcd':
-            Sigma = self.mcd_shrinkage(X)
+        if shrinkage:
+            if shrinkage_type == 'ledoit':
+                Sigma = self.ledoit_wolf_shrinkage(X)
+            elif shrinkage_type == 'ledoit_cc':
+                Sigma = self.ledoitwolf_cc(X)
+            elif shrinkage_type == 'oas':
+                Sigma = self.oas_shrinkage(X)
+            elif shrinkage_type == 'graphical_lasso':
+                Sigma = self.graphical_lasso_shrinkage(X)
+            elif shrinkage_type == 'mcd':
+                Sigma = self.mcd_shrinkage(X)
+            else:
+                raise ValueError('Invalid shrinkage type. Choose from: ledoit, ledoit_cc, oas, graphical_lasso, mcd')
         else:
-            raise ValueError('Invalid shrinkage type. Choose from: ledoit, ledoit_cc, oas, graphical_lasso, mcd')
-    else:
-        Sigma = np.cov(X, rowvar=False)
+            Sigma = np.cov(X, rowvar=False)
 
-    if not shortselling:
-        N = Sigma.shape[0]
-        Dmat = 2 * Sigma
-        Amat = np.vstack((np.ones(N), np.eye(N)))
-        bvec = np.array([1] + [0] * N)
-        dvec = np.zeros(N)
-        w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=1)
-    else:
-        ones = np.ones(Sigma.shape[0])
-        w = np.linalg.solve(Sigma, ones)
-        w /= np.sum(w)
+        if not shortselling:
+            N = Sigma.shape[0]
+            Dmat = 2 * Sigma
+            Amat = np.vstack((np.ones(N), np.eye(N)))
+            bvec = np.array([1] + [0] * N)
+            dvec = np.zeros(N)
+            w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=1)
+        else:
+            ones = np.ones(Sigma.shape[0])
+            w = np.linalg.solve(Sigma, ones)
+            w /= np.sum(w)
 
-    if leverage is not None and leverage < np.inf:
-        w = leverage * w / np.sum(np.abs(w))
+        if leverage is not None and leverage < np.inf:
+            w = leverage * w / np.sum(np.abs(w))
 
-    return w
-
+        return w
 
     def ledoitwolf_cc(self, returns: np.ndarray) -> np.ndarray:
         T, N = returns.shape
@@ -203,56 +202,53 @@ def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_typ
 
         return delta * F + (1 - delta) * Sigma
 
-# Hàm để tải dữ liệu giá đóng cửa từ tệp CSV của ngành
-def load_sector_data(sector_file, symbols):
-    df = pd.read_csv(sector_file, index_col='Datetime', parse_dates=True)
-    return df[df['StockSymbol'].isin(symbols)][['StockSymbol', 'close']].pivot(columns='StockSymbol', values='close')
+# Load sector data
+def load_sector_data(sector_file):
+    df = pd.read_csv(sector_file, index_col='Date', parse_dates=True)
+    return df['Close'].astype(float)
 
-# Hàm để lọc các mã cổ phiếu thuộc VN30 trong ngành đã chọn
+# Filter VN30 symbols within the selected sector
 def filter_vn30_symbols(sector, vn30_symbols):
-    sector_symbols = pd.read_csv(SECTOR_FILES[sector])['StockSymbol'].unique()
+    sector_symbols = pd.read_csv(SECTOR_FILES[sector], index_col='StockSymbol').index
     return [symbol for symbol in vn30_symbols if symbol in sector_symbols]
 
-# Lấy tên cổ phiếu từ file VN30
+# Get VN30 symbols
 vn30_symbols = pd.read_csv('VN30.csv')['symbol'].tolist()
 
-# Lựa chọn ngành từ người dùng
+# User selects sector
 selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
 
-# Lấy các mã cổ phiếu VN30 thuộc ngành đã chọn
+# Get VN30 symbols in the selected sector
 selected_symbols = filter_vn30_symbols(selected_sector, vn30_symbols)
 
-# Tải và xử lý dữ liệu cho các mã đã chọn
-if selected_symbols:
-    try:
-        sector_data = load_sector_data(SECTOR_FILES[selected_sector], selected_symbols)
-    except Exception as e:
-        st.error(f"Failed to load sector data: {e}")
+# Load and process data for selected symbols
+sector_data = {symbol: load_sector_data(f"{SECTOR_FILES[selected_sector]}") for symbol in selected_symbols}
 
-# Assuming sector_data is a dictionary where each value is a DataFrame or Series
+# Combine data into a single DataFrame
 if sector_data:  # Check if the dictionary is not empty
-    # Combine all Series/DataFrames into a single DataFrame
     combined_data = pd.concat(sector_data.values(), axis=1)
-    
-    # Ensure there's no issue with combining; handle cases where some data might be missing
-    combined_data.dropna(inplace=True)  # Drop rows with any NaN values which might cause issues in calculations
-    
-    # Correctly checking if the combined DataFrame is not empty
+    combined_data.columns = selected_symbols  # Assign column names
+
+    # Ensure no NaN values
+    combined_data.dropna(inplace=True)
+
+    # Calculate optimal portfolio weights if combined_data is not empty
     if not combined_data.empty:
         optimizer = PortfolioOptimizer()
         optimal_weights = optimizer.MSR_portfolio(combined_data.values)
-        
-        # Displaying optimal weights in a bar chart
+
+        # Display optimal weights in a bar chart
         fig = go.Figure(data=[
-            go.Bar(name='Optimal Weights', x=combined_data.columns, y=optimal_weights)
+            go.Bar(name='Optimal Weights', x=list(combined_data.columns), y=optimal_weights)
         ])
         fig.update_layout(title='Optimal Portfolio Weights for VN30 in Selected Sector', xaxis_title='Stock', yaxis_title='Weight')
-        
+
         st.plotly_chart(fig)
     else:
-        st.error("No data available after combining sector data.")
+        st.error("No data available for the selected sector.")
 else:
-    st.error("No data available in the selected sector dictionary.")
+    st.error("No data available for the selected sector.")
+
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
         st.error("No data available for the selected date range.")
