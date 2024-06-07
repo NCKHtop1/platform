@@ -54,7 +54,37 @@ def load_data(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
     return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
+@st.cache(allow_output_mutation=True)
+def load_data(file_path):
+    return pd.read_csv(file_path)
 
+# Load the sector data and return only the symbols in that sector
+def load_symbols_from_sector(sector_file):
+    data = load_data(sector_file)
+    return data['symbol'].tolist()
+
+# Application UI
+st.title('Chọn Danh Mục Theo Ngành')
+
+# Sidebar selections
+selected_portfolio = st.sidebar.selectbox("Chọn danh mục", list(PORTFOLIO_FILES.keys()))
+selected_sector = st.sidebar.selectbox("Chọn ngành", list(SECTOR_FILES.keys()))
+
+# Load sector data
+sector_file = SECTOR_FILES[selected_sector]
+sector_symbols = load_symbols_from_sector(sector_file)
+
+# Load portfolio data
+portfolio_file = PORTFOLIO_FILES[selected_portfolio]
+portfolio_data = load_data(portfolio_file)
+portfolio_symbols = portfolio_data['symbol'].tolist()
+
+# Filter portfolio symbols by sector
+filtered_symbols = [symbol for symbol in portfolio_symbols if symbol in sector_symbols]
+
+# Display results
+st.write("Mã cổ phiếu trong danh mục và ngành đã chọn:")
+st.write(filtered_symbols)
 def load_portfolio_symbols(portfolio_name):
     file_path = PORTFOLIO_FILES.get(portfolio_name, '')
     if not os.path.exists(file_path):
