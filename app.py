@@ -236,22 +236,23 @@ if sector_data:  # Check if the dictionary is not empty
     
     # Ensure there's no issue with combining; handle cases where some data might be missing
     combined_data.dropna(inplace=True)  # Drop rows with any NaN values which might cause issues in calculations
-
-# Correctly checking if a DataFrame is not empty
-if not combined_data.empty:  # This is the correct way to check if a DataFrame is not empty
-    optimizer = PortfolioOptimizer()
-    optimal_weights = optimizer.MSR_portfolio(combined_data.values)
     
-    # Displaying optimal weights in a bar chart
-    fig = go.Figure(data=[
-        go.Bar(name='Optimal Weights', x=combined_data.columns, y=optimal_weights)
-    ])
-    fig.update_layout(title='Optimal Portfolio Weights for VN30 in Selected Sector', xaxis_title='Stock', yaxis_title='Weight')
-    
-    st.plotly_chart(fig)
+    # Correctly checking if the combined DataFrame is not empty
+    if not combined_data.empty:
+        optimizer = PortfolioOptimizer()
+        optimal_weights = optimizer.MSR_portfolio(combined_data.values)
+        
+        # Displaying optimal weights in a bar chart
+        fig = go.Figure(data=[
+            go.Bar(name='Optimal Weights', x=combined_data.columns, y=optimal_weights)
+        ])
+        fig.update_layout(title='Optimal Portfolio Weights for VN30 in Selected Sector', xaxis_title='Stock', yaxis_title='Weight')
+        
+        st.plotly_chart(fig)
+    else:
+        st.error("No data available after combining sector data.")
 else:
-    st.error("No data available for the selected sector.")
-
+    st.error("No data available in the selected sector dictionary.")
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
         st.error("No data available for the selected date range.")
