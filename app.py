@@ -321,7 +321,8 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     if selected_sector:
         df_full = load_data(SECTOR_FILES[selected_sector])
         available_symbols = df_full['StockSymbol'].unique().tolist()
-        selected_stocks = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols, default=selected_stocks)
+        sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
+        selected_stocks = list(set(selected_stocks + sector_selected_symbols))
 
 # Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
@@ -342,12 +343,7 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
 # Ensure that the date range is within the available data
 if selected_stocks:
-    if portfolio_options:
-        sector = 'VNINDEX'
-    else:
-        sector = selected_sector
-
-    df_full = load_data(SECTOR_FILES[sector])
+    df_full = load_detailed_data(selected_stocks)
 
     if not df_full.empty:
         first_available_date = df_full.index.min().date()
@@ -369,8 +365,7 @@ if selected_stocks:
             st.error("Lỗi: Ngày kết thúc phải sau ngày bắt đầu.")
         else:
             try:
-                df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
-                df_filtered = ensure_datetime_compatibility(start_date, end_date, df_filtered)
+                df_filtered = ensure_datetime_compatibility(start_date, end_date, df_full)
 
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
