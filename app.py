@@ -142,7 +142,7 @@ class PortfolioOptimizer:
         X = X[~np.isnan(X).any(axis=1)]  # Remove rows with NaN values
 
         if shrinkage:
-            if shrinkage_type == 'ledoit':
+            if shrinkage type == 'ledoit':
                 Sigma = self.ledoit_wolf_shrinkage(X)
             elif shrinkage_type == 'ledoit_cc':
                 Sigma = self.ledoitwolf_cc(X)
@@ -201,14 +201,15 @@ class PortfolioOptimizer:
         delta = max(0, min(1, kappahat / T))
 
         return delta * F + (1 - delta) * Sigma
+
 # Hàm để tải dữ liệu giá đóng cửa từ tệp CSV của ngành
-def load_sector_data(sector_file):
-    df = pd.read_csv(sector_file, index_col='Date', parse_dates=True)
-    return df['Close'].astype(float)
+def load_sector_data(sector_file, symbols):
+    df = pd.read_csv(sector_file, index_col='Datetime', parse_dates=True)
+    return df[df['StockSymbol'].isin(symbols)][['StockSymbol', 'Close']].pivot(columns='StockSymbol', values='Close')
 
 # Hàm để lọc các mã cổ phiếu thuộc VN30 trong ngành đã chọn
 def filter_vn30_symbols(sector, vn30_symbols):
-    sector_symbols = pd.read_csv(SECTOR_FILES[sector], index_col='StockSymbol').index
+    sector_symbols = pd.read_csv(SECTOR_FILES[sector])['StockSymbol'].unique()
     return [symbol for symbol in vn30_symbols if symbol in sector_symbols]
 
 # Lấy tên cổ phiếu từ file VN30
@@ -221,20 +222,25 @@ selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
 selected_symbols = filter_vn30_symbols(selected_sector, vn30_symbols)
 
 # Tải và xử lý dữ liệu cho các mã đã chọn
-sector_data = {symbol: load_sector_data(f"{SECTOR_FILES[selected_sector]}") for symbol in selected_symbols}
+if selected_symbols:
+    try:
+        sector_data = load_sector_data(SECTOR_FILES[selected_sector], selected_symbols)
+    except Exception as e:
+        st.error(f"Failed to load sector data: {e}")
 
 # Tính toán trọng số danh mục tối ưu
-optimizer = PortfolioOptimizer()
-prices_df = pd.DataFrame(sector_data)
-optimal_weights = optimizer.MSR_portfolio(prices_df.values)
+if not sector_data.empty:
+    optimizer = PortfolioOptimizer()
+    optimal_weights = optimizer.MSR_portfolio(sector_data.values)
 
-# Hiển thị trọng số tối ưu trong biểu đồ cột
-fig = go.Figure(data=[
-    go.Bar(name='Optimal Weights', x=list(sector_data.keys()), y=optimal_weights)
-])
-fig.update_layout(title='Optimal Portfolio Weights for VN30 in Selected Sector', xaxis_title='Stock', yaxis_title='Weight')
+    # Hiển thị trọng số tối ưu trong biểu đồ cột
+    fig = go.Figure(data=[
+        go.Bar(name='Optimal Weights', x=list(sector_data.columns), y=optimal_weights)
+    ])
+    fig.update_layout(title='Optimal Portfolio Weights for VN30 in Selected Sector', xaxis_title='Stock', yaxis_title='Weight')
 
-st.plotly_chart(fig)
+    st.plotly_chart(fig)
+
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
         st.error("No data available for the selected date range.")
