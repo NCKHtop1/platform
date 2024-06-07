@@ -382,7 +382,7 @@ if selected_stocks:
                         # Create tabs for different views on the main screen
                         tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
 
-                         with tab1:
+                        with tab1:
                             st.markdown("<h2 style='text-align: center;'>Tóm tắt</h2>", unsafe_allow_html=True)
                             
                             # Indicator and Win Rate
@@ -425,6 +425,7 @@ if selected_stocks:
                             if st.button('Xem chi tiết'):
                                 st.markdown("Chi tiết các điểm crash:")
                                 st.dataframe(crash_details)
+
 
                         with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
