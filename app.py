@@ -6,6 +6,7 @@ from scipy.optimize import minimize
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import seaborn as sns
+import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 
@@ -25,7 +26,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Sector and Portfolio files mapping
+# Define file paths relative to the location of this script
 SECTOR_FILES = {
     'Ngân hàng': 'Banking.csv',
     'Vật liệu xây dựng': 'Building Material.csv',
@@ -46,7 +47,8 @@ PORTFOLIO_FILES = {
     'VNAllShare': 'VNAllShare.csv'
 }
 
-@st.cache_data
+# Load data function
+@st.cache(allow_output_mutation=True)
 def load_data(file_path):
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
@@ -60,6 +62,21 @@ def load_portfolio_symbols(portfolio_name):
         return []
     return pd.read_csv(file_path)['symbol'].tolist()
 
+# Ensure datetime comparison compatibility
+def ensure_datetime_compatibility(start_date, end_date, df):
+    if not isinstance(start_date, pd.Timestamp):
+        start_date = pd.Timestamp(start_date)
+    if not isinstance(end_date, pd.Timestamp):
+        end_date = pd.Timestamp(end_date)
+    
+    # Check if the dates are within the dataframe's range
+    if start_date not in df.index:
+        start_date = df.index[df.index.searchsorted(start_date)]
+    if end_date not in df.index:
+        end_date = df.index[df.index.searchsorted(end_date)]
+    
+    return df[start_date:end_date]
+
 # Load and filter detailed data
 def load_detailed_data(selected_stocks):
     data = pd.DataFrame()
@@ -69,6 +86,121 @@ def load_detailed_data(selected_stocks):
             sector_data = df[df['StockSymbol'].isin(selected_stocks)]
             data = pd.concat([data, sector_data])
     return data
+
+class PortfolioOptimizer:
+    def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
+        X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
+        mu = np.mean(X, axis=0)  # Calculate the mean returns of the assets
+        Sigma = np.cov(X, rowvar=False)  # Calculate the covariance matrix of the returns
+
+        w = self.MSRP_solver(mu, Sigma)  # Use the MSRP solver to get the optimal weights
+        return w  # Return the optimal weights
+
+    def MSRP_solver(self, mu: np.ndarray, Sigma: np.ndarray) -> np.ndarray:
+        N = Sigma.shape[0]  # Number of assets (stocks)
+        if np.all(mu <= 1e-8):  # Check if mean returns are close to zero
+            return np.zeros(N)  # Return zero weights if no returns
+
+        Dmat = 2 * Sigma  # Quadratic term for the optimizer
+        Amat = np.vstack((mu, np.ones(N)))  # Combine mean returns and sum constraint for constraints
+        bvec = np.array([1, 1])  # Right-hand side of constraints (1 for mean returns and sum)
+        dvec = np.zeros(N)  # Linear term (zero for this problem)
+
+        # Call the QP solver
+        w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=2)
+        return w / np.sum(abs(w))  # Normalize weights to sum to 1
+
+    def solve_QP(self, Dmat: np.ndarray, dvec: np.ndarray, Amat: np.ndarray, bvec: np.ndarray, meq: int = 0) -> np.ndarray:
+        def portfolio_obj(x):
+            return 0.5 * np.dot(x, np.dot(Dmat, x)) + np.dot(dvec, x)
+
+        def portfolio_constr_eq(x):
+            return np.dot(Amat[:meq], x) - bvec[:meq]
+
+        def portfolio_constr_ineq(x):
+            if Amat.shape[0] - meq == 0:
+                return np.array([])
+            else:
+                return np.dot(Amat[meq:], x) - bvec[meq:]
+
+        cons = [{'type': 'eq', 'fun': portfolio_constr_eq}]
+
+        if meq < len(bvec):
+            cons.append({'type': 'ineq', 'fun': portfolio_constr_ineq})
+
+        initial_guess = np.ones(Dmat.shape[0]) / Dmat.shape[0]
+
+        res = minimize(portfolio_obj, initial_guess, constraints=cons, method='SLSQP')
+
+        if not res.success:
+            raise ValueError('Quadratic programming failed to find a solution.')
+
+        return res.x
+
+    def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit', shortselling: bool = True, leverage: int = None) -> np.ndarray:
+        X = np.diff(np.log(data), axis=0)
+        X = X[~np.isnan(X).any(axis=1)]  # Remove rows with NaN values
+
+        if shrinkage:
+            if shrinkage_type == 'ledoit':
+                Sigma = self.ledoit_wolf_shrinkage(X)
+            elif shrinkage_type == 'ledoit_cc':
+                Sigma = self.ledoitwolf_cc(X)
+            elif shrinkage_type == 'oas':
+                Sigma = self.oas_shrinkage(X)
+            elif shrinkage_type == 'graphical_lasso':
+                Sigma = self.graphical_lasso_shrinkage(X)
+            elif shrinkage_type == 'mcd':
+                Sigma = self.mcd_shrinkage(X)
+            else:
+                raise ValueError('Invalid shrinkage type. Choose from: ledoit, ledoit_cc, oas, graphical_lasso, mcd')
+        else:
+            Sigma = np.cov(X, rowvar=False)
+
+        if not shortselling:
+            N = Sigma.shape[0]
+            Dmat = 2 * Sigma
+            Amat = np.vstack((np.ones(N), np.eye(N)))
+            bvec = np.array([1] + [0] * N)
+            dvec = np.zeros(N)
+            w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=1)
+        else:
+            ones = np.ones(Sigma.shape[0])
+            w = np.linalg.solve(Sigma, ones)
+            w /= np.sum(w)
+
+        if leverage is not None and leverage < np.inf:
+            w = leverage * w / np.sum(np.abs(w))
+
+        return w
+
+    def ledoitwolf_cc(self, returns: np.ndarray) -> np.ndarray:
+        T, N = returns.shape
+        returns = returns - np.mean(returns, axis=0, keepdims=True)
+        df = pd.DataFrame(returns)
+        Sigma = df.cov().values
+        Cor = df.corr().values
+        diagonals = np.diag(Sigma)
+        var = diagonals.reshape(len(Sigma), 1)
+        vols = var ** 0.5
+
+        rbar = np.mean((Cor.sum(1) - 1) / (Cor.shape[1] - 1))
+        cc_cor = np.matrix([[rbar] * N for _ in range(N)])
+        np.fill_diagonal(cc_cor, 1)
+        F = np.diag((diagonals ** 0.5)) @ cc_cor @ np.diag((diagonals ** 0.5))
+
+        y = returns ** 2
+        mat1 = (y.transpose() @ y) / T - Sigma ** 2
+        pihat = mat1.sum()
+
+        mat2 = ((returns ** 3).transpose() @ returns) / T - var * Sigma
+        np.fill_diagonal(mat2, 0)
+        rhohat = np.diag(mat1).sum() + rbar * ((1 / vols) @ vols.transpose() * mat2).sum()
+        gammahat = np.linalg.norm(Sigma - F, "fro") ** 2
+        kappahat = (pihat - rhohat) / gammahat
+        delta = max(0, min(1, kappahat / T))
+
+        return delta * F + (1 - delta) * Sigma
 
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
@@ -185,12 +317,11 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
                 selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
                 selected_stocks.extend(selected_symbols)
 
-    selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu:', list(SECTOR_FILES.keys()))
+    selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
     if selected_sector:
         df_full = load_data(SECTOR_FILES[selected_sector])
-        if not selected_stocks:
-            available_symbols = df_full['StockSymbol'].unique().tolist()
-            selected_stocks = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
+        available_symbols = df_full['StockSymbol'].unique().tolist()
+        selected_stocks = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols, default=selected_stocks)
 
 # Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
@@ -211,8 +342,13 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
 # Ensure that the date range is within the available data
 if selected_stocks:
-    df_full = load_detailed_data(selected_stocks)
-    
+    if portfolio_options:
+        sector = 'VNINDEX'
+    else:
+        sector = selected_sector
+
+    df_full = load_data(SECTOR_FILES[sector])
+
     if not df_full.empty:
         first_available_date = df_full.index.min().date()
         last_available_date = df_full.index.max().date()
@@ -233,7 +369,8 @@ if selected_stocks:
             st.error("Lỗi: Ngày kết thúc phải sau ngày bắt đầu.")
         else:
             try:
-                df_filtered = df_full.loc[start_date:end_date]
+                df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
+                df_filtered = ensure_datetime_compatibility(start_date, end_date, df_filtered)
 
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
