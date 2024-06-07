@@ -55,29 +55,18 @@ def load_data(file_path):
         return pd.DataFrame()
     return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
 
-def load_portfolio_symbols(portfolio_name):
+def load_portfolio_symbols(portfolio_name, sector=None):
     file_path = PORTFOLIO_FILES.get(portfolio_name, '')
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
         return []
-    return pd.read_csv(file_path)['symbol'].tolist()
-def load_sector_symbols(sector_name):
-    """ Lấy danh sách các mã chứng khoán theo ngành từ SECTOR_FILES và lọc theo danh mục đã chọn."""
-    if sector_name not in SECTOR_FILES:
-        return []
-    sector_data = pd.read_csv(SECTOR_FILES[sector_name])
-    return sector_data['symbol'].tolist()
-
-# Trong phần logic chính của ứng dụng:
-selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
-all_symbols_in_sector = load_sector_symbols(selected_sector)
-
-# Sau đó lọc những mã này với danh sách trong VN30 nếu có lựa chọn danh mục
-if 'VN30' in portfolio_options:
-    vn30_symbols = load_portfolio_symbols('VN30')
-    selected_stocks = [symbol for symbol in all_symbols_in_sector if symbol in vn30_symbols]
-else:
-    selected_stocks = all_symbols_in_sector
+    portfolio_symbols = pd.read_csv(file_path)['symbol'].tolist()
+    if sector:
+        sector_data = load_data(SECTOR_FILES[sector])
+        sector_symbols = sector_data['StockSymbol'].unique().tolist()
+        # Filter portfolio symbols to only include those in the selected sector
+        return [symbol for symbol in portfolio_symbols if symbol in sector_symbols]
+    return portfolio_symbols
 
 # Ensure datetime comparison compatibility
 def ensure_datetime_compatibility(start_date, end_date, df):
