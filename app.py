@@ -384,57 +384,51 @@ if selected_stocks:
                         
                         with tab1:
                             try:
-                                st.markdown("<h2 style='text-align: center;'>Tóm tắt</h2>", unsafe_allow_html=True)
+                                st.markdown("<h2 style='text-align: center; color: #4CAF50;'>Summary Dashboard</h2>", unsafe_allow_html=True)
                                 
-                                # Indicator name and Win Rate
+                                # Displaying Indicator Name and Win Rate
                                 indicator_name = ", ".join(strategies)
                                 win_rate = portfolio.stats()['Win Rate [%]']
-                                win_rate_color = "green" if win_rate > 50 else "red"
+                                win_rate_color = "#4CAF50" if win_rate > 50 else "#FF5733"
                         
-                                st.markdown(f"<h3 style='color: {win_rate_color}; text-align: center;'>{win_rate:.2f}%</h3>", unsafe_allow_html=True)
-                                st.markdown(f"<h4 style='text-align: center;'>{indicator_name}</h4>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='text-align: center; margin-bottom: 20px;'><span style='color: {win_rate_color}; font-size: 24px; font-weight: bold;'>Win Rate: {win_rate:.2f}%</span><br><span style='font-size: 18px;'>Using indicators: {indicator_name}</span></div>", unsafe_allow_html=True)
                         
-                                # Performance Data
+                                # Performance Data Section
                                 cumulative_return = portfolio.stats()['Total Return [%]']
                                 annualized_return = portfolio.stats().get('Annual Return [%]', 0)
+                                st.markdown("<div style='background-color: #f0f2f6; padding: 10px; border-radius: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
+                                st.markdown(f"<p style='text-align: center; margin: 0;'><strong>Performance on selected symbols: {', '.join(selected_stocks)}</strong></p>", unsafe_allow_html=True)
+                                st.markdown(f"<p style='text-align: center; margin: 0;'><strong>Total Return: {cumulative_return:.2f}%</strong> | <strong>Annualized Return: {annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
+                                st.markdown("</div>", unsafe_allow_html=True)
                         
-                                st.markdown("<hr>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='text-align: center;'>Hiệu suất tính toán trên mã: <strong>{', '.join(selected_stocks)}</strong></p>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='text-align: center;'>Tổng lợi nhuận: <strong>{cumulative_return:.2f}%</strong></p>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='text-align: center;'>Lợi nhuận trung bình hàng năm: <strong>{annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
-                                st.markdown("<hr>", unsafe_allow_html=True)
-                        
-                                # Small chart similar to "orders" graph from another tab
+                                # Graph displaying price data and crash points
                                 price_data = df_filtered['close']
                                 crash_df = df_filtered[df_filtered['Crash']]
-                        
-                                # Prepare the figure
                                 fig = go.Figure()
-                                fig.add_trace(go.Scatter(x=price_data.index, y=price_data, mode='lines', name='Giá trị', line=dict(color='green')))
-                                
-                                # Add crash points to the figure
-                                fig.add_scatter(
-                                    x=crash_df.index,
-                                    y=crash_df['close'],
-                                    mode='markers',
-                                    marker=dict(color='orange', size=10, symbol='triangle-down'),
-                                    name='Crash points'
+                                fig.add_trace(go.Scatter(x=price_data.index, y=price_data, mode='lines', name='Price', line=dict(color='#1f77b4')))
+                                fig.add_trace(go.Scatter(x=crash_df.index, y=crash_df['close'], mode='markers', marker=dict(color='orange', size=8, symbol='triangle-down'), name='Crash Points'))
+                        
+                                fig.update_layout(
+                                    title="Price Chart with Crash Points",
+                                    xaxis_title="Date",
+                                    yaxis_title="Price",
+                                    legend_title="Legend",
+                                    template="plotly_white"
                                 )
-                                
                                 st.plotly_chart(fig, use_container_width=True)
                         
-                                # Crash Details
+                                # Detailed view of Crash Points
                                 crash_details = crash_df[['close']]
                                 crash_details.reset_index(inplace=True)
-                                crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
+                                crash_details.rename(columns={'Datetime': 'Crash Date', 'close': 'Price'}, inplace=True)
                                 
-                                # Button to view detailed crash information
-                                if st.button('Xem chi tiết'):
-                                    st.markdown("**Danh sách các điểm crash:**")
-                                    st.dataframe(crash_details, height=200)
+                                if st.button('Show Details'):
+                                    st.markdown("**List of Crash Points:**")
+                                    st.dataframe(crash_details.style.format(subset=['Price'], formatter="{:.2f}"), height=300)
+                        
                             except Exception as e:
-                                st.error(f"Đã xảy ra lỗi: {e}")
-
+                                st.error(f"An error occurred: {e}")
+                        
 
                         with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
