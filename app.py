@@ -68,14 +68,14 @@ def ensure_datetime_compatibility(start_date, end_date, df):
         start_date = pd.Timestamp(start_date)
     if not isinstance(end_date, pd.Timestamp):
         end_date = pd.Timestamp(end_date)
-    
-    # Check if the dates are within the dataframe's range
-    if start_date not in df.index:
+
+    # Sử dụng 'nearest' để tránh KeyError khi ngày không duy nhất
+    if start_date not in df.index.unique():
         start_date = df.index[df.index.get_loc(start_date, method='nearest')]
-    if end_date not in df.index:
+    if end_date not in df.index.unique():
         end_date = df.index[df.index.get_loc(end_date, method='nearest')]
-    
-    return df[start_date:end_date]
+
+    return df.loc[start_date:end_date]
 
 # Load and filter detailed data
 def load_detailed_data(selected_stocks):
