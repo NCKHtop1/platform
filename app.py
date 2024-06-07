@@ -409,31 +409,24 @@ if selected_stocks:
                                 sector_file = SECTOR_FILES[selected_sector]
                                 price_data = pd.read_csv(sector_file, parse_dates=['Datetime'], index_col='Datetime')
                         
-                                fig = go.Figure()
-                                fig.add_trace(go.Scatter(x=price_data.index, y=price_data['close'], mode='lines', name='Giá trị', line=dict(color='green')))
+                                fig = portfolio.plot()
                                 
                                 # Thêm các điểm crash vào đồ thị
-                                crash_points = df_filtered[df_filtered['Crash']]
-                                fig.add_trace(go.Scatter(
-                                    x=crash_points.index,
-                                    y=crash_points['close'],
+                                crash_df = df_filtered[df_filtered['Crash']]
+                                fig.add_scatter(
+                                    x=crash_df.index,
+                                    y=crash_df['close'],
                                     mode='markers',
-                                    marker=dict(color='orange', size=8, symbol='triangle-down'),
-                                    name='Điểm Crash'
-                                ))
-                                
-                                fig.update_layout(
-                                    title='Diễn biến giá',
-                                    xaxis_title='Ngày',
-                                    yaxis_title='Giá',
-                                    showlegend=False,
-                                    margin=dict(l=20, r=20, t=30, b=20),
-                                    height=300
+                                    marker=dict(color='orange', size=10, symbol='triangle-down'),
+                                    name='Sụt giảm'
                                 )
+                                
+                                st.markdown("**Biểu đồ:**")
+                                st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các cảnh báo sụp đổ tiềm năng, cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
                                 st.plotly_chart(fig, use_container_width=True)
                         
                                 # Chi tiết Crash
-                                crash_details = df_filtered[df_filtered['Crash']][['close']]
+                                crash_details = crash_df[['close']]
                                 crash_details.reset_index(inplace=True)
                                 crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
                                 
@@ -443,6 +436,7 @@ if selected_stocks:
                                     st.dataframe(crash_details, height=200)
                             except Exception as e:
                                 st.error(f"Đã xảy ra lỗi: {e}")
+
 
                         with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
