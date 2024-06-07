@@ -61,6 +61,23 @@ def load_portfolio_symbols(portfolio_name):
         st.error(f"File not found: {file_path}")
         return []
     return pd.read_csv(file_path)['symbol'].tolist()
+def load_sector_symbols(sector_name):
+    """ Lấy danh sách các mã chứng khoán theo ngành từ SECTOR_FILES và lọc theo danh mục đã chọn."""
+    if sector_name not in SECTOR_FILES:
+        return []
+    sector_data = pd.read_csv(SECTOR_FILES[sector_name])
+    return sector_data['symbol'].tolist()
+
+# Trong phần logic chính của ứng dụng:
+selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
+all_symbols_in_sector = load_sector_symbols(selected_sector)
+
+# Sau đó lọc những mã này với danh sách trong VN30 nếu có lựa chọn danh mục
+if 'VN30' in portfolio_options:
+    vn30_symbols = load_portfolio_symbols('VN30')
+    selected_stocks = [symbol for symbol in all_symbols_in_sector if symbol in vn30_symbols]
+else:
+    selected_stocks = all_symbols_in_sector
 
 # Ensure datetime comparison compatibility
 def ensure_datetime_compatibility(start_date, end_date, df):
@@ -69,13 +86,15 @@ def ensure_datetime_compatibility(start_date, end_date, df):
     if not isinstance(end_date, pd.Timestamp):
         end_date = pd.Timestamp(end_date)
     
-    # Check if the dates are within the dataframe's range
-    if start_date not in df.index:
-        start_date = df.index[df.index.searchsorted(start_date)]
-    if end_date not in df.index:
-        end_date = df.index[df.index.searchsorted(end_date)]
-    
+    # Sử dụng 'clip' để đảm bảo ngày bắt đầu và kết thúc nằm trong phạm vi dữ liệu
+    if start_date < df.index.min():
+        start_date = df.index.min()
+    if end_date > df.index.max():
+        end_date = df.index.max()
+
+    # Đảm bảo rằng chỉ chọn những ngày có trong DataFrame
     return df[start_date:end_date]
+
 
 # Load and filter detailed data
 def load_detailed_data(selected_stocks):
