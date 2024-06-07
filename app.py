@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from datetime import datetime
 import os
 from scipy.optimize import minimize
 from scipy.signal import find_peaks
@@ -50,6 +49,8 @@ PORTFOLIO_FILES = {
 
 @st.cache(allow_output_mutation=True)
 def load_data(file_path):
+    # Debugging: Print the file path to check if it's correct
+    st.write(f"Loading file from path: {file_path}")
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
