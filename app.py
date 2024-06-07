@@ -382,44 +382,59 @@ if selected_stocks:
                         tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
                         
                         with tab1:
-                            try:
-                                st.markdown("<h2 style='text-align: center;'>Tóm tắt</h2>", unsafe_allow_html=True)
-                                
-                                # Chỉ báo và Tỷ lệ thắng
-                                indicator_name = ", ".join(strategies)
-                                win_rate = portfolio.stats()['Win Rate [%]']
-                                win_rate_color = "green" if win_rate > 50 else "red"]
-                        
-                                st.markdown(f"<h3 style='color: {win_rate_color}; text-align: center;'>{win_rate:.2f}%</h3>", unsafe_allow_html=True)
-                                st.markdown(f"<h4 style='text-align: center;'>{indicator_name}</h4>", unsafe_allow_html=True)
-                                
-                                # Dữ liệu Hiệu suất
-                                cumulative_return = portfolio.stats()['Total Return [%]']
-                                annualized_return = portfolio.stats().get('Annual Return [%]', 0)
-                        
-                                st.markdown("<hr>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='text-align: center;'>Hiệu suất tính toán trên mã: <strong>{', '.join(selected_stocks)}</strong></p>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='text-align: center;'>Tổng lợi nhuận: <strong>{cumulative_return:.2f}%</strong></p>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='text-align: center;'>Lợi nhuận trung bình hàng năm: <strong>{annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
-                                st.markdown("<hr>", unsafe_allow_html=True)
-                        
-                                # Đồ thị lệnh order
-                                fig = portfolio.plot_order()  # Adjust this line to use the appropriate function to plot order chart
-                                st.markdown("**Biểu đồ lệnh order:**")
-                                st.plotly_chart(fig, use_container_width=True)
+                def render_summary(portfolio, strategies, selected_stocks, crash_df):
+                    with st.spinner("Đang tải..."):
+                        try:
+                            # Tiêu đề "Tóm tắt"
+                            st.markdown("<h2 style='text-align: center;'>Tóm tắt</h2>", unsafe_allow_html=True)
+                            
+                            # Chỉ báo và Tỷ lệ thắng
+                            indicator_name = ", ".join(strategies)
+                            win_rate = portfolio.stats().get('Win Rate [%]', 0)
+                            win_rate_color = "green" if win_rate > 50 else "red"
+                            
+                            st.markdown(
+                                f"<h3 style='color: {win_rate_color}; text-align: center;'>{win_rate:.2f}%</h3>", 
+                                unsafe_allow_html=True
+                            )
+                            st.markdown(f"<h4 style='text-align: center;'>{indicator_name}</h4>", unsafe_allow_html=True)
+                            
+                            # Dữ liệu Hiệu suất
+                            cumulative_return = portfolio.stats().get('Total Return [%]', 0)
+                            annualized_return = portfolio.stats().get('Annual Return [%]', 0)
+                            
+                            st.markdown("<hr>", unsafe_allow_html=True)
+                            st.markdown(
+                                f"<p style='text-align: center;'>Hiệu suất tính toán trên mã: <strong>{', '.join(selected_stocks)}</strong></p>", 
+                                unsafe_allow_html=True
+                            )
+                            st.markdown(
+                                f"<p style='text-align: center;'>Tổng lợi nhuận: <strong>{cumulative_return:.2f}%</strong></p>", 
+                                unsafe_allow_html=True
+                            )
+                            st.markdown(
+                                f"<p style='text-align: center;'>Lợi nhuận trung bình hàng năm: <strong>{annualized_return:.2f}%</strong></p>", 
+                                unsafe_allow_html=True
+                            )
+                            st.markdown("<hr>", unsafe_allow_html=True)
+                            
+                            # Đồ thị lệnh order
+                            fig = portfolio.plot_orders()
+                            st.markdown("**Biểu đồ lệnh order:**")
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Chi tiết Crash
+                            crash_details = crash_df[['Datetime', 'close']].copy()
+                            crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
+                            
+                            # Hiển thị nút để xem chi tiết thông tin crash
+                            if st.button('Xem chi tiết'):
+                                st.markdown("**Danh sách các điểm crash:**")
+                                st.dataframe(crash_details, height=200)
+                        except Exception as e:
+                            st.error(f"Đã xảy ra lỗi: {e}")
+                
 
-                        
-                                # Chi tiết Crash
-                                crash_details = crash_df[['close']]
-                                crash_details.reset_index(inplace=True)
-                                crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
-                                
-                                # Hiển thị nút để xem chi tiết thông tin crash
-                                if st.button('Xem chi tiết'):
-                                    st.markdown("**Danh sách các điểm crash:**")
-                                    st.dataframe(crash_details, height=200)
-                            except Exception as e:
-                                st.error(f"Đã xảy ra lỗi: {e}")
 
                         with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
