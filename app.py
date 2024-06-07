@@ -54,37 +54,7 @@ def load_data(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
     return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
-@st.cache(allow_output_mutation=True)
-def load_data(file_path):
-    return pd.read_csv(file_path)
 
-# Load the sector data and return only the symbols in that sector
-def load_symbols_from_sector(sector_file):
-    data = load_data(sector_file)
-    return data['symbol'].tolist()
-
-# Application UI
-st.title('Chọn Danh Mục Theo Ngành')
-
-# Sidebar selections
-selected_portfolio = st.sidebar.selectbox("Chọn danh mục", list(PORTFOLIO_FILES.keys()))
-selected_sector = st.sidebar.selectbox("Chọn ngành", list(SECTOR_FILES.keys()))
-
-# Load sector data
-sector_file = SECTOR_FILES[selected_sector]
-sector_symbols = load_symbols_from_sector(sector_file)
-
-# Load portfolio data
-portfolio_file = PORTFOLIO_FILES[selected_portfolio]
-portfolio_data = load_data(portfolio_file)
-portfolio_symbols = portfolio_data['symbol'].tolist()
-
-# Filter portfolio symbols by sector
-filtered_symbols = [symbol for symbol in portfolio_symbols if symbol in sector_symbols]
-
-# Display results
-st.write("Mã cổ phiếu trong danh mục và ngành đã chọn:")
-st.write(filtered_symbols)
 def load_portfolio_symbols(portfolio_name):
     file_path = PORTFOLIO_FILES.get(portfolio_name, '')
     if not os.path.exists(file_path):
@@ -231,7 +201,40 @@ class PortfolioOptimizer:
         delta = max(0, min(1, kappahat / T))
 
         return delta * F + (1 - delta) * Sigma
+# Hàm để tải dữ liệu giá đóng cửa từ tệp CSV của ngành
+def load_sector_data(sector_file):
+    df = pd.read_csv(sector_file, index_col='Date', parse_dates=True)
+    return df['Close'].astype(float)
 
+# Hàm để lọc các mã cổ phiếu thuộc VN30 trong ngành đã chọn
+def filter_vn30_symbols(sector, vn30_symbols):
+    sector_symbols = pd.read_csv(SECTOR_FILES[sector], index_col='StockSymbol').index
+    return [symbol for symbol in vn30_symbols if symbol in sector_symbols]
+
+# Lấy tên cổ phiếu từ file VN30
+vn30_symbols = pd.read_csv('VN30.csv')['symbol'].tolist()
+
+# Lựa chọn ngành từ người dùng
+selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
+
+# Lấy các mã cổ phiếu VN30 thuộc ngành đã chọn
+selected_symbols = filter_vn30_symbols(selected_sector, vn30_symbols)
+
+# Tải và xử lý dữ liệu cho các mã đã chọn
+sector_data = {symbol: load_sector_data(f"{SECTOR_FILES[selected_sector]}") for symbol in selected_symbols}
+
+# Tính toán trọng số danh mục tối ưu
+optimizer = PortfolioOptimizer()
+prices_df = pd.DataFrame(sector_data)
+optimal_weights = optimizer.MSR_portfolio(prices_df.values)
+
+# Hiển thị trọng số tối ưu trong biểu đồ cột
+fig = go.Figure(data=[
+    go.Bar(name='Optimal Weights', x=list(sector_data.keys()), y=optimal_weights)
+])
+fig.update_layout(title='Optimal Portfolio Weights for VN30 in Selected Sector', xaxis_title='Stock', yaxis_title='Weight')
+
+st.plotly_chart(fig)
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
         st.error("No data available for the selected date range.")
