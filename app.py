@@ -27,7 +27,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # Define file paths relative to the location of this script
-base_path = os.path.abspath(os.path.dirname(__file__))
+base_path = os.path.dirname(__file__)
 SECTOR_FILES = {
     'Ngân hàng': os.path.join(base_path, 'Banking.csv'),
     'Vật liệu xây dựng': os.path.join(base_path, 'Building Material.csv'),
@@ -48,7 +48,6 @@ PORTFOLIO_FILES = {
     'VNAllShare': os.path.join(base_path, 'VNAllShare.csv')
 }
 
-# Load data function
 @st.cache(allow_output_mutation=True)
 def load_data(file_path):
     if not os.path.exists(file_path):
@@ -56,7 +55,6 @@ def load_data(file_path):
         return pd.DataFrame()
     return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
 
-# Load portfolio symbols
 def load_portfolio_symbols(portfolio_name):
     file_path = PORTFOLIO_FILES.get(portfolio_name, '')
     if not os.path.exists(file_path):
@@ -318,9 +316,10 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
             if symbols:
                 selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
                 selected_stocks.extend(selected_symbols)
+        sector = st.selectbox('Chọn ngành cho danh mục đã chọn', list(SECTOR_FILES.keys()))
 
     else:
-        selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
+        sector = selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
         df_full = load_data(SECTOR_FILES[selected_sector])
         available_symbols = df_full['StockSymbol'].unique().tolist()
         selected_stocks = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
@@ -344,11 +343,6 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
 # Ensure that the date range is within the available data
 if selected_stocks:
-    if portfolio_options:
-        sector = 'VNINDEX'
-    else:
-        sector = selected_sector
-
     df_full = load_data(SECTOR_FILES[sector])
 
     if not df_full.empty:
