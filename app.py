@@ -26,38 +26,37 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Sector and Portfolio files mapping
+# Define file paths relative to the location of this script
+base_path = os.path.abspath(os.path.dirname(__file__))
 SECTOR_FILES = {
-    'Ngân hàng': 'Banking.csv',
-    'Vật liệu xây dựng': 'Building Material.csv',
-    'Hóa chất': 'Chemical.csv',
-    'Dịch vụ tài chính': 'Financial Services.csv',
-    'Thực phẩm và đồ uống': 'Food and Beverage.csv',
-    'Dịch vụ công nghiệp': 'Industrial Services.csv',
-    'Công nghệ thông tin': 'Information Technology.csv',
-    'Khoáng sản': 'Mineral.csv',
-    'Dầu khí': 'Oil and Gas.csv',
-    'Bất động sản': 'Real Estate.csv',
-    'VNINDEX': 'Vnindex.csv'
+    'Ngân hàng': os.path.join(base_path, 'Banking.csv'),
+    'Vật liệu xây dựng': os.path.join(base_path, 'Building Material.csv'),
+    'Hóa chất': os.path.join(base_path, 'Chemical.csv'),
+    'Dịch vụ tài chính': os.path.join(base_path, 'Financial Services.csv'),
+    'Thực phẩm và đồ uống': os.path.join(base_path, 'Food and Beverage.csv'),
+    'Dịch vụ công nghiệp': os.path.join(base_path, 'Industrial Services.csv'),
+    'Công nghệ thông tin': os.path.join(base_path, 'Information Technology.csv'),
+    'Khoáng sản': os.path.join(base_path, 'Mineral.csv'),
+    'Dầu khí': os.path.join(base_path, 'Oil and Gas.csv'),
+    'Bất động sản': os.path.join(base_path, 'Real Estate.csv'),
+    'VNINDEX': os.path.join(base_path, 'Vnindex.csv')
 }
 
 PORTFOLIO_FILES = {
-    'VN30': 'VN30.csv',
-    'VN100': 'VN100.csv',
-    'VNAllShare': 'VNAllShare.csv'
+    'VN30': os.path.join(base_path, 'VN30.csv'),
+    'VN100': os.path.join(base_path, 'VN100.csv'),
+    'VNAllShare': os.path.join(base_path, 'VNAllShare.csv')
 }
 
+# Load data function
 @st.cache(allow_output_mutation=True)
 def load_data(file_path):
-    # Debugging: Print the file path to check if it's correct
-    st.write(f"Loading file from path: {file_path}")
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
-    df = pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True)
-    df.set_index('Datetime', inplace=True)
-    return df
+    return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
 
+# Load portfolio symbols
 def load_portfolio_symbols(portfolio_name):
     file_path = PORTFOLIO_FILES.get(portfolio_name, '')
     if not os.path.exists(file_path):
@@ -350,7 +349,7 @@ if selected_stocks:
     else:
         sector = selected_sector
 
-    df_full = load_data(sector)
+    df_full = load_data(SECTOR_FILES[sector])
 
     if not df_full.empty:
         first_available_date = df_full.index.min().date()
