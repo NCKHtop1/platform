@@ -47,27 +47,35 @@ PORTFOLIO_FILES = {
     'VNAllShare': 'VNAllShare.csv'
 }
 
-# Load data function
 @st.cache(allow_output_mutation=True)
 def load_data(file_path):
-    if not os.path.exists(file_path):
-        st.error(f"File not found: {file_path}")
-        return pd.DataFrame()
     return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
 
-def load_portfolio_symbols(portfolio_name, sector=None):
+def load_portfolio_symbols(portfolio_name, filter_sector=None):
     file_path = PORTFOLIO_FILES.get(portfolio_name, '')
-    if not os.path.exists(file_path):
-        st.error(f"File not found: {file_path}")
-        return []
     portfolio_symbols = pd.read_csv(file_path)['symbol'].tolist()
-    if sector:
-        sector_data = load_data(SECTOR_FILES[sector])
+    if filter_sector:
+        sector_data = load_data(SECTOR_FILES[filter_sector])
         sector_symbols = sector_data['StockSymbol'].unique().tolist()
-        # Filter portfolio symbols to only include those in the selected sector
         return [symbol for symbol in portfolio_symbols if symbol in sector_symbols]
     return portfolio_symbols
 
+# Streamlit Sidebar for Portfolio Selection
+portfolio_options = st.sidebar.selectbox('Chọn danh mục', ['VN30', 'VN100', 'VNAllShare'])
+selected_sector = st.sidebar.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
+
+# Filter symbols based on selected sector
+filtered_symbols = load_portfolio_symbols(portfolio_options, filter_sector=selected_sector)
+selected_symbols = st.sidebar.multiselect('Chọn mã cổ phiếu trong danh mục', filtered_symbols)
+
+# Main area: Display selected data
+if selected_symbols:
+    st.write("Mã cổ phiếu đã chọn:", selected_symbols)
+    for symbol in selected_symbols:
+        data = load_data(SECTOR_FILES[selected_sector])  # Assuming all sector data contains all symbols
+        if symbol in data['StockSymbol'].values:
+            st.write(f"Data for {symbol}:", data[data['StockSymbol'] == symbol])
+            
 # Ensure datetime comparison compatibility
 def ensure_datetime_compatibility(start_date, end_date, df):
     if not isinstance(start_date, pd.Timestamp):
