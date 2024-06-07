@@ -398,7 +398,7 @@ if selected_stocks:
                             annualized_return = portfolio.stats().get('Annual Return [%]', 0)
                         
                             st.markdown("<hr>", unsafe_allow_html=True)
-                            st.markdown(f"<p style='text-align: center;'>Hiệu suất tính toán trên mã: <strong>FPT</strong></p>", unsafe_allow_html=True)
+                            st.markdown(f"<p style='text-align: center;'>Hiệu suất tính toán trên mã: <strong>{selected_stocks}</strong></p>", unsafe_allow_html=True)
                             st.markdown(f"<p style='text-align: center;'>Tổng lợi nhuận: <strong>{cumulative_return:.2f}%</strong></p>", unsafe_allow_html=True)
                             st.markdown(f"<p style='text-align: center;'>Lợi nhuận trung bình hàng năm: <strong>{annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
                             st.markdown("<hr>", unsafe_allow_html=True)
@@ -421,11 +421,15 @@ if selected_stocks:
                             )
                             st.plotly_chart(fig, use_container_width=True)
                         
-                            # Button for detailed view
+                            # Crash Details
+                            crash_details = df_filtered[df_filtered['Crash']][['close']]
+                            crash_details.reset_index(inplace=True)
+                            crash_details.rename(columns={'Datetime': 'Ngày crash', 'close': 'Giá'}, inplace=True)
+                            
+                            # Display the button for detailed crash information
                             if st.button('Xem chi tiết'):
-                                st.markdown("Chi tiết các điểm crash:")
-                                st.dataframe(crash_details)
-
+                                st.markdown("**Danh sách các điểm crash:**")
+                                st.dataframe(crash_details, height=200)
 
                         with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
