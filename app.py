@@ -137,42 +137,43 @@ class PortfolioOptimizer:
 
         return res.x
 
-    def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit', shortselling: bool = True, leverage: int = None) -> np.ndarray:
-        X = np.diff(np.log(data), axis=0)
-        X = X[~np.isnan(X).any(axis=1)]  # Remove rows with NaN values
+def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit', shortselling: bool = True, leverage: int = None) -> np.ndarray:
+    X = np.diff(np.log(data), axis=0)
+    X = X[~np.isnan(X).any(axis=1)]  # Remove rows with NaN values
 
-        if shrinkage:
-            if shrinkage type == 'ledoit':
-                Sigma = self.ledoit_wolf_shrinkage(X)
-            elif shrinkage_type == 'ledoit_cc':
-                Sigma = self.ledoitwolf_cc(X)
-            elif shrinkage_type == 'oas':
-                Sigma = self.oas_shrinkage(X)
-            elif shrinkage_type == 'graphical_lasso':
-                Sigma = self.graphical_lasso_shrinkage(X)
-            elif shrinkage_type == 'mcd':
-                Sigma = self.mcd_shrinkage(X)
-            else:
-                raise ValueError('Invalid shrinkage type. Choose from: ledoit, ledoit_cc, oas, graphical_lasso, mcd')
+    if shrinkage:
+        if shrinkage_type == 'ledoit':
+            Sigma = self.ledoit_wolf_shrinkage(X)
+        elif shrinkage_type == 'ledoit_cc':
+            Sigma = self.ledoitwolf_cc(X)
+        elif shrinkage_type == 'oas':
+            Sigma = self.oas_shrinkage(X)
+        elif shrinkage_type == 'graphical_lasso':
+            Sigma = self.graphical_lasso_shrinkage(X)
+        elif shrinkage_type == 'mcd':
+            Sigma = self.mcd_shrinkage(X)
         else:
-            Sigma = np.cov(X, rowvar=False)
+            raise ValueError('Invalid shrinkage type. Choose from: ledoit, ledoit_cc, oas, graphical_lasso, mcd')
+    else:
+        Sigma = np.cov(X, rowvar=False)
 
-        if not shortselling:
-            N = Sigma.shape[0]
-            Dmat = 2 * Sigma
-            Amat = np.vstack((np.ones(N), np.eye(N)))
-            bvec = np.array([1] + [0] * N)
-            dvec = np.zeros(N)
-            w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=1)
-        else:
-            ones = np.ones(Sigma.shape[0])
-            w = np.linalg.solve(Sigma, ones)
-            w /= np.sum(w)
+    if not shortselling:
+        N = Sigma.shape[0]
+        Dmat = 2 * Sigma
+        Amat = np.vstack((np.ones(N), np.eye(N)))
+        bvec = np.array([1] + [0] * N)
+        dvec = np.zeros(N)
+        w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=1)
+    else:
+        ones = np.ones(Sigma.shape[0])
+        w = np.linalg.solve(Sigma, ones)
+        w /= np.sum(w)
 
-        if leverage is not None and leverage < np.inf:
-            w = leverage * w / np.sum(np.abs(w))
+    if leverage is not None and leverage < np.inf:
+        w = leverage * w / np.sum(np.abs(w))
 
-        return w
+    return w
+
 
     def ledoitwolf_cc(self, returns: np.ndarray) -> np.ndarray:
         T, N = returns.shape
