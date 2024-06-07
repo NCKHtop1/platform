@@ -55,12 +55,7 @@ def load_data(file_path):
         return pd.DataFrame()
     df = pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True)
     df.set_index('Datetime', inplace=True)
-
-    # Nhóm dữ liệu theo ngày và lấy giá trị trung bình (hoặc bạn có thể chọn phương thức tổng hợp khác)
-    df = df.groupby(df.index).agg('mean')  # Hoặc 'sum', 'first', 'last', tùy vào yêu cầu của bạn
-
     return df
-
 
 def load_portfolio_symbols(portfolio_name):
     file_path = PORTFOLIO_FILES.get(portfolio_name, '')
@@ -71,13 +66,18 @@ def load_portfolio_symbols(portfolio_name):
 
 # Ensure datetime comparison compatibility
 def ensure_datetime_compatibility(start_date, end_date, df):
-    # Làm tròn hoặc điều chỉnh ngày để phù hợp với chỉ mục có sẵn
+    if not isinstance(start_date, pd.Timestamp):
+        start_date = pd.Timestamp(start_date)
+    if not isinstance(end_date, pd.Timestamp):
+        end_date = pd.Timestamp(end_date)
+    
+    # Check if the dates are within the dataframe's range
     if start_date not in df.index:
         start_date = df.index[df.index.get_loc(start_date, method='nearest')]
     if end_date not in df.index:
         end_date = df.index[df.index.get_loc(end_date, method='nearest')]
     
-    return df.loc[start_date:end_date]
+    return df[start_date:end_date]
 
 # Load and filter detailed data
 def load_detailed_data(selected_stocks):
@@ -318,10 +318,9 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
             if symbols:
                 selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
                 selected_stocks.extend(selected_symbols)
-        sector = st.selectbox('Chọn ngành cho danh mục đã chọn', list(SECTOR_FILES.keys()))
 
     else:
-        sector = selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
+        selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
         df_full = load_data(SECTOR_FILES[selected_sector])
         available_symbols = df_full['StockSymbol'].unique().tolist()
         selected_stocks = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
@@ -345,6 +344,11 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
 # Ensure that the date range is within the available data
 if selected_stocks:
+    if portfolio_options:
+        sector = 'VNINDEX'
+    else:
+        sector = selected_sector
+
     df_full = load_data(SECTOR_FILES[sector])
 
     if not df_full.empty:
@@ -368,7 +372,7 @@ if selected_stocks:
         else:
             try:
                 df_filtered = df_full[df_full['StockSymbol'].isin(selected_stocks)]
-                df_filtered = df_filtered.loc[start_date:end_date]
+                df_filtered = ensure_datetime_compatibility(start_date, end_date, df_filtered)
 
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
