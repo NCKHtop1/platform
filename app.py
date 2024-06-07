@@ -411,7 +411,13 @@ if selected_stocks:
                                 
                                 # Add crash points to the graph
                                 crash_points = df_filtered[df_filtered['Crash']]
-                                fig.add_trace(go.Scatter(x=crash_points.index, y=crash_points['close'], mode='markers', marker=dict(color='red', size=6), name='Crash Points'))
+                                fig.add_trace(go.Scatter(
+                                    x=crash_points.index,
+                                    y=crash_points['close'],
+                                    mode='markers',
+                                    marker=dict(color='orange', size=8, symbol='triangle-down'),
+                                    name='Crash Points'
+                                ))
                                 
                                 fig.update_layout(
                                     title='Giá trị danh mục',
@@ -434,6 +440,7 @@ if selected_stocks:
                                     st.dataframe(crash_details, height=200)
                             except Exception as e:
                                 st.error(f"An unexpected error occurred: {e}")
+                        
 
                         with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
