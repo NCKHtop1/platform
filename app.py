@@ -16,14 +16,14 @@ import pandas_ta as ta
 # else:
 #     st.image(image_path, use_column_width=True)
 
-# Custom CSS for better UI
-st.markdown("""
-    <style>
-    .main {background-color: #f0f2f6;}
-    .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
-    .stSidebar {background-color: #f0f2f6;}
-    </style>
-    """, unsafe_allow_html=True)
+# # Custom CSS for better UI
+# st.markdown("""
+#     <style>
+#     .main {background-color: #f0f2f6;}
+#     .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
+#     .stSidebar {background-color: #f0f2f6;}
+#     </style>
+#     """, unsafe_allow_html=True)
 
 # Define file paths relative to the location of this script
 SECTOR_FILES = {
