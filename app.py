@@ -202,53 +202,6 @@ class PortfolioOptimizer:
 
         return delta * F + (1 - delta) * Sigma
 
-# Load sector data
-def load_sector_data(sector_file):
-    df = pd.read_csv(sector_file, index_col='Date', parse_dates=True)
-    return df['Close'].astype(float)
-
-# Filter VN30 symbols within the selected sector
-def filter_vn30_symbols(sector, vn30_symbols):
-    sector_symbols = pd.read_csv(SECTOR_FILES[sector], index_col='StockSymbol').index
-    return [symbol for symbol in vn30_symbols if symbol in sector_symbols]
-
-# Get VN30 symbols
-vn30_symbols = pd.read_csv('VN30.csv')['symbol'].tolist()
-
-# User selects sector
-selected_sector = st.selectbox('Chọn ngành', list(SECTOR_FILES.keys()))
-
-# Get VN30 symbols in the selected sector
-selected_symbols = filter_vn30_symbols(selected_sector, vn30_symbols)
-
-# Load and process data for selected symbols
-sector_data = {symbol: load_sector_data(f"{SECTOR_FILES[selected_sector]}") for symbol in selected_symbols}
-
-# Combine data into a single DataFrame
-if sector_data:  # Check if the dictionary is not empty
-    combined_data = pd.concat(sector_data.values(), axis=1)
-    combined_data.columns = selected_symbols  # Assign column names
-
-    # Ensure no NaN values
-    combined_data.dropna(inplace=True)
-
-    # Calculate optimal portfolio weights if combined_data is not empty
-    if not combined_data.empty:
-        optimizer = PortfolioOptimizer()
-        optimal_weights = optimizer.MSR_portfolio(combined_data.values)
-
-        # Display optimal weights in a bar chart
-        fig = go.Figure(data=[
-            go.Bar(name='Optimal Weights', x=list(combined_data.columns), y=optimal_weights)
-        ])
-        fig.update_layout(title='Optimal Portfolio Weights for VN30 in Selected Sector', xaxis_title='Stock', yaxis_title='Weight')
-
-        st.plotly_chart(fig)
-    else:
-        st.error("No data available for the selected sector.")
-else:
-    st.error("No data available for the selected sector.")
-
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
         st.error("No data available for the selected date range.")
