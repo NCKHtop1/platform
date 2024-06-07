@@ -1,4 +1,3 @@
-import streamlit as st
 import pandas as pd
 import numpy as np
 import os
@@ -381,7 +380,7 @@ if selected_stocks:
                     else:
                         # Create tabs for different views on the main screen
                         tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
-
+                        
                         with tab1:
                             try:
                                 st.markdown("<h2 style='text-align: center;'>Tóm tắt</h2>", unsafe_allow_html=True)
@@ -389,11 +388,11 @@ if selected_stocks:
                                 # Chỉ báo và Tỷ lệ thắng
                                 indicator_name = ", ".join(strategies)
                                 win_rate = portfolio.stats()['Win Rate [%]']
-                                win_rate_color = "green" if win_rate > 50 else "red"
+                                win_rate_color = "green" if win_rate > 50 else "red"]
                         
                                 st.markdown(f"<h3 style='color: {win_rate_color}; text-align: center;'>{win_rate:.2f}%</h3>", unsafe_allow_html=True)
                                 st.markdown(f"<h4 style='text-align: center;'>{indicator_name}</h4>", unsafe_allow_html=True)
-                        
+                                
                                 # Dữ liệu Hiệu suất
                                 cumulative_return = portfolio.stats()['Total Return [%]']
                                 annualized_return = portfolio.stats().get('Annual Return [%]', 0)
@@ -404,26 +403,11 @@ if selected_stocks:
                                 st.markdown(f"<p style='text-align: center;'>Lợi nhuận trung bình hàng năm: <strong>{annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
                                 st.markdown("<hr>", unsafe_allow_html=True)
                         
-                                # Đồ thị nhỏ
-                                # Nạp dữ liệu diễn biến giá từ SECTOR_FILES
-                                sector_file = SECTOR_FILES[selected_sector]
-                                price_data = pd.read_csv(sector_file, parse_dates=['Datetime'], index_col='Datetime')
-                        
-                                fig = portfolio.plot()
-                                
-                                # Thêm các điểm crash vào đồ thị
-                                crash_df = df_filtered[df_filtered['Crash']]
-                                fig.add_scatter(
-                                    x=crash_df.index,
-                                    y=crash_df['close'],
-                                    mode='markers',
-                                    marker=dict(color='orange', size=10, symbol='triangle-down'),
-                                    name='Sụt giảm'
-                                )
-                                
-                                st.markdown("**Biểu đồ:**")
-                                st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các cảnh báo sụp đổ tiềm năng, cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
+                                # Đồ thị lệnh order
+                                fig = portfolio.plot_order()  # Adjust this line to use the appropriate function to plot order chart
+                                st.markdown("**Biểu đồ lệnh order:**")
                                 st.plotly_chart(fig, use_container_width=True)
+
                         
                                 # Chi tiết Crash
                                 crash_details = crash_df[['close']]
