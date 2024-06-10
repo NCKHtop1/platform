@@ -97,16 +97,31 @@ class VN30:
             source='DNSE'
         )
         df = pd.DataFrame(data)
-
-        # Correct column name for datetime if necessary
         if 'time' in df.columns:
             df.rename(columns={'time': 'Datetime'}, inplace=True)
             df['Datetime'] = pd.to_datetime(df['Datetime'])
             df.set_index('Datetime', inplace=True)
-        else:
+        elif 'Datetime' not in df.columns:
             raise ValueError("No valid datetime column found in the data. Please check the data structure.")
-
         return df
+
+    def analyze_stocks(self, selected_symbols):
+        results = []
+        for symbol in selected_symbols:
+            stock_data = self.fetch_data(symbol)
+            if not stock_data.empty:
+                results.append(stock_data)
+
+        if results:
+            combined_data = pd.concat(results)
+            if 'Datetime' not in combined_data.index.names:
+                combined_data.set_index('Datetime', inplace=True)
+            return combined_data
+        else:
+            return pd.DataFrame()  # Return an empty DataFrame if no data was fetched
+
+# Other parts of your Streamlit code here...
+
 
     def analyze_stocks(self, selected_symbols):
         # Fetch and analyze data for each selected symbol
