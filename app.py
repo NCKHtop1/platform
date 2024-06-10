@@ -120,7 +120,6 @@ class VN30:
             st.write("No data available for VN30 stocks today.")
 
     def calculate_crash_risk(self, df):
-        # Dummy crash risk calculation, replace with actual logic
         df['RSI'] = ta.rsi(df['close'], length=14)
         conditions = [
             (df['RSI'] < 30),
@@ -133,15 +132,21 @@ class VN30:
 
     def display_stock_status(self, df):
         color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
-        for index, row in df.iterrows():
-            color = color_map[row['Crash Risk']]
-            st.markdown(f"<span style='color: {color};'>{index}: {row['Crash Risk']}</span>", unsafe_allow_html=True)
+        grouped = df.groupby('Crash Risk')
+        st.write("### VN30 Stock Status")
+        for risk, group in grouped:
+            st.write(f"#### {risk} Risk")
+            cols = st.columns(5)
+            for i, (index, row) in enumerate(group.iterrows()):
+                color = color_map[risk]
+                cols[i % 5].markdown(f"<div style='background-color:{color};padding:10px;border-radius:5px;'>{row['StockSymbol']}</div>", unsafe_allow_html=True)
 
 # Usage in Streamlit
 st.title('VN30 Stock Crash Risk Analysis')
 vn30 = VN30()
 selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplicity
 vn30.analyze_stocks(selected_symbols)
+
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
@@ -368,12 +373,6 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     if 'VN30' in portfolio_options:
         selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
         vn30_stocks = vn30.analyze_stocks(selected_symbols)
-        if not vn30_stocks.empty:
-            # Process and display VN30 stocks data
-            st.write("Displaying results for VN30 stocks for today.")
-            # Add display or analysis functions here for VN30
-        else:
-            st.error("No data available for VN30 stocks today.")
         
     if 'Chọn mã theo ngành' in portfolio_options:
         selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
