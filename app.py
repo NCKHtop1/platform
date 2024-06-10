@@ -88,7 +88,7 @@ class VN30:
         # Fetch stock data from vnstock
         data = stock_historical_data(
             symbol=symbol,
-            start_date=pd.Timestamp.today().strftime('%Y-%m-%d'),
+            start_date='2022-01-01',
             end_date=pd.Timestamp.today().strftime('%Y-%m-%d'),
             resolution='1D',
             type='stock',
@@ -96,7 +96,10 @@ class VN30:
             decor=False,
             source='DNSE'
         )
-        return pd.DataFrame(data)
+        df = pd.DataFrame(data)
+        df['Datetime'] = pd.to_datetime(df['datetime'])
+        df.set_index('Datetime', inplace=True)
+        return df
 
     def analyze_stocks(self, selected_symbols):
         # Fetch and analyze data for each selected symbol
@@ -365,7 +368,7 @@ if selected_stocks:
     sector_data = load_detailed_data(selected_stocks)
     combined_data = pd.concat([vn30_stocks, sector_data])
     
-    if not combined_data.empty:
+    if not combined_data.empty():
         combined_data = combined_data[~combined_data.index.duplicated(keep='first')]  # Ensure unique indices
         first_available_date = combined_data.index.min().date()
         last_available_date = combined_data.index.max().date()
