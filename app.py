@@ -85,6 +85,7 @@ class VN30:
         ]
 
     def fetch_data(self, symbol):
+        # Make sure this method handles all possible errors and always returns a DataFrame with a 'Datetime' index
         data = stock_historical_data(
             symbol=symbol,
             start_date='2022-01-01',
@@ -96,38 +97,27 @@ class VN30:
             source='DNSE'
         )
         df = pd.DataFrame(data)
-        # Assume 'time' column is the datetime, rename and convert it
+        # Always ensure 'Datetime' column is present
         if 'time' in df.columns:
             df.rename(columns={'time': 'Datetime'}, inplace=True)
-            df['Datetime'] = pd.to_datetime(df['Datetime'])
         elif 'datetime' in df.columns:
             df.rename(columns={'datetime': 'Datetime'}, inplace=True)
-            df['Datetime'] = pd.to_datetime(df['Datetime'])
-        else:
-            raise ValueError("No recognizable datetime column in the data.")
-        return df.set_index('Datetime')
+        df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
+        return df.set_index('Datetime', drop=True)
 
     def analyze_stocks(self, selected_symbols):
         results = []
         for symbol in selected_symbols:
             stock_data = self.fetch_data(symbol)
-            results.append(stock_data)
-        
+            if not stock_data.empty and 'Datetime' in stock_data.columns:
+                results.append(stock_data)
+
         if results:
+            # Only concatenate if results list is not empty and each DataFrame has 'Datetime'
             combined_data = pd.concat(results)
-            if 'Datetime' in combined_data.columns:
-                combined_data.set_index('Datetime', inplace=True)
             return combined_data
         else:
-            return pd.DataFrame()
-
-    def analyze_stocks(self, selected_symbols):
-        # Fetch and analyze data for each selected symbol
-        results = []
-        for symbol in selected_symbols:
-            stock_data = self.fetch_data(symbol)
-            results.append(stock_data)
-        return pd.concat(results).set_index('Datetime')
+            return pd.DataFrame()  # Return an empty DataFrame if no suitable data was found
 
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
