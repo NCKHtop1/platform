@@ -526,11 +526,6 @@ if selected_stocks:
                             for stock, weight in zip(data_matrix.columns, optimal_weights):
                                 st.write(f"{stock}: {weight:.4f}")
 
-                            for portfolio_option in portfolio_options:
-                                symbols = load_portfolio_symbols(portfolio_option)
-                                st.markdown(f"**{portfolio_option}:**")
-                                st.write(symbols)
-
                         crash_likelihoods = {}
                         for stock in selected_stocks:
                             stock_df = df_filtered[df_filtered['StockSymbol'] == stock]
