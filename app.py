@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-from scipy.optimize import minimize
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import seaborn as sns
@@ -50,31 +49,6 @@ def load_data(file_path):
         return pd.DataFrame()
     return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
 
-def ensure_datetime_compatibility(start_date, end_date, df):
-    df = df[~df.index.duplicated(keep='first')]  # Ensure unique indices
-    if not isinstance(start_date, pd.Timestamp):
-        start_date = pd.Timestamp(start_date)
-    if not isinstance(end_date, pd.Timestamp):
-        end_date = pd.Timestamp(end_date)
-
-    # Check if the dates are within the dataframe's range
-    if start_date not in df.index:
-        start_date = df.index[df.index.searchsorted(start_date)]
-    if end_date not in df.index:
-        end_date = df.index[df.index.searchsorted(end_date)]
-
-    return df.loc[start_date:end_date]
-
-# Load and filter detailed data
-def load_detailed_data(selected_stocks):
-    data = pd.DataFrame()
-    for sector, file_path in SECTOR_FILES.items():
-        df = load_data(file_path)
-        if not df.empty:
-            sector_data = df[df['StockSymbol'].isin(selected_stocks)]
-            data = pd.concat([data, sector_data])
-    return data
-
 # Define the VN30 class
 class VN30:
     def __init__(self):
@@ -113,121 +87,6 @@ class VN30:
             if not stock_data.empty:
                 results.append(stock_data)
         return pd.concat(results) if results else pd.DataFrame()
-
-class PortfolioOptimizer:
-    def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
-        X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
-        mu = np.mean(X, axis=0)  # Calculate the mean returns of the assets
-        Sigma = np.cov(X, rowvar=False)  # Calculate the covariance matrix of the returns
-
-        w = self.MSRP_solver(mu, Sigma)  # Use the MSRP solver to get the optimal weights
-        return w  # Return the optimal weights
-
-    def MSRP_solver(self, mu: np.ndarray, Sigma: np.ndarray) -> np.ndarray:
-        N = Sigma.shape[0]  # Number of assets (stocks)
-        if np.all(mu <= 1e-8):  # Check if mean returns are close to zero
-            return np.zeros(N)  # Return zero weights if no returns
-
-        Dmat = 2 * Sigma  # Quadratic term for the optimizer
-        Amat = np.vstack((mu, np.ones(N)))  # Combine mean returns and sum constraint for constraints
-        bvec = np.array([1, 1])  # Right-hand side of constraints (1 for mean returns and sum)
-        dvec = np.zeros(N)  # Linear term (zero for this problem)
-
-        # Call the QP solver
-        w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=2)
-        return w / np.sum(abs(w))  # Normalize weights to sum to 1
-
-    def solve_QP(self, Dmat: np.ndarray, dvec: np.ndarray, Amat: np.ndarray, bvec: np.ndarray, meq: int = 0) -> np.ndarray:
-        def portfolio_obj(x):
-            return 0.5 * np.dot(x, np.dot(Dmat, x)) + np.dot(dvec, x)
-
-        def portfolio_constr_eq(x):
-            return np.dot(Amat[:meq], x) - bvec[:meq]
-
-        def portfolio_constr_ineq(x):
-            if Amat.shape[0] - meq == 0:
-                return np.array([])
-            else:
-                return np.dot(Amat[meq:], x) - bvec[meq:]
-
-        cons = [{'type': 'eq', 'fun': portfolio_constr_eq}]
-
-        if meq < len(bvec):
-            cons.append({'type': 'ineq', 'fun': portfolio_constr_ineq})
-
-        initial_guess = np.ones(Dmat.shape[0]) / Dmat.shape[0]
-
-        res = minimize(portfolio_obj, initial_guess, constraints=cons, method='SLSQP')
-
-        if not res.success:
-            raise ValueError('Quadratic programming failed to find a solution.')
-
-        return res.x
-
-    def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit', shortselling: bool = True, leverage: int = None) -> np.ndarray:
-        X = np.diff(np.log(data), axis=0)
-        X = X[~np.isnan(X).any(axis=1)]  # Remove rows with NaN values
-
-        if shrinkage:
-            if shrinkage_type == 'ledoit':
-                Sigma = self.ledoit_wolf_shrinkage(X)
-            elif shrinkage_type == 'ledoit_cc':
-                Sigma = self.ledoitwolf_cc(X)
-            elif shrinkage_type == 'oas':
-                Sigma = self.oas_shrinkage(X)
-            elif shrinkage_type == 'graphical_lasso':
-                Sigma = self.graphical_lasso_shrinkage(X)
-            elif shrinkage_type == 'mcd':
-                Sigma = self.mcd_shrinkage(X)
-            else:
-                raise ValueError('Invalid shrinkage type. Choose from: ledoit, ledoit_cc, oas, graphical_lasso, mcd')
-        else:
-            Sigma = np.cov(X, rowvar=False)
-
-        if not shortselling:
-            N = Sigma.shape[0]
-            Dmat = 2 * Sigma
-            Amat = np.vstack((np.ones(N), np.eye(N)))
-            bvec = np.array([1] + [0] * N)
-            dvec = np.zeros(N)
-            w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=1)
-        else:
-            ones = np.ones(Sigma.shape[0])
-            w = np.linalg.solve(Sigma, ones)
-            w /= np.sum(w)
-
-        if leverage is not None and leverage < np.inf:
-            w = leverage * w / np.sum(np.abs(w))
-
-        return w
-
-    def ledoitwolf_cc(self, returns: np.ndarray) -> np.ndarray:
-        T, N = returns.shape
-        returns = returns - np.mean(returns, axis=0, keepdims=True)
-        df = pd.DataFrame(returns)
-        Sigma = df.cov().values
-        Cor = df.corr().values
-        diagonals = np.diag(Sigma)
-        var = diagonals.reshape(len(Sigma), 1)
-        vols = var ** 0.5
-
-        rbar = np.mean((Cor.sum(1) - 1) / (Cor.shape[1] - 1))
-        cc_cor = np.matrix([[rbar] * N for _ in range(N)])
-        np.fill_diagonal(cc_cor, 1)
-        F = np.diag((diagonals ** 0.5)) @ cc_cor @ np.diag((diagonals ** 0.5))
-
-        y = returns ** 2
-        mat1 = (y.transpose() @ y) / T - Sigma ** 2
-        pihat = mat1.sum()
-
-        mat2 = ((returns ** 3).transpose() @ returns) / T - var * Sigma
-        np.fill_diagonal(mat2, 0)
-        rhohat = np.diag(mat1).sum() + rbar * ((1 / vols) @ vols.transpose() * mat2).sum()
-        gammahat = np.linalg.norm(Sigma - F, "fro") ** 2
-        kappahat = (pihat - rhohat) / gammahat
-        delta = max(0, min(1, kappahat / T))
-
-        return delta * F + (1 - delta) * Sigma
 
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
@@ -288,45 +147,6 @@ def calculate_indicators_and_crashes(df, strategies):
         st.error(f"An error occurred: {e}")
     return df
 
-# Function to apply T+ holding constraint
-def apply_t_plus(df, t_plus):
-    t_plus_days = int(t_plus)
-
-    if t_plus_days > 0:
-        df['Buy Date'] = np.nan
-        df.loc[df['Adjusted Buy'], 'Buy Date'] = df.index[df['Adjusted Buy']]
-        df['Buy Date'] = df['Buy Date'].ffill()
-        df['Earliest Sell Date'] = df['Buy Date'] + pd.to_timedelta(t_plus_days, unit='D')
-        df['Adjusted Sell'] = df['Adjusted Sell'] & (df.index > df['Earliest Sell Date'])
-
-    return df
-
-# Function to run backtesting using vectorbt's from_signals
-def run_backtest(df, init_cash, fees, direction, t_plus):
-    df = apply_t_plus(df, t_plus)
-    entries = df['Adjusted Buy']
-    exits = df['Adjusted Sell']
-
-    if entries.empty or exits.empty or not entries.any() or not exits.any():
-        return None
-
-    portfolio = vbt.Portfolio.from_signals(
-        df['close'],
-        entries,
-        exits,
-        init_cash=init_cash,
-        fees=fees,
-        direction=direction
-    )
-    return portfolio
-
-# Calculate crash likelihood
-def calculate_crash_likelihood(df):
-    crash_counts = df['Crash'].resample('W').sum()
-    total_weeks = len(crash_counts)
-    crash_weeks = crash_counts[crash_counts > 0].count()
-    return crash_weeks / total_weeks if total_weeks > 0 else 0
-
 # Streamlit App
 st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
@@ -334,37 +154,55 @@ st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu
 # Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     vn30 = VN30()
-    selected_stocks = []
     portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
 
     if 'VN30' in portfolio_options:
         selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
         vn30_stocks = vn30.analyze_stocks(selected_symbols)
         if not vn30_stocks.empty:
-            # Process and display VN30 stocks data
+            vn30_stocks = calculate_indicators_and_crashes(vn30_stocks, ["MACD", "Supertrend", "Stochastic", "RSI"])
+            
+            # Display results in a grid
             st.write("Displaying results for VN30 stocks for today.")
-            # Add display or analysis functions here for VN30
+            cols = st.columns(5)
+            for i, symbol in enumerate(selected_symbols):
+                if symbol in vn30_stocks['StockSymbol'].values:
+                    stock_data = vn30_stocks[vn30_stocks['StockSymbol'] == symbol]
+                    crash = stock_data['Crash'].values[0]
+                    color = 'green'
+                    if crash:
+                        color = 'red'
+                    elif stock_data['Adjusted Sell'].values[0]:
+                        color = 'yellow'
+                    cols[i % 5].write(f"<div style='background-color:{color};padding:10px;border-radius:5px;'>{symbol}</div>", unsafe_allow_html=True)
         else:
             st.error("No data available for VN30 stocks today.")
-        
+
     if 'Chọn mã theo ngành' in portfolio_options:
         selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
         if selected_sector:
             df_full = load_data(SECTOR_FILES[selected_sector])
             available_symbols = df_full['StockSymbol'].unique().tolist()
             sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
-            selected_stocks.extend(sector_selected_symbols)
-
-            # Process sector-specific stocks if any are selected
             if sector_selected_symbols:
-                sector_stocks = load_detailed_data(sector_selected_symbols)
-                if not sector_stocks.empty:
-                    st.write(f"Displaying results for stocks in {selected_sector} sector.")
-                    # Add display or analysis functions here for sector stocks
-                else:
-                    st.error(f"No data available for stocks in the {selected_sector} sector.")
+                sector_stocks = df_full[df_full['StockSymbol'].isin(sector_selected_symbols)]
+                sector_stocks = calculate_indicators_and_crashes(sector_stocks, ["MACD", "Supertrend", "Stochastic", "RSI"])
+                st.write(f"Displaying results for stocks in {selected_sector} sector.")
+                cols = st.columns(5)
+                for i, symbol in enumerate(sector_selected_symbols):
+                    if symbol in sector_stocks['StockSymbol'].values:
+                        stock_data = sector_stocks[sector_stocks['StockSymbol'] == symbol]
+                        crash = stock_data['Crash'].values[0]
+                        color = 'green'
+                        if crash:
+                            color = 'red'
+                        elif stock_data['Adjusted Sell'].values[0]:
+                            color = 'yellow'
+                        cols[i % 5].write(f"<div style='background-color:{color};padding:10px;border-radius:5px;'>{symbol}</div>", unsafe_allow_html=True)
+            else:
+                st.error(f"No data available for stocks in the {selected_sector} sector.")
 
-# Portfolio tab
+# Sidebar for Backtest Parameters
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
     init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000)
     fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
@@ -382,21 +220,29 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
     strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
 # Ensure that the date range is within the available data
+if 'Chọn mã theo ngành' in portfolio_options:
+    selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
+    if selected_sector:
+        df_full = load_data(SECTOR_FILES[selected_sector])
+        available_symbols = df_full['StockSymbol'].unique().tolist()
+        sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
+        selected_stocks.extend(sector_selected_symbols)
+
+        # Process sector-specific stocks if any are selected
+        if sector_selected_symbols:
+            sector_stocks = load_detailed_data(sector_selected_symbols)
+            if not sector_stocks.empty:
+                st.write(f"Displaying results for stocks in {selected_sector} sector.")
+                # Add display or analysis functions here for sector stocks
+            else:
+                st.error(f"No data available for stocks in the {selected_sector} sector.")
+
 if selected_stocks:
-    if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
-        sector_data = load_detailed_data(selected_stocks)
-        combined_data = pd.concat([vn30_stocks, sector_data])
-    elif 'VN30' in portfolio_options:
-        combined_data = vn30_stocks
-    elif 'Chọn mã theo ngành' in portfolio_options:
-        combined_data = load_detailed_data(selected_stocks)
-    else:
-        combined_data = pd.DataFrame()
+    sector_data = load_detailed_data(selected_stocks)
+    combined_data = pd.concat([vn30_stocks, sector_data]) if not vn30_stocks.empty and not sector_data.empty else pd.DataFrame()
 
     if not combined_data.empty:
         combined_data = combined_data[~combined_data.index.duplicated(keep='first')]  # Ensure unique indices
-
-        # Assuming the combined data already covers today's data for VN30 and possibly other dates for sector stocks
         first_available_date = combined_data.index.min().date()
         last_available_date = combined_data.index.max().date()
 
@@ -416,8 +262,7 @@ if selected_stocks:
             st.error("Lỗi: Ngày kết thúc phải sau ngày bắt đầu.")
         else:
             try:
-                df_filtered = ensure_datetime_compatibility(start_date, end_date, combined_data)
-
+                df_filtered = combined_data.loc[start_date:end_date]
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
                 else:
