@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-from datetime import datetime
 from scipy.optimize import minimize
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
@@ -51,18 +50,19 @@ def load_data(file_path):
     return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
 
 def ensure_datetime_compatibility(start_date, end_date, df):
+    df = df[~df.index.duplicated(keep='first')]  # Ensure unique indices
     if not isinstance(start_date, pd.Timestamp):
         start_date = pd.Timestamp(start_date)
     if not isinstance(end_date, pd.Timestamp):
         end_date = pd.Timestamp(end_date)
-    
+
     # Check if the dates are within the dataframe's range
     if start_date not in df.index:
         start_date = df.index[df.index.searchsorted(start_date)]
     if end_date not in df.index:
         end_date = df.index[df.index.searchsorted(end_date)]
-    
-    return df[start_date:end_date]
+
+    return df.loc[start_date:end_date]
 
 # Load and filter detailed data
 def load_detailed_data(selected_stocks):
@@ -86,6 +86,7 @@ class VN30:
     def fetch_data(self, symbol):
         # Placeholder function to simulate fetching data from VNStock
         # Replace with your actual data fetching logic
+        # Here, simulate with random data
         data = pd.DataFrame({
             "StockSymbol": [symbol]*100,
             "Datetime": pd.date_range(start="2023-01-01", periods=100, freq='D'),
@@ -325,7 +326,7 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     portfolio_options = st.multiselect('Chọn danh mục', ['VN30'])
 
     if 'VN30' in portfolio_options:
-        selected_symbols = vn30.symbols  # Auto-select all VN30 symbols
+        selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
         vn30_stocks = vn30.analyze_stocks(selected_symbols)
         selected_stocks.extend(selected_symbols)
     else:
@@ -361,6 +362,7 @@ if selected_stocks:
     combined_data = pd.concat([vn30_stocks, sector_data])
     
     if not combined_data.empty:
+        combined_data = combined_data[~combined_data.index.duplicated(keep='first')]  # Ensure unique indices
         first_available_date = combined_data.index.min().date()
         last_available_date = combined_data.index.max().date()
 
@@ -523,6 +525,11 @@ if selected_stocks:
                             st.write("Optimal Weights for Selected Stocks:")
                             for stock, weight in zip(data_matrix.columns, optimal_weights):
                                 st.write(f"{stock}: {weight:.4f}")
+
+                            for portfolio_option in portfolio_options:
+                                symbols = load_portfolio_symbols(portfolio_option)
+                                st.markdown(f"**{portfolio_option}:**")
+                                st.write(symbols)
 
                         crash_likelihoods = {}
                         for stock in selected_stocks:
