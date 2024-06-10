@@ -48,7 +48,7 @@ PORTFOLIO_FILES = {
 }
 
 # Load data function
-@st.cache(allow_output_mutation=True)
+@st.cache_data
 def load_data(file_path):
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
@@ -86,6 +86,29 @@ def load_detailed_data(selected_stocks):
             sector_data = df[df['StockSymbol'].isin(selected_stocks)]
             data = pd.concat([data, sector_data])
     return data
+
+# Define the VN30 class
+class VN30:
+    def __init__(self):
+        self.symbols = [
+            "ACB", "BCM", "BID", "BVH", "CTG", "FPT", "GAS", "GVR", "HDB", "HPG",
+            "MBB", "MSN", "MWG", "PLX", "POW", "SAB", "SHB", "SSB", "SSI", "STB",
+            "TCB", "TPB", "VCB", "VHM", "VIB", "VIC", "VJC", "VNM", "VPB", "VRE"
+        ]
+
+    def fetch_data(self, symbol):
+        # Placeholder function to simulate fetching data
+        # Replace with your actual data fetching logic
+        return {
+            "symbol": symbol,
+            "date": pd.Timestamp.today(),
+            "status": np.random.choice(["green", "yellow", "red"])  # Random for demo
+        }
+
+    def analyze_stocks(self):
+        # Fetch and analyze data for each symbol
+        results = [self.fetch_data(symbol) for symbol in self.symbols]
+        return pd.DataFrame(results)
 
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
@@ -306,11 +329,15 @@ st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu
 
 # Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
-    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'VN100', 'VNAllShare'])
+    vn30 = VN30()
     selected_stocks = []
-    selected_sector = None
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'VN100', 'VNAllShare'])
 
-    if portfolio_options:
+    if 'VN30' in portfolio_options:
+        stock_data = vn30.analyze_stocks()
+        selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
+        selected_stocks.extend(selected_symbols)
+    else:
         for portfolio_option in portfolio_options:
             symbols = load_portfolio_symbols(portfolio_option)
             if symbols:
