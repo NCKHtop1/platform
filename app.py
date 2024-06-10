@@ -378,7 +378,7 @@ if selected_stocks:
     sector_data = load_detailed_data(selected_stocks)
     combined_data = pd.concat([vn30_stocks, sector_data])
     
-    if not combined_data.empty():
+    if not combined_data.empty:
         combined_data = combined_data[~combined_data.index.duplicated(keep='first')]  # Ensure unique indices
         first_available_date = combined_data.index.min().date()
         last_available_date = combined_data.index.max().date()
