@@ -85,7 +85,6 @@ class VN30:
         ]
 
     def fetch_data(self, symbol):
-        # Fetch stock data from vnstock
         data = stock_historical_data(
             symbol=symbol,
             start_date='2022-01-01',
@@ -97,31 +96,30 @@ class VN30:
             source='DNSE'
         )
         df = pd.DataFrame(data)
+        # Assume 'time' column is the datetime, rename and convert it
         if 'time' in df.columns:
             df.rename(columns={'time': 'Datetime'}, inplace=True)
             df['Datetime'] = pd.to_datetime(df['Datetime'])
-            df.set_index('Datetime', inplace=True)
-        elif 'Datetime' not in df.columns:
-            raise ValueError("No valid datetime column found in the data. Please check the data structure.")
-        return df
+        elif 'datetime' in df.columns:
+            df.rename(columns={'datetime': 'Datetime'}, inplace=True)
+            df['Datetime'] = pd.to_datetime(df['Datetime'])
+        else:
+            raise ValueError("No recognizable datetime column in the data.")
+        return df.set_index('Datetime')
 
     def analyze_stocks(self, selected_symbols):
         results = []
         for symbol in selected_symbols:
             stock_data = self.fetch_data(symbol)
-            if not stock_data.empty:
-                results.append(stock_data)
-
+            results.append(stock_data)
+        
         if results:
             combined_data = pd.concat(results)
-            if 'Datetime' not in combined_data.index.names:
+            if 'Datetime' in combined_data.columns:
                 combined_data.set_index('Datetime', inplace=True)
             return combined_data
         else:
-            return pd.DataFrame()  # Return an empty DataFrame if no data was fetched
-
-# Other parts of your Streamlit code here...
-
+            return pd.DataFrame()
 
     def analyze_stocks(self, selected_symbols):
         # Fetch and analyze data for each selected symbol
