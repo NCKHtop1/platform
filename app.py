@@ -43,6 +43,8 @@ SECTOR_FILES = {
 
 PORTFOLIO_FILES = {
     'VN30': 'VN30.csv',
+    'VN100': 'VN100.csv',
+    'VNAllShare': 'VNAllShare.csv'
 }
 
 # Load data function
@@ -503,53 +505,20 @@ if selected_stocks:
                             st.markdown("Biểu đồ này minh họa sự sụt giảm từ đỉnh đến đáy của danh mục của bạn, \
                                         giúp bạn hiểu rõ hơn về tiềm năng thua lỗ của chiến lược.")
 
-                        # Tab 6: Visualization of Ichimoku Indicator with trade signals (adapted for multiple indicators)
                         with tab6:
-                            st.markdown("**Biểu đồ:**")
-                            st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các tín hiệu mua/bán và cảnh báo sụp đổ tiềm năng, cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
-                        
-                            # Create portfolio using vectorbt
-                            pf = vbt.Portfolio.from_signals(
-                                close=df_filtered['close'],
-                                entries=df_filtered['Adjusted Buy'],
-                                exits=df_filtered['Adjusted Sell'],
-                                init_cash=init_cash,
-                                freq='1D'
+                            fig = portfolio.plot()
+                            crash_df = df_filtered[df_filtered['Crash']]
+                            fig.add_scatter(
+                                x=crash_df.index,
+                                y=crash_df['close'],
+                                mode='markers',
+                                marker=dict(color='orange', size=10, symbol='triangle-down'),
+                                name='Sụt giảm'
                             )
-                        
-                            # Visualize Ichimoku Indicator with trade signals
-                            trades = pf.trades.records
-                            entry_dates = df_filtered.index[trades['entry_idx']]
-                            exit_dates = df_filtered.index[trades['exit_idx']]
-                            entry_prices = trades['entry_price']
-                            exit_prices = trades['exit_price']
-                        
-                            price_fig = go.Figure()
-                            price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['close'], name='Close Price'))
-                            
-                            # Visualizing each indicator if selected in strategies
-                            if "MACD" in strategies:
-                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['MACD Line'], name='MACD Line'))
-                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['Signal Line'], name='Signal Line'))
-                            if "Supertrend" in strategies:
-                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['Supertrend'], name='Supertrend', fill='tonexty'))
-                            if "Stochastic" in strategies:
-                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['Stochastic K'], name='Stochastic %K'))
-                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['Stochastic D'], name='Stochastic %D'))
-                            if "RSI" in strategies:
-                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['RSI'], name='RSI'))
-                            
-                            # Adding buy and sell signals
-                            price_fig.add_trace(go.Scatter(x=entry_dates, y=entry_prices, mode='markers', name='Buy Signal', marker=dict(color='green', symbol='triangle-up', size=10)))
-                            price_fig.add_trace(go.Scatter(x=exit_dates, y=exit_prices, mode='markers', name='Sell Signal', marker=dict(color='red', symbol='triangle-down', size=10)))
-                            
-                            price_fig.update_layout(title='Trade Signals with Multiple Indicators', xaxis_title='Date', yaxis_title='Price')
-                        
-                            st.plotly_chart(price_fig, use_container_width=True)
-                        
-                            # Display portfolio performance graph without the orders chart
-                            pf.plot(subplots=['cum_returns', 'trade_pnl']).show()
-                        
+                            st.markdown("**Biểu đồ:**")
+                            st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các tín hiệu mua/bán và cảnh báo sụp đổ tiềm năng, \
+                                        cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
+                            st.plotly_chart(fig, use_container_width=True)
 
                         with tab7:
                             st.markdown("**Danh mục đầu tư:**")
