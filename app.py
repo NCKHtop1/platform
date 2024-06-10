@@ -503,49 +503,52 @@ if selected_stocks:
                             st.markdown("Biểu đồ này minh họa sự sụt giảm từ đỉnh đến đáy của danh mục của bạn, \
                                         giúp bạn hiểu rõ hơn về tiềm năng thua lỗ của chiến lược.")
 
-# Modify the content of Tab 6 to display a comprehensive chart with multiple indicators
-
+                        # Tab 6: Visualization of Ichimoku Indicator with trade signals (adapted for multiple indicators)
                         with tab6:
                             st.markdown("**Biểu đồ:**")
-                            st.markdown("Biểu đồ này hiển thị các chỉ báo kỹ thuật đã chọn và Ichimoku Cloud, cung cấp cái nhìn toàn diện về các tín hiệu mua và bán.")
+                            st.markdown("Biểu đồ tổng hợp này kết hợp đường cong giá trị với các tín hiệu mua/bán và cảnh báo sụp đổ tiềm năng, cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
                         
-                            # Prepare the plot
-                            price_fig = go.Figure()
-                            price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['close'], name='Close Price', line=dict(color='blue')))
-                            
-                            # Add Ichimoku Cloud
-                            price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['cloud_min'], name='Cloud Min', fill='tonexty', mode='none', fillcolor='rgba(0,100,80,0.2)'))
-                            price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['cloud_max'], name='Cloud Max', fill='tonexty', mode='none', fillcolor='rgba(0,176,246,0.2)'))
-                            
-                            # Check and add other indicators if they are selected and calculated
-                            if 'MACD Line' in df_filtered.columns:
-                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['MACD Line'], name='MACD Line', line=dict(color='purple')))
-                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['Signal Line'], name='Signal Line', line=dict(color='magenta')))
-                            if 'RSI' in df_filtered.columns:
-                                rsi_fig = go.Figure()
-                                rsi_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['RSI'], name='RSI', line=dict(color='red')))
-                                rsi_fig.update_layout(title='RSI over time', xaxis_title='Date', yaxis_title='RSI', template='plotly_white')
-                                st.plotly_chart(rsi_fig, use_container_width=True)
-                            if 'Supertrend' in df_filtered.columns:
-                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['Supertrend'], name='Supertrend', line=dict(color='green')))
-                            
-                            # Add buy and sell signals
-                            buy_dates = df_filtered[df_filtered['Adjusted Buy']].index
-                            sell_dates = df_filtered[df_filtered['Adjusted Sell']].index
-                            price_fig.add_trace(go.Scatter(x=buy_dates, y=df_filtered.loc[buy_dates, 'close'], mode='markers', name='Buy Signal', marker=dict(color='green', size=10, symbol='triangle-up')))
-                            price_fig.add_trace(go.Scatter(x=sell_dates, y=df_filtered.loc[sell_dates, 'close'], mode='markers', name='Sell Signal', marker=dict(color='red', size=10, symbol='triangle-down')))
-                            
-                            # Set layout for the plot
-                            price_fig.update_layout(
-                                title='Comprehensive Chart with Technical Indicators and Ichimoku Cloud',
-                                xaxis_title='Date',
-                                yaxis_title='Price',
-                                legend_title='Indicator',
-                                template='plotly_white'
+                            # Create portfolio using vectorbt
+                            pf = vbt.Portfolio.from_signals(
+                                close=df_filtered['close'],
+                                entries=df_filtered['Adjusted Buy'],
+                                exits=df_filtered['Adjusted Sell'],
+                                init_cash=init_cash,
+                                freq='1D'
                             )
+                        
+                            # Visualize Ichimoku Indicator with trade signals
+                            trades = pf.trades.records
+                            entry_dates = df_filtered.index[trades['entry_idx']]
+                            exit_dates = df_filtered.index[trades['exit_idx']]
+                            entry_prices = trades['entry_price']
+                            exit_prices = trades['exit_price']
+                        
+                            price_fig = go.Figure()
+                            price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['close'], name='Close Price'))
                             
-                            # Display the plot in the Streamlit app
+                            # Visualizing each indicator if selected in strategies
+                            if "MACD" in strategies:
+                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['MACD Line'], name='MACD Line'))
+                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['Signal Line'], name='Signal Line'))
+                            if "Supertrend" in strategies:
+                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['Supertrend'], name='Supertrend', fill='tonexty'))
+                            if "Stochastic" in strategies:
+                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['Stochastic K'], name='Stochastic %K'))
+                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['Stochastic D'], name='Stochastic %D'))
+                            if "RSI" in strategies:
+                                price_fig.add_trace(go.Scatter(x=df_filtered.index, y=df_filtered['RSI'], name='RSI'))
+                            
+                            # Adding buy and sell signals
+                            price_fig.add_trace(go.Scatter(x=entry_dates, y=entry_prices, mode='markers', name='Buy Signal', marker=dict(color='green', symbol='triangle-up', size=10)))
+                            price_fig.add_trace(go.Scatter(x=exit_dates, y=exit_prices, mode='markers', name='Sell Signal', marker=dict(color='red', symbol='triangle-down', size=10)))
+                            
+                            price_fig.update_layout(title='Trade Signals with Multiple Indicators', xaxis_title='Date', yaxis_title='Price')
+                        
                             st.plotly_chart(price_fig, use_container_width=True)
+                        
+                            # Display portfolio performance graph without the orders chart
+                            pf.plot(subplots=['cum_returns', 'trade_pnl']).show()
                         
 
                         with tab7:
