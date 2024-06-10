@@ -9,3 +9,4 @@ pandas-ta
 seaborn
 matplotlib
 vnstock
+beautifulsoup4
