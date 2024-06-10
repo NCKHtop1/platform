@@ -8,3 +8,4 @@ vectorbt
 pandas-ta
 seaborn
 matplotlib
+vnstock
