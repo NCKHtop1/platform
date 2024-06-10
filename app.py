@@ -332,7 +332,6 @@ st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
 # Sidebar for Portfolio Selection
-# Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     vn30 = VN30()
     selected_stocks = []
@@ -359,7 +358,11 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
             # Process sector-specific stocks if any are selected
             if sector_selected_symbols:
                 sector_stocks = load_detailed_data(sector_selected_symbols)
-                # Display sector-specific data processing results here
+                if not sector_stocks.empty:
+                    st.write(f"Displaying results for stocks in {selected_sector} sector.")
+                    # Add display or analysis functions here for sector stocks
+                else:
+                    st.error(f"No data available for stocks in the {selected_sector} sector.")
 
 # Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
@@ -380,11 +383,20 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
 # Ensure that the date range is within the available data
 if selected_stocks:
-    sector_data = load_detailed_data(selected_stocks)
-    combined_data = pd.concat([vn30_stocks, sector_data])
-    
+    if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
+        sector_data = load_detailed_data(selected_stocks)
+        combined_data = pd.concat([vn30_stocks, sector_data])
+    elif 'VN30' in portfolio_options:
+        combined_data = vn30_stocks
+    elif 'Chọn mã theo ngành' in portfolio_options:
+        combined_data = load_detailed_data(selected_stocks)
+    else:
+        combined_data = pd.DataFrame()
+
     if not combined_data.empty:
         combined_data = combined_data[~combined_data.index.duplicated(keep='first')]  # Ensure unique indices
+
+        # Assuming the combined data already covers today's data for VN30 and possibly other dates for sector stocks
         first_available_date = combined_data.index.min().date()
         last_available_date = combined_data.index.max().date()
 
