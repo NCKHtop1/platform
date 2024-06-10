@@ -9,6 +9,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
+from vnstock import stock_historical_data
 
 # Check if the image file exists
 image_path = 'image.png'
@@ -84,15 +85,18 @@ class VN30:
         ]
 
     def fetch_data(self, symbol):
-        # Placeholder function to simulate fetching data from VNStock
-        # Replace with your actual data fetching logic
-        # Here, simulate with random data
-        data = pd.DataFrame({
-            "StockSymbol": [symbol]*100,
-            "Datetime": pd.date_range(start="2023-01-01", periods=100, freq='D'),
-            "close": np.random.randn(100).cumsum() + 100  # Simulated price data
-        })
-        return data
+        # Fetch stock data from vnstock
+        data = stock_historical_data(
+            symbol=symbol,
+            start_date=pd.Timestamp.today().strftime('%Y-%m-%d'),
+            end_date=pd.Timestamp.today().strftime('%Y-%m-%d'),
+            resolution='1D',
+            type='stock',
+            beautify=True,
+            decor=False,
+            source='DNSE'
+        )
+        return pd.DataFrame(data)
 
     def analyze_stocks(self, selected_symbols):
         # Fetch and analyze data for each selected symbol
