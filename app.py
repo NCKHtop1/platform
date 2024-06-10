@@ -97,14 +97,22 @@ class VN30:
             source='DNSE'
         )
         df = pd.DataFrame(data)
-        if 'datetime' in df.columns:
-            df['Datetime'] = pd.to_datetime(df['datetime'])
+        
+        # Check for 'datetime' or an alternative column that represents datetime
+        datetime_column = None
+        for possible_name in ['datetime', 'date', 'DateTime', 'Date']:
+            if possible_name in df.columns:
+                datetime_column = possible_name
+                break
+        
+        if datetime_column:
+            df['Datetime'] = pd.to_datetime(df[datetime_column])
             df.set_index('Datetime', inplace=True)
         else:
-            # Assume the default datetime column name if 'datetime' does not exist
-            df.set_index('datetime', inplace=True)
-            df.index = pd.to_datetime(df.index)
+            raise ValueError("No valid datetime column found in the data. Please check the data structure.")
+        
         return df
+
 
     def analyze_stocks(self, selected_symbols):
         # Fetch and analyze data for each selected symbol
