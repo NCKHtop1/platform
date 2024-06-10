@@ -380,7 +380,7 @@ if selected_stocks:
                         st.error("Không có giao dịch nào được thực hiện trong khoảng thời gian này.")
                     else:
                         # Create tabs for different views on the main screen
-                        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Mức sụt giảm tối đa", "Biểu đồ", "Danh mục đầu tư"])
+                        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Biểu đồ", "Danh mục đầu tư"])
                         
                         with tab1:
                             try:
@@ -482,30 +482,7 @@ if selected_stocks:
                             st.markdown("Biểu đồ này hiển thị sự tăng trưởng giá trị danh mục của bạn theo thời gian, \
                                         cho phép bạn thấy cách chiến lược hoạt động trong các điều kiện thị trường khác nhau.")
 
-                        # with tab5:
-                        #     drawdown_trace = go.Scatter(
-                        #         x=drawdown_data.index,
-                        #         y=drawdown_data,
-                        #         mode='lines',
-                        #         name='Mức sụt giảm tối đa',
-                        #         fill='tozeroy',
-                        #         line=dict(color='red')
-                        #     )
-                        #     drawdown_fig = go.Figure(data=[drawdown_trace])
-                        #     drawdown_fig.update_layout(
-                        #         title='Mức sụt giảm tối đa',
-                        #         xaxis_title='Ngày',
-                        #         yaxis_title='% Mức sụt giảm tối đa',
-                        #         template='plotly_white',
-                        #         width=800,
-                        #         height=600
-                        #     )
-                        #     st.plotly_chart(drawdown_fig)
-                        #     st.markdown("**Mức sụt giảm tối đa:**")
-                        #     st.markdown("Biểu đồ này minh họa sự sụt giảm từ đỉnh đến đáy của danh mục của bạn, \
-                        #                 giúp bạn hiểu rõ hơn về tiềm năng thua lỗ của chiến lược.")
-
-                        with tab6:
+                        with tab5:
                             fig = portfolio.plot()
                             crash_df = df_filtered[df_filtered['Crash']]
                             fig.add_scatter(
@@ -520,7 +497,7 @@ if selected_stocks:
                                         cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
                             st.plotly_chart(fig, use_container_width=True)
 
-                        with tab7:
+                        with tab6:
                             st.markdown("**Danh mục đầu tư:**")
                             st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
                             optimizer = PortfolioOptimizer()
