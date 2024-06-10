@@ -85,11 +85,11 @@ class VN30:
         ]
 
     def fetch_data(self, symbol):
-        # Make sure this method handles all possible errors and always returns a DataFrame with a 'Datetime' index
+        today = pd.Timestamp.today().strftime('%Y-%m-%d')
         data = stock_historical_data(
             symbol=symbol,
-            start_date='2022-01-01',
-            end_date=pd.Timestamp.today().strftime('%Y-%m-%d'),
+            start_date=today,
+            end_date=today,
             resolution='1D',
             type='stock',
             beautify=True,
@@ -97,7 +97,6 @@ class VN30:
             source='DNSE'
         )
         df = pd.DataFrame(data)
-        # Always ensure 'Datetime' column is present
         if 'time' in df.columns:
             df.rename(columns={'time': 'Datetime'}, inplace=True)
         elif 'datetime' in df.columns:
@@ -109,15 +108,9 @@ class VN30:
         results = []
         for symbol in selected_symbols:
             stock_data = self.fetch_data(symbol)
-            if not stock_data.empty and 'Datetime' in stock_data.columns:
+            if not stock_data.empty:
                 results.append(stock_data)
-
-        if results:
-            # Only concatenate if results list is not empty and each DataFrame has 'Datetime'
-            combined_data = pd.concat(results)
-            return combined_data
-        else:
-            return pd.DataFrame()  # Return an empty DataFrame if no suitable data was found
+        return pd.concat(results) if results else pd.DataFrame()
 
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
