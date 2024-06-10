@@ -111,9 +111,37 @@ class VN30:
         for symbol in selected_symbols:
             stock_data = self.fetch_data(symbol)
             if not stock_data.empty:
+                stock_data['Crash Risk'] = self.calculate_crash_risk(stock_data)
                 results.append(stock_data)
-        return pd.concat(results) if results else pd.DataFrame()
+        if results:
+            combined_data = pd.concat(results)
+            self.display_stock_status(combined_data)
+        else:
+            st.write("No data available for VN30 stocks today.")
 
+    def calculate_crash_risk(self, df):
+        # Dummy crash risk calculation, replace with actual logic
+        df['RSI'] = ta.rsi(df['close'], length=14)
+        conditions = [
+            (df['RSI'] < 30),
+            (df['RSI'].between(30, 70)),
+            (df['RSI'] > 70)
+        ]
+        choices = ['Low', 'Medium', 'High']
+        df['Crash Risk'] = np.select(conditions, choices, default='Medium')
+        return df['Crash Risk']
+
+    def display_stock_status(self, df):
+        color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
+        for index, row in df.iterrows():
+            color = color_map[row['Crash Risk']]
+            st.markdown(f"<span style='color: {color};'>{index}: {row['Crash Risk']}</span>", unsafe_allow_html=True)
+
+# Usage in Streamlit
+st.title('VN30 Stock Crash Risk Analysis')
+vn30 = VN30()
+selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplicity
+vn30.analyze_stocks(selected_symbols)
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
