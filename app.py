@@ -97,8 +97,13 @@ class VN30:
             source='DNSE'
         )
         df = pd.DataFrame(data)
-        df['Datetime'] = pd.to_datetime(df['datetime'])
-        df.set_index('Datetime', inplace=True)
+        if 'datetime' in df.columns:
+            df['Datetime'] = pd.to_datetime(df['datetime'])
+            df.set_index('Datetime', inplace=True)
+        else:
+            # Assume the default datetime column name if 'datetime' does not exist
+            df.set_index('datetime', inplace=True)
+            df.index = pd.to_datetime(df.index)
         return df
 
     def analyze_stocks(self, selected_symbols):
