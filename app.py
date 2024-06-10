@@ -49,7 +49,6 @@ def load_data(file_path):
         return pd.DataFrame()
     return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
 
-# Ensure datetime comparison compatibility
 def ensure_datetime_compatibility(start_date, end_date, df):
     if not isinstance(start_date, pd.Timestamp):
         start_date = pd.Timestamp(start_date)
@@ -65,15 +64,13 @@ def ensure_datetime_compatibility(start_date, end_date, df):
     return df[start_date:end_date]
 
 # Load and filter detailed data
-def load_detailed_data(selected_stocks, vn30_stocks):
+def load_detailed_data(selected_stocks):
     data = pd.DataFrame()
-    vn30_data = pd.DataFrame(vn30_stocks)
     for sector, file_path in SECTOR_FILES.items():
         df = load_data(file_path)
         if not df.empty:
             sector_data = df[df['StockSymbol'].isin(selected_stocks)]
             data = pd.concat([data, sector_data])
-    data = pd.concat([data, vn30_data])
     return data
 
 # Define the VN30 class
@@ -89,19 +86,19 @@ class VN30:
         # Placeholder function to simulate fetching data from VNStock
         # Replace with your actual data fetching logic
         # Here, simulate with random data
-        return {
-            "StockSymbol": symbol,
+        data = pd.DataFrame({
+            "StockSymbol": [symbol]*100,
             "Datetime": pd.date_range(start="2023-01-01", periods=100, freq='D'),
             "close": np.random.randn(100).cumsum() + 100  # Simulated price data
-        }
+        })
+        return data
 
-    def analyze_stocks(self):
-        # Fetch and analyze data for each symbol
+    def analyze_stocks(self, selected_symbols):
+        # Fetch and analyze data for each selected symbol
         results = []
-        for symbol in self.symbols:
+        for symbol in selected_symbols:
             stock_data = self.fetch_data(symbol)
-            df = pd.DataFrame(stock_data)
-            results.append(df)
+            results.append(stock_data)
         return pd.concat(results).set_index('Datetime')
 
 class PortfolioOptimizer:
@@ -329,8 +326,7 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
 
     if 'VN30' in portfolio_options:
         selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
-        vn30_stocks = vn30.analyze_stocks()
-        vn30_stocks = vn30_stocks[vn30_stocks['StockSymbol'].isin(selected_symbols)]
+        vn30_stocks = vn30.analyze_stocks(selected_symbols)
         selected_stocks.extend(selected_symbols)
     else:
         vn30_stocks = pd.DataFrame()
@@ -361,11 +357,12 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
 # Ensure that the date range is within the available data
 if selected_stocks:
-    df_full = load_detailed_data(selected_stocks, vn30_stocks)
-
-    if not df_full.empty:
-        first_available_date = df_full.index.min().date()
-        last_available_date = df_full.index.max().date()
+    sector_data = load_detailed_data(selected_stocks)
+    combined_data = pd.concat([vn30_stocks, sector_data])
+    
+    if not combined_data.empty:
+        first_available_date = combined_data.index.min().date()
+        last_available_date = combined_data.index.max().date()
 
         # Ensure selected date range is within the available data range
         start_date = st.date_input('Ngày bắt đầu', first_available_date)
@@ -383,7 +380,7 @@ if selected_stocks:
             st.error("Lỗi: Ngày kết thúc phải sau ngày bắt đầu.")
         else:
             try:
-                df_filtered = ensure_datetime_compatibility(start_date, end_date, df_full)
+                df_filtered = ensure_datetime_compatibility(start_date, end_date, combined_data)
 
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
