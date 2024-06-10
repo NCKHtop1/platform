@@ -41,12 +41,6 @@ SECTOR_FILES = {
     'VNINDEX': 'Vnindex.csv'
 }
 
-PORTFOLIO_FILES = {
-    'VN30': 'VN30.csv',
-    'VN100': 'VN100.csv',
-    'VNAllShare': 'VNAllShare.csv'
-}
-
 # Load data function
 @st.cache_data
 def load_data(file_path):
@@ -54,38 +48,6 @@ def load_data(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
     return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
-
-def load_portfolio_symbols(portfolio_name):
-    file_path = PORTFOLIO_FILES.get(portfolio_name, '')
-    if not os.path.exists(file_path):
-        st.error(f"File not found: {file_path}")
-        return []
-    return pd.read_csv(file_path)['symbol'].tolist()
-
-# Ensure datetime comparison compatibility
-def ensure_datetime_compatibility(start_date, end_date, df):
-    if not isinstance(start_date, pd.Timestamp):
-        start_date = pd.Timestamp(start_date)
-    if not isinstance(end_date, pd.Timestamp):
-        end_date = pd.Timestamp(end_date)
-    
-    # Check if the dates are within the dataframe's range
-    if start_date not in df.index:
-        start_date = df.index[df.index.searchsorted(start_date)]
-    if end_date not in df.index:
-        end_date = df.index[df.index.searchsorted(end_date)]
-    
-    return df[start_date:end_date]
-
-# Load and filter detailed data
-def load_detailed_data(selected_stocks):
-    data = pd.DataFrame()
-    for sector, file_path in SECTOR_FILES.items():
-        df = load_data(file_path)
-        if not df.empty:
-            sector_data = df[df['StockSymbol'].isin(selected_stocks)]
-            data = pd.concat([data, sector_data])
-    return data
 
 # Define the VN30 class
 class VN30:
@@ -97,7 +59,7 @@ class VN30:
         ]
 
     def fetch_data(self, symbol):
-        # Placeholder function to simulate fetching data
+        # Placeholder function to simulate fetching data from VNStock
         # Replace with your actual data fetching logic
         return {
             "symbol": symbol,
@@ -331,18 +293,12 @@ st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     vn30 = VN30()
     selected_stocks = []
-    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'VN100', 'VNAllShare'])
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30'])
 
     if 'VN30' in portfolio_options:
         stock_data = vn30.analyze_stocks()
         selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
         selected_stocks.extend(selected_symbols)
-    else:
-        for portfolio_option in portfolio_options:
-            symbols = load_portfolio_symbols(portfolio_option)
-            if symbols:
-                selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong {portfolio_option}', symbols, default=symbols)
-                selected_stocks.extend(selected_symbols)
 
     selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
     if selected_sector:
@@ -526,7 +482,7 @@ if selected_stocks:
 
                         with tab6:
                             st.markdown("**Danh mục đầu tư:**")
-                            st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
+                            st.markdown("Danh sách các mã cổ phiếu theo danh mục VN30.")
                             optimizer = PortfolioOptimizer()
                             df_selected_stocks = df_filtered[df_filtered['StockSymbol'].isin(selected_stocks)]
                             data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
@@ -535,11 +491,6 @@ if selected_stocks:
                             st.write("Optimal Weights for Selected Stocks:")
                             for stock, weight in zip(data_matrix.columns, optimal_weights):
                                 st.write(f"{stock}: {weight:.4f}")
-
-                            for portfolio_option in portfolio_options:
-                                symbols = load_portfolio_symbols(portfolio_option)
-                                st.markdown(f"**{portfolio_option}:**")
-                                st.write(symbols)
 
                         crash_likelihoods = {}
                         for stock in selected_stocks:
