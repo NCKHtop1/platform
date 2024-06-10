@@ -419,7 +419,7 @@ if selected_stocks:
                                 annualized_return = portfolio.stats().get('Annual Return [%]', 0)
                                 st.markdown("<div style='background-color: #f0f2f6; padding: 10px; border-radius: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
                                 st.markdown(f"<p style='text-align: center; margin: 0;'><strong>Hiệu suất trên các mã chọn: {', '.join(selected_stocks)}</strong></p>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='text-align: center; margin: 0;'><strong>Tổng lợi nhuận: {cumulative_return:.2f}%</strong> | <strong>Lợi nhuận hàng năm: {annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
+                                st.markdown(f"<p style='text-align: center; margin: 0;'><strong>Tổng lợi nhuận: {cumulative_return:.2f}%</strong>
                                 st.markdown("</div>", unsafe_allow_html=True)
                         
                                 # Đồ thị giá và điểm sụt giảm
