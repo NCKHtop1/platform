@@ -49,6 +49,33 @@ def load_data(file_path):
         return pd.DataFrame()
     return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
 
+# Ensure datetime comparison compatibility
+def ensure_datetime_compatibility(start_date, end_date, df):
+    if not isinstance(start_date, pd.Timestamp):
+        start_date = pd.Timestamp(start_date)
+    if not isinstance(end_date, pd.Timestamp):
+        end_date = pd.Timestamp(end_date)
+    
+    # Check if the dates are within the dataframe's range
+    if start_date not in df.index:
+        start_date = df.index[df.index.searchsorted(start_date)]
+    if end_date not in df.index:
+        end_date = df.index[df.index.searchsorted(end_date)]
+    
+    return df[start_date:end_date]
+
+# Load and filter detailed data
+def load_detailed_data(selected_stocks, vn30_stocks):
+    data = pd.DataFrame()
+    vn30_data = pd.DataFrame(vn30_stocks)
+    for sector, file_path in SECTOR_FILES.items():
+        df = load_data(file_path)
+        if not df.empty:
+            sector_data = df[df['StockSymbol'].isin(selected_stocks)]
+            data = pd.concat([data, sector_data])
+    data = pd.concat([data, vn30_data])
+    return data
+
 # Define the VN30 class
 class VN30:
     def __init__(self):
@@ -61,16 +88,21 @@ class VN30:
     def fetch_data(self, symbol):
         # Placeholder function to simulate fetching data from VNStock
         # Replace with your actual data fetching logic
+        # Here, simulate with random data
         return {
-            "symbol": symbol,
-            "date": pd.Timestamp.today(),
-            "status": np.random.choice(["green", "yellow", "red"])  # Random for demo
+            "StockSymbol": symbol,
+            "Datetime": pd.date_range(start="2023-01-01", periods=100, freq='D'),
+            "close": np.random.randn(100).cumsum() + 100  # Simulated price data
         }
 
     def analyze_stocks(self):
         # Fetch and analyze data for each symbol
-        results = [self.fetch_data(symbol) for symbol in self.symbols]
-        return pd.DataFrame(results)
+        results = []
+        for symbol in self.symbols:
+            stock_data = self.fetch_data(symbol)
+            df = pd.DataFrame(stock_data)
+            results.append(df)
+        return pd.concat(results).set_index('Datetime')
 
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
@@ -296,9 +328,12 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     portfolio_options = st.multiselect('Chọn danh mục', ['VN30'])
 
     if 'VN30' in portfolio_options:
-        stock_data = vn30.analyze_stocks()
         selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
+        vn30_stocks = vn30.analyze_stocks()
+        vn30_stocks = vn30_stocks[vn30_stocks['StockSymbol'].isin(selected_symbols)]
         selected_stocks.extend(selected_symbols)
+    else:
+        vn30_stocks = pd.DataFrame()
 
     selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
     if selected_sector:
@@ -326,7 +361,7 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
 # Ensure that the date range is within the available data
 if selected_stocks:
-    df_full = load_detailed_data(selected_stocks)
+    df_full = load_detailed_data(selected_stocks, vn30_stocks)
 
     if not df_full.empty:
         first_available_date = df_full.index.min().date()
@@ -482,7 +517,7 @@ if selected_stocks:
 
                         with tab6:
                             st.markdown("**Danh mục đầu tư:**")
-                            st.markdown("Danh sách các mã cổ phiếu theo danh mục VN30.")
+                            st.markdown("Danh sách các mã cổ phiếu theo danh mục VN100, VN30 và VNAllShare.")
                             optimizer = PortfolioOptimizer()
                             df_selected_stocks = df_filtered[df_filtered['StockSymbol'].isin(selected_stocks)]
                             data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
@@ -491,6 +526,11 @@ if selected_stocks:
                             st.write("Optimal Weights for Selected Stocks:")
                             for stock, weight in zip(data_matrix.columns, optimal_weights):
                                 st.write(f"{stock}: {weight:.4f}")
+
+                            for portfolio_option in portfolio_options:
+                                symbols = load_portfolio_symbols(portfolio_option)
+                                st.markdown(f"**{portfolio_option}:**")
+                                st.write(symbols)
 
                         crash_likelihoods = {}
                         for stock in selected_stocks:
