@@ -132,18 +132,34 @@ class VN30:
         return df['Crash Risk']
 
     def display_stock_status(self, df):
+        if df.empty or 'Crash Risk' not in df.columns:
+            st.error("No data or necessary columns are missing in the data.")
+            return
+
+        # Ensure the DataFrame is sorted by date if 'Datetime' is a column
+        if 'Datetime' in df.columns:
+            df_sorted = df.sort_values('Datetime')
+        else:
+            df_sorted = df.sort_index()
+
         color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
-        df_sorted = df.sort_index()
         n_cols = 5
         n_rows = (len(df_sorted) + n_cols - 1) // n_cols
+
+        # Create dynamic layout based on number of stocks
         for row in range(n_rows):
             cols = st.columns(n_cols)
-            for col, index in zip(cols, df_sorted.index[row * n_cols:(row + 1) * n_cols]):
-                color = color_map[df_sorted.loc[index, 'Crash Risk']]
-                col.markdown(f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>{index.strftime('%Y-%m-%d')}<br>{df_sorted.loc[index, 'Crash Risk']}</div>", unsafe_allow_html=True)
+            indices = list(df_sorted.index[row * n_cols:(row + 1) * n_cols])
+            for col, index in zip(cols, indices):
+                if index in df_sorted.index:
+                    crash_risk = df_sorted.loc[index, 'Crash Risk']
+                    color = color_map.get(crash_risk, '#FF5722')  # Default to high risk color if unexpected value
+                    col.markdown(f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>{index.strftime('%Y-%m-%d')}<br>{crash_risk}</div>", unsafe_allow_html=True)
+                else:
+                    col.write("Data not available.")
 
-# Usage in Streamlit
-st.title('...')
+# Usage in Streamlit (main application flow)
+st.title('VN30 Stock Analysis Dashboard')
 vn30 = VN30()
 selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplicity
 vn30_stocks = vn30.analyze_stocks(selected_symbols)
@@ -152,7 +168,7 @@ if not vn30_stocks.empty:
     st.write("Displaying results for VN30 stocks for today.")
     vn30.display_stock_status(vn30_stocks)
 else:
-    st.write("No data available for VN30 stocks today.")
+    st.error("No data available for VN30 stocks today.")
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
