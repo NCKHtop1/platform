@@ -410,7 +410,7 @@ if selected_stocks:
                                 # Hiển thị tên chỉ báo và tỷ lệ thắng
                                 indicator_name = ", ".join(strategies)
                                 win_rate = portfolio.stats()['Win Rate [%]']
-                                win_rate_color = "#4CAF50" if win_rate > 50 else "#013D54"
+                                win_rate_color = "#4CAF50" if win_rate > 50 else "#FF5733"
                         
                                 st.markdown(f"<div style='text-align: center; margin-bottom: 20px;'><span style='color: {win_rate_color}; font-size: 24px; font-weight: bold;'>Tỷ lệ thắng: {win_rate:.2f}%</span><br><span style='font-size: 18px;'>Sử dụng chỉ báo: {indicator_name}</span></div>", unsafe_allow_html=True)
                         
@@ -419,7 +419,7 @@ if selected_stocks:
                                 annualized_return = portfolio.stats().get('Annual Return [%]', 0)
                                 st.markdown("<div style='background-color: #f0f2f6; padding: 10px; border-radius: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
                                 st.markdown(f"<p style='text-align: center; margin: 0;'><strong>Hiệu suất trên các mã chọn: {', '.join(selected_stocks)}</strong></p>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='text-align: center; margin: 0;'><strong>Tổng lợi nhuận: {cumulative_return:.2f}%</strong>
+                                st.markdown(f"<p style='text-align: center; margin: 0;'><strong>Tổng lợi nhuận: {cumulative_return:.2f}%</strong> | <strong>Lợi nhuận hàng năm: {annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
                                 st.markdown("</div>", unsafe_allow_html=True)
                         
                                 # Đồ thị giá và điểm sụt giảm
