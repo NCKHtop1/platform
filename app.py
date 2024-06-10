@@ -132,31 +132,38 @@ class VN30:
         return df['Crash Risk']
 
     def display_stock_status(self, df):
-        if df.empty or 'Crash Risk' not in df.columns:
-            st.error("No data or necessary columns are missing in the data.")
+        if df.empty:
+            st.error("No data available.")
             return
-
-        # Ensure the DataFrame is sorted by date if 'Datetime' is a column
-        if 'Datetime' in df.columns:
-            df_sorted = df.sort_values('Datetime')
-        else:
-            df_sorted = df.sort_index()
+        
+        if 'Crash Risk' not in df.columns:
+            st.error("The 'Crash Risk' column is missing from the data.")
+            return
 
         color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
         n_cols = 5
-        n_rows = (len(df_sorted) + n_cols - 1) // n_cols
+        # Define rows based on the number of records to display
+        n_rows = (len(df) + n_cols - 1) // n_cols
 
-        # Create dynamic layout based on number of stocks
-        for row in range(n_rows):
+        # Create a grid layout dynamically based on the number of entries
+        for i in range(n_rows):
             cols = st.columns(n_cols)
-            indices = list(df_sorted.index[row * n_cols:(row + 1) * n_cols])
-            for col, index in zip(cols, indices):
-                if index in df_sorted.index:
-                    crash_risk = df_sorted.loc[index, 'Crash Risk']
-                    color = color_map.get(crash_risk, '#FF5722')  # Default to high risk color if unexpected value
-                    col.markdown(f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>{index.strftime('%Y-%m-%d')}<br>{crash_risk}</div>", unsafe_allow_html=True)
+            for j, col in enumerate(cols):
+                idx = i * n_cols + j
+                if idx < len(df):
+                    # Access data safely
+                    data_row = df.iloc[idx]
+                    crash_risk = data_row.get('Crash Risk', 'Unknown')  # Handle missing 'Crash Risk' gracefully
+                    color = color_map.get(crash_risk, '#FF5722')  # Default to a color if crash risk level is unknown
+                    
+                    # Display the colored box with the crash risk info
+                    col.markdown(
+                        f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
+                        f"{data_row.name.strftime('%Y-%m-%d')}<br>{crash_risk}</div>", 
+                        unsafe_allow_html=True
+                    )
                 else:
-                    col.write("Data not available.")
+                    col.empty()  # In case there are fewer entries than the number of columns
 
 # Usage in Streamlit (main application flow)
 st.title('VN30 Stock Analysis Dashboard')
