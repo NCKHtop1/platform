@@ -97,12 +97,14 @@ class VN30:
             source='DNSE'
         )
         df = pd.DataFrame(data)
-        if 'time' in df.columns:
-            df.rename(columns={'time': 'Datetime'}, inplace=True)
-        elif 'datetime' in df.columns:
-            df.rename(columns={'datetime': 'Datetime'}, inplace=True)
-        df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
-        return df.set_index('Datetime', drop=True)
+        if not df.empty:
+            if 'time' in df.columns:
+                df.rename(columns={'time': 'Datetime'}, inplace=True)
+            elif 'datetime' in df.columns:
+                df.rename(columns={'datetime': 'Datetime'}, inplace=True)
+            df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
+            return df.set_index('Datetime', drop=True)
+        return pd.DataFrame()  # Handle case where no data is returned
 
     def analyze_stocks(self, selected_symbols):
         results = []
@@ -330,24 +332,34 @@ st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
 # Sidebar for Portfolio Selection
+# Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     vn30 = VN30()
     selected_stocks = []
-    portfolio_options = st.multiselect('Chọn danh mục', ['VN30'])
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
 
     if 'VN30' in portfolio_options:
-        selected_symbols = st.multiselect(f'Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
+        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
         vn30_stocks = vn30.analyze_stocks(selected_symbols)
-        selected_stocks.extend(selected_symbols)
-    else:
-        vn30_stocks = pd.DataFrame()
+        if not vn30_stocks.empty:
+            # Process and display VN30 stocks data
+            st.write("Displaying results for VN30 stocks for today.")
+            # Add display or analysis functions here for VN30
+        else:
+            st.error("No data available for VN30 stocks today.")
+        
+    if 'Chọn mã theo ngành' in portfolio_options:
+        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
+        if selected_sector:
+            df_full = load_data(SECTOR_FILES[selected_sector])
+            available_symbols = df_full['StockSymbol'].unique().tolist()
+            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
+            selected_stocks.extend(sector_selected_symbols)
 
-    selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
-    if selected_sector:
-        df_full = load_data(SECTOR_FILES[selected_sector])
-        available_symbols = df_full['StockSymbol'].unique().tolist()
-        sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
-        selected_stocks = list(set(selected_stocks + sector_selected_symbols))
+            # Process sector-specific stocks if any are selected
+            if sector_selected_symbols:
+                sector_stocks = load_detailed_data(sector_selected_symbols)
+                # Display sector-specific data processing results here
 
 # Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
