@@ -50,18 +50,19 @@ def load_data(file_path):
     return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
 
 def ensure_datetime_compatibility(start_date, end_date, df):
+    df = df[~df.index.duplicated(keep='first')]  # Ensure unique indices
     if not isinstance(start_date, pd.Timestamp):
         start_date = pd.Timestamp(start_date)
     if not isinstance(end_date, pd.Timestamp):
         end_date = pd.Timestamp(end_date)
-    
+
     # Check if the dates are within the dataframe's range
     if start_date not in df.index:
         start_date = df.index[df.index.searchsorted(start_date)]
     if end_date not in df.index:
         end_date = df.index[df.index.searchsorted(end_date)]
-    
-    return df[start_date:end_date]
+
+    return df.loc[start_date:end_date]
 
 # Load and filter detailed data
 def load_detailed_data(selected_stocks):
@@ -361,6 +362,7 @@ if selected_stocks:
     combined_data = pd.concat([vn30_stocks, sector_data])
     
     if not combined_data.empty:
+        combined_data = combined_data[~combined_data.index.duplicated(keep='first')]  # Ensure unique indices
         first_available_date = combined_data.index.min().date()
         last_available_date = combined_data.index.max().date()
 
