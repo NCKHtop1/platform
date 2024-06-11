@@ -86,34 +86,47 @@ class VN30:
 
     def fetch_data(self, symbol):
         today = pd.Timestamp.today().strftime('%Y-%m-%d')
-        data = stock_historical_data(
-            symbol=symbol,
-            start_date=today,
-            end_date=today,
-            resolution='1D',
-            type='stock',
-            beautify=True,
-            decor=False,
-            source='DNSE'
-        )
-        df = pd.DataFrame(data)
-        if not df.empty:
-            if 'time' in df.columns:
-                df.rename(columns={'time': 'Datetime'}, inplace=True)
-            elif 'datetime' in df.columns:
-                df.rename(columns={'datetime': 'Datetime'}, inplace=True)
-            df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
-            return df.set_index('Datetime', drop=True)
-        return pd.DataFrame()  # Handle case where no data is returned
-        data = pd.DataFrame({
-            'Symbol': self.symbols,
-            'Price': [100 + i for i in range(len(self.symbols))],
-            'Date': [today for _ in self.symbols]
-        })
-        return data.set_index('Symbol')
-# Load and display VN30 data
+        try:
+            data = stock_historical_data(
+                symbol=symbol,
+                start_date=today,
+                end_date=today,
+                resolution='1D',
+                type='stock',
+                beautify=True,
+                decor=False,
+                source='DNSE'
+            )
+            df = pd.DataFrame(data)
+            if not df.empty:
+                # Process real data
+                if 'time' in df.columns:
+                    df.rename(columns={'time': 'Datetime'}, inplace=True)
+                elif 'datetime' in df.columns:
+                    df.rename(columns={'datetime': 'Datetime'}, inplace=True)
+                df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
+                return df.set_index('Datetime', drop=True)
+        except Exception as e:
+            # Fallback to dummy data in case of an error
+            print("Error fetching real data:", e)
+            data = {
+                'Symbol': symbol,
+                'Price': 100,
+                'Date': today
+            }
+            df = pd.DataFrame([data])
+            return df.set_index('Symbol')
+
+        return pd.DataFrame()  # Return an empty DataFrame if no data is fetched
+
+# Usage
 vn30 = VN30()
-vn30_data = vn30.fetch_data()
+for symbol in vn30.symbols:
+    data = vn30.fetch_data(symbol)
+    if not data.empty:
+        print(data)
+    else:
+        print(f"No data available for {symbol}.")
 # Streamlit App
 st.title('VN30 Stock Analysis Dashboard')
     def analyze_stocks(self, selected_symbols):
