@@ -159,7 +159,7 @@ class VN30:
                     # Display the colored box with the crash risk info
                     col.markdown(
                         f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
-                        f"{data_row.name.strftime('%Y-%m-%d')}<br>{crash_risk}</div>", 
+                        f"{data_row.name.strftime('%Y-%m-%d')}<br>{data_row['StockSymbol']}<br>{crash_risk}</div>", 
                         unsafe_allow_html=True
                     )
                 else:
@@ -167,231 +167,6 @@ class VN30:
 
 # Usage in Streamlit (main application flow)
 st.title('VN30 Stock Analysis Dashboard')
-vn30 = VN30()
-selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplicity
-vn30_stocks = vn30.analyze_stocks(selected_symbols)
-
-if not vn30_stocks.empty:
-    st.write("Displaying results for VN30 stocks for today.")
-    vn30.display_stock_status(vn30_stocks)
-else:
-    st.error("No data available for VN30 stocks today.")
-class PortfolioOptimizer:
-    def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
-        X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
-        mu = np.mean(X, axis=0)  # Calculate the mean returns of the assets
-        Sigma = np.cov(X, rowvar=False)  # Calculate the covariance matrix of the returns
-
-        w = self.MSRP_solver(mu, Sigma)  # Use the MSRP solver to get the optimal weights
-        return w  # Return the optimal weights
-
-    def MSRP_solver(self, mu: np.ndarray, Sigma: np.ndarray) -> np.ndarray:
-        N = Sigma.shape[0]  # Number of assets (stocks)
-        if np.all(mu <= 1e-8):  # Check if mean returns are close to zero
-            return np.zeros(N)  # Return zero weights if no returns
-
-        Dmat = 2 * Sigma  # Quadratic term for the optimizer
-        Amat = np.vstack((mu, np.ones(N)))  # Combine mean returns and sum constraint for constraints
-        bvec = np.array([1, 1])  # Right-hand side of constraints (1 for mean returns and sum)
-        dvec = np.zeros(N)  # Linear term (zero for this problem)
-
-        # Call the QP solver
-        w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=2)
-        return w / np.sum(abs(w))  # Normalize weights to sum to 1
-
-    def solve_QP(self, Dmat: np.ndarray, dvec: np.ndarray, Amat: np.ndarray, bvec: np.ndarray, meq: int = 0) -> np.ndarray:
-        def portfolio_obj(x):
-            return 0.5 * np.dot(x, np.dot(Dmat, x)) + np.dot(dvec, x)
-
-        def portfolio_constr_eq(x):
-            return np.dot(Amat[:meq], x) - bvec[:meq]
-
-        def portfolio_constr_ineq(x):
-            if Amat.shape[0] - meq == 0:
-                return np.array([])
-            else:
-                return np.dot(Amat[meq:], x) - bvec[meq:]
-
-        cons = [{'type': 'eq', 'fun': portfolio_constr_eq}]
-
-        if meq < len(bvec):
-            cons.append({'type': 'ineq', 'fun': portfolio_constr_ineq})
-
-        initial_guess = np.ones(Dmat.shape[0]) / Dmat.shape[0]
-
-        res = minimize(portfolio_obj, initial_guess, constraints=cons, method='SLSQP')
-
-        if not res.success:
-            raise ValueError('Quadratic programming failed to find a solution.')
-
-        return res.x
-
-    def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit', shortselling: bool = True, leverage: int = None) -> np.ndarray:
-        X = np.diff(np.log(data), axis=0)
-        X = X[~np.isnan(X).any(axis=1)]  # Remove rows with NaN values
-
-        if shrinkage:
-            if shrinkage_type == 'ledoit':
-                Sigma = self.ledoit_wolf_shrinkage(X)
-            elif shrinkage_type == 'ledoit_cc':
-                Sigma = self.ledoitwolf_cc(X)
-            elif shrinkage_type == 'oas':
-                Sigma = self.oas_shrinkage(X)
-            elif shrinkage_type == 'graphical_lasso':
-                Sigma = self.graphical_lasso_shrinkage(X)
-            elif shrinkage_type == 'mcd':
-                Sigma = self.mcd_shrinkage(X)
-            else:
-                raise ValueError('Invalid shrinkage type. Choose from: ledoit, ledoit_cc, oas, graphical_lasso, mcd')
-        else:
-            Sigma = np.cov(X, rowvar=False)
-
-        if not shortselling:
-            N = Sigma.shape[0]
-            Dmat = 2 * Sigma
-            Amat = np.vstack((np.ones(N), np.eye(N)))
-            bvec = np.array([1] + [0] * N)
-            dvec = np.zeros(N)
-            w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=1)
-        else:
-            ones = np.ones(Sigma.shape[0])
-            w = np.linalg.solve(Sigma, ones)
-            w /= np.sum(w)
-
-        if leverage is not None and leverage < np.inf:
-            w = leverage * w / np.sum(np.abs(w))
-
-        return w
-
-    def ledoitwolf_cc(self, returns: np.ndarray) -> np.ndarray:
-        T, N = returns.shape
-        returns = returns - np.mean(returns, axis=0, keepdims=True)
-        df = pd.DataFrame(returns)
-        Sigma = df.cov().values
-        Cor = df.corr().values
-        diagonals = np.diag(Sigma)
-        var = diagonals.reshape(len(Sigma), 1)
-        vols = var ** 0.5
-
-        rbar = np.mean((Cor.sum(1) - 1) / (Cor.shape[1] - 1))
-        cc_cor = np.matrix([[rbar] * N for _ in range(N)])
-        np.fill_diagonal(cc_cor, 1)
-        F = np.diag((diagonals ** 0.5)) @ cc_cor @ np.diag((diagonals ** 0.5))
-
-        y = returns ** 2
-        mat1 = (y.transpose() @ y) / T - Sigma ** 2
-        pihat = mat1.sum()
-
-        mat2 = ((returns ** 3).transpose() @ returns) / T - var * Sigma
-        np.fill_diagonal(mat2, 0)
-        rhohat = np.diag(mat1).sum() + rbar * ((1 / vols) @ vols.transpose() * mat2).sum()
-        gammahat = np.linalg.norm(Sigma - F, "fro") ** 2
-        kappahat = (pihat - rhohat) / gammahat
-        delta = max(0, min(1, kappahat / T))
-
-        return delta * F + (1 - delta) * Sigma
-
-def calculate_indicators_and_crashes(df, strategies):
-    if df.empty:
-        st.error("No data available for the selected date range.")
-        return df
-
-    try:
-        if "MACD" in strategies:
-            macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
-            if 'MACD_12_26_9' in macd.columns:
-                df['MACD Line'] = macd['MACD_12_26_9']
-                df['Signal Line'] = macd['MACDs_12_26_9']
-                df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
-                df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
-
-        if "Supertrend" in strategies:
-            supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
-            if 'SUPERTd_7_3.0' in supertrend.columns:
-                df['Supertrend'] = supertrend['SUPERTd_7_3.0']
-                df['Supertrend Buy'] = supertrend['SUPERTd_7_3.0'] == 1  # Buy when supertrend is positive
-                df['Supertrend Sell'] = supertrend['SUPERTd_7_3.0'] == -1  # Sell when supertrend is negative
-
-        if "Stochastic" in strategies:
-            stochastic = df.ta.stoch(append=True)
-            if 'STOCHk_14_3_3' in stochastic.columns and 'STOCHd_14_3_3' in stochastic.columns:
-                df['Stochastic K'] = stochastic['STOCHk_14_3_3']
-                df['Stochastic D'] = stochastic['STOCHd_14_3_3']
-                df['Stochastic Buy'] = (df['Stochastic K'] > df['Stochastic D']) & (df['Stochastic K'].shift(1) <= df['Stochastic D'].shift(1))
-                df['Stochastic Sell'] = (df['Stochastic K'] < df['Stochastic D']) & (df['Stochastic K'].shift(1) >= df['Stochastic D'].shift(1))
-
-        if "RSI" in strategies:
-            df['RSI'] = ta.rsi(df['close'], length=14)
-            df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
-            df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
-
-        peaks, _ = find_peaks(df['close'])
-        df['Peaks'] = df.index.isin(df.index[peaks])
-
-        # Forward-fill peak prices to compute drawdowns
-        peak_prices = df['close'].where(df['Peaks']).ffill()
-        drawdowns = (peak_prices - df['close']) / peak_prices
-
-        # Mark significant drawdowns as crashes
-        crash_threshold = 0.175
-        df['Crash'] = drawdowns >= crash_threshold
-
-        # Filter crashes to keep only one per week (on Fridays)
-        df['Crash'] = df['Crash'] & (df.index.weekday == 4)
-
-        # Adjust buy and sell signals based on crashes
-        df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
-                                (~df['Crash'].shift(1).fillna(False)))
-        df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
-                               (~df['Crash'].shift(1).fillna(False)))
-    except KeyError as e:
-        st.error(f"KeyError: {e}")
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
-    return df
-
-# Function to apply T+ holding constraint
-def apply_t_plus(df, t_plus):
-    t_plus_days = int(t_plus)
-
-    if t_plus_days > 0:
-        df['Buy Date'] = np.nan
-        df.loc[df['Adjusted Buy'], 'Buy Date'] = df.index[df['Adjusted Buy']]
-        df['Buy Date'] = df['Buy Date'].ffill()
-        df['Earliest Sell Date'] = df['Buy Date'] + pd.to_timedelta(t_plus_days, unit='D')
-        df['Adjusted Sell'] = df['Adjusted Sell'] & (df.index > df['Earliest Sell Date'])
-
-    return df
-
-# Function to run backtesting using vectorbt's from_signals
-def run_backtest(df, init_cash, fees, direction, t_plus):
-    df = apply_t_plus(df, t_plus)
-    entries = df['Adjusted Buy']
-    exits = df['Adjusted Sell']
-
-    if entries.empty or exits.empty or not entries.any() or not exits.any():
-        return None
-
-    portfolio = vbt.Portfolio.from_signals(
-        df['close'],
-        entries,
-        exits,
-        init_cash=init_cash,
-        fees=fees,
-        direction=direction
-    )
-    return portfolio
-
-# Calculate crash likelihood
-def calculate_crash_likelihood(df):
-    crash_counts = df['Crash'].resample('W').sum()
-    total_weeks = len(crash_counts)
-    crash_weeks = crash_counts[crash_counts > 0].count()
-    return crash_weeks / total_weeks if total_weeks > 0 else 0
-
-# Streamlit App
-st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
-st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
 # Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
@@ -642,3 +417,217 @@ if selected_stocks:
 
 else:
     st.write("Please select a portfolio or sector to view data.")
+
+# Function definitions for PortfolioOptimizer class and calculate_indicators_and_crashes function
+class PortfolioOptimizer:
+    def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
+        X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
+        mu = np.mean(X, axis=0)  # Calculate the mean returns of the assets
+        Sigma = np.cov(X, rowvar=False)  # Calculate the covariance matrix of the returns
+
+        w = self.MSRP_solver(mu, Sigma)  # Use the MSRP solver to get the optimal weights
+        return w  # Return the optimal weights
+
+    def MSRP_solver(self, mu: np.ndarray, Sigma: np.ndarray) -> np.ndarray:
+        N = Sigma.shape[0]  # Number of assets (stocks)
+        if np.all(mu <= 1e-8):  # Check if mean returns are close to zero
+            return np.zeros(N)  # Return zero weights if no returns
+
+        Dmat = 2 * Sigma  # Quadratic term for the optimizer
+        Amat = np.vstack((mu, np.ones(N)))  # Combine mean returns and sum constraint for constraints
+        bvec = np.array([1, 1])  # Right-hand side of constraints (1 for mean returns and sum)
+        dvec = np.zeros(N)  # Linear term (zero for this problem)
+
+        # Call the QP solver
+        w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=2)
+        return w / np.sum(abs(w))  # Normalize weights to sum to 1
+
+    def solve_QP(self, Dmat: np.ndarray, dvec: np.ndarray, Amat: np.ndarray, bvec: np.ndarray, meq: int = 0) -> np.ndarray:
+        def portfolio_obj(x):
+            return 0.5 * np.dot(x, np.dot(Dmat, x)) + np.dot(dvec, x)
+
+        def portfolio_constr_eq(x):
+            return np.dot(Amat[:meq], x) - bvec[:meq]
+
+        def portfolio_constr_ineq(x):
+            if Amat.shape[0] - meq == 0:
+                return np.array([])
+            else:
+                return np.dot(Amat[meq:], x) - bvec[meq:]
+
+        cons = [{'type': 'eq', 'fun': portfolio_constr_eq}]
+
+        if meq < len(bvec):
+            cons.append({'type': 'ineq', 'fun': portfolio_constr_ineq})
+
+        initial_guess = np.ones(Dmat.shape[0]) / Dmat.shape[0]
+
+        res = minimize(portfolio_obj, initial_guess, constraints=cons, method='SLSQP')
+
+        if not res.success:
+            raise ValueError('Quadratic programming failed to find a solution.')
+
+        return res.x
+
+    def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit', shortselling: bool = True, leverage: int = None) -> np.ndarray:
+        X = np.diff(np.log(data), axis=0)
+        X = X[~np.isnan(X).any(axis=1)]  # Remove rows with NaN values
+
+        if shrinkage:
+            if shrinkage_type == 'ledoit':
+                Sigma = self.ledoit_wolf_shrinkage(X)
+            elif shrinkage_type == 'ledoit_cc':
+                Sigma = self.ledoitwolf_cc(X)
+            elif shrinkage_type == 'oas':
+                Sigma = self.oas_shrinkage(X)
+            elif shrinkage_type == 'graphical_lasso':
+                Sigma = self.graphical_lasso_shrinkage(X)
+            elif shrinkage_type == 'mcd':
+                Sigma = self.mcd_shrinkage(X)
+            else:
+                raise ValueError('Invalid shrinkage type. Choose from: ledoit, ledoit_cc, oas, graphical_lasso, mcd')
+        else:
+            Sigma = np.cov(X, rowvar=False)
+
+        if not shortselling:
+            N = Sigma.shape[0]
+            Dmat = 2 * Sigma
+            Amat = np.vstack((np.ones(N), np.eye(N)))
+            bvec = np.array([1] + [0] * N)
+            dvec = np.zeros(N)
+            w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=1)
+        else:
+            ones = np.ones(Sigma.shape[0])
+            w = np.linalg.solve(Sigma, ones)
+            w /= np.sum(w)
+
+        if leverage is not None and leverage < np.inf:
+            w = leverage * w / np.sum(np.abs(w))
+
+        return w
+
+    def ledoitwolf_cc(self, returns: np.ndarray) -> np.ndarray:
+        T, N = returns.shape
+        returns = returns - np.mean(returns, axis=0, keepdims=True)
+        df = pd.DataFrame(returns)
+        Sigma = df.cov().values
+        Cor = df.corr().values
+        diagonals = np.diag(Sigma)
+        var = diagonals.reshape(len(Sigma), 1)
+        vols = var ** 0.5
+
+        rbar = np.mean((Cor.sum(1) - 1) / (Cor.shape[1] - 1))
+        cc_cor = np.matrix([[rbar] * N for _ in range(N)])
+        np.fill_diagonal(cc_cor, 1)
+        F = np.diag((diagonals ** 0.5)) @ cc_cor @ np.diag((diagonals ** 0.5))
+
+        y = returns ** 2
+        mat1 = (y.transpose() @ y) / T - Sigma ** 2
+        pihat = mat1.sum()
+
+        mat2 = ((returns ** 3).transpose() @ returns) / T - var * Sigma
+        np.fill_diagonal(mat2, 0)
+        rhohat = np.diag(mat1).sum() + rbar * ((1 / vols) @ vols.transpose() * mat2).sum()
+        gammahat = np.linalg.norm(Sigma - F, "fro") ** 2
+        kappahat = (pihat - rhohat) / gammahat
+        delta = max(0, min(1, kappahat / T))
+
+        return delta * F + (1 - delta) * Sigma
+
+def calculate_indicators_and_crashes(df, strategies):
+    if df.empty:
+        st.error("No data available for the selected date range.")
+        return df
+
+    try:
+        if "MACD" in strategies:
+            macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
+            if 'MACD_12_26_9' in macd.columns:
+                df['MACD Line'] = macd['MACD_12_26_9']
+                df['Signal Line'] = macd['MACDs_12_26_9']
+                df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
+                df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
+
+        if "Supertrend" in strategies:
+            supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
+            if 'SUPERTd_7_3.0' in supertrend.columns:
+                df['Supertrend'] = supertrend['SUPERTd_7_3.0']
+                df['Supertrend Buy'] = supertrend['SUPERTd_7_3.0'] == 1  # Buy when supertrend is positive
+                df['Supertrend Sell'] = supertrend['SUPERTd_7_3.0'] == -1  # Sell when supertrend is negative
+
+        if "Stochastic" in strategies:
+            stochastic = df.ta.stoch(append=True)
+            if 'STOCHk_14_3_3' in stochastic.columns and 'STOCHd_14_3_3' in stochastic.columns:
+                df['Stochastic K'] = stochastic['STOCHk_14_3_3']
+                df['Stochastic D'] = stochastic['STOCHd_14_3_3']
+                df['Stochastic Buy'] = (df['Stochastic K'] > df['Stochastic D']) & (df['Stochastic K'].shift(1) <= df['Stochastic D'].shift(1))
+                df['Stochastic Sell'] = (df['Stochastic K'] < df['Stochastic D']) & (df['Stochastic K'].shift(1) >= df['Stochastic D'].shift(1))
+
+        if "RSI" in strategies:
+            df['RSI'] = ta.rsi(df['close'], length=14)
+            df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
+            df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
+
+        peaks, _ = find_peaks(df['close'])
+        df['Peaks'] = df.index.isin(df.index[peaks])
+
+        # Forward-fill peak prices to compute drawdowns
+        peak_prices = df['close'].where(df['Peaks']).ffill()
+        drawdowns = (peak_prices - df['close']) / peak_prices
+
+        # Mark significant drawdowns as crashes
+        crash_threshold = 0.175
+        df['Crash'] = drawdowns >= crash_threshold
+
+        # Filter crashes to keep only one per week (on Fridays)
+        df['Crash'] = df['Crash'] & (df.index.weekday == 4)
+
+        # Adjust buy and sell signals based on crashes
+        df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
+                                (~df['Crash'].shift(1).fillna(False)))
+        df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
+                               (~df['Crash'].shift(1).fillna(False)))
+    except KeyError as e:
+        st.error(f"KeyError: {e}")
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+    return df
+
+# Function to apply T+ holding constraint
+def apply_t_plus(df, t_plus):
+    t_plus_days = int(t_plus)
+
+    if t_plus_days > 0:
+        df['Buy Date'] = np.nan
+        df.loc[df['Adjusted Buy'], 'Buy Date'] = df.index[df['Adjusted Buy']]
+        df['Buy Date'] = df['Buy Date'].ffill()
+        df['Earliest Sell Date'] = df['Buy Date'] + pd.to_timedelta(t_plus_days, unit='D')
+        df['Adjusted Sell'] = df['Adjusted Sell'] & (df.index > df['Earliest Sell Date'])
+
+    return df
+
+# Function to run backtesting using vectorbt's from_signals
+def run_backtest(df, init_cash, fees, direction, t_plus):
+    df = apply_t_plus(df, t_plus)
+    entries = df['Adjusted Buy']
+    exits = df['Adjusted Sell']
+
+    if entries.empty or exits.empty or not entries.any() or not exits.any():
+        return None
+
+    portfolio = vbt.Portfolio.from_signals(
+        df['close'],
+        entries,
+        exits,
+        init_cash=init_cash,
+        fees=fees,
+        direction=direction
+    )
+    return portfolio
+
+# Calculate crash likelihood
+def calculate_crash_likelihood(df):
+    crash_counts = df['Crash'].resample('W').sum()
+    total_weeks = len(crash_counts)
+    crash_weeks = crash_counts[crash_counts > 0].count()
+    return crash_weeks / total_weeks if total_weeks > 0 else 0
