@@ -1,15 +1,12 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import os
-from scipy.optimize import minimize
-from scipy.signal import find_peaks
+from vnstock import stock_historical_data
 import plotly.graph_objects as go
 import seaborn as sns
 import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
-from vnstock import stock_historical_data
 
 # Check if the image file exists
 image_path = 'image.png'
@@ -26,54 +23,6 @@ st.markdown("""
     .stSidebar {background-color: #f0f2f6;}
     </style>
     """, unsafe_allow_html=True)
-
-# Sector and Portfolio files mapping
-SECTOR_FILES = {
-    'Ngân hàng': 'Banking.csv',
-    'Vật liệu xây dựng': 'Building Material.csv',
-    'Hóa chất': 'Chemical.csv',
-    'Dịch vụ tài chính': 'Financial Services.csv',
-    'Thực phẩm và đồ uống': 'Food and Beverage.csv',
-    'Dịch vụ công nghiệp': 'Industrial Services.csv',
-    'Công nghệ thông tin': 'Information Technology.csv',
-    'Khoáng sản': 'Mineral.csv',
-    'Dầu khí': 'Oil and Gas.csv',
-    'Bất động sản': 'Real Estate.csv',
-    'VNINDEX': 'Vnindex.csv'
-}
-
-# Load data function
-@st.cache_data
-def load_data(file_path):
-    if not os.path.exists(file_path):
-        st.error(f"File not found: {file_path}")
-        return pd.DataFrame()
-    return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
-
-def ensure_datetime_compatibility(start_date, end_date, df):
-    df = df[~df.index.duplicated(keep='first')]  # Ensure unique indices
-    if not isinstance(start_date, pd.Timestamp):
-        start_date = pd.Timestamp(start_date)
-    if not isinstance(end_date, pd.Timestamp):
-        end_date = pd.Timestamp(end_date)
-
-    # Check if the dates are within the dataframe's range
-    if start_date not in df.index:
-        start_date = df.index[df.index.searchsorted(start_date)]
-    if end_date not in df.index:
-        end_date = df.index[df.index.searchsorted(end_date)]
-
-    return df.loc[start_date:end_date]
-
-# Load and filter detailed data
-def load_detailed_data(selected_stocks):
-    data = pd.DataFrame()
-    for sector, file_path in SECTOR_FILES.items():
-        df = load_data(file_path)
-        if not df.empty:
-            sector_data = df[df['StockSymbol'].isin(selected_stocks)]
-            data = pd.concat([data, sector_data])
-    return data
 
 # Define the VN30 class
 class VN30:
@@ -99,36 +48,17 @@ class VN30:
             )
             df = pd.DataFrame(data)
             if not df.empty:
-                # Process real data
                 if 'time' in df.columns:
                     df.rename(columns={'time': 'Datetime'}, inplace=True)
                 elif 'datetime' in df.columns:
                     df.rename(columns={'datetime': 'Datetime'}, inplace=True)
                 df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
                 return df.set_index('Datetime', drop=True)
+            return pd.DataFrame()  # Handle case where no data is returned
         except Exception as e:
-            # Fallback to dummy data in case of an error
-            print("Error fetching real data:", e)
-            data = {
-                'Symbol': symbol,
-                'Price': 100,
-                'Date': today
-            }
-            df = pd.DataFrame([data])
-            return df.set_index('Symbol')
+            print(f"Error fetching real data for symbol {symbol}: {e}")
+            return pd.DataFrame()  # Return empty DataFrame on error
 
-        return pd.DataFrame()  # Return an empty DataFrame if no data is fetched
-
-# Usage
-vn30 = VN30()
-for symbol in vn30.symbols:
-    data = vn30.fetch_data(symbol)
-    if not data.empty:
-        print(data)
-    else:
-        print(f"No data available for {symbol}.")
-# Streamlit App
-st.title('VN30 Stock Analysis Dashboard')
     def analyze_stocks(self, selected_symbols):
         results = []
         for symbol in selected_symbols:
@@ -143,7 +73,6 @@ st.title('VN30 Stock Analysis Dashboard')
             return pd.DataFrame()  # Handle case where no data is returned
 
     def calculate_crash_risk(self, df):
-        # Dummy crash risk calculation, replace with actual logic
         df['RSI'] = ta.rsi(df['close'], length=14)
         conditions = [
             (df['RSI'] < 30),
@@ -158,37 +87,27 @@ st.title('VN30 Stock Analysis Dashboard')
         if df.empty:
             st.error("No data available.")
             return
-        
-        if 'Crash Risk' not in df.columns:
-            st.error("The 'Crash Risk' column is missing from the data.")
-            return
-
         color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
         n_cols = 5
-        # Define rows based on the number of records to display
         n_rows = (len(df) + n_cols - 1) // n_cols
-
-        # Create a grid layout dynamically based on the number of entries
         for i in range(n_rows):
             cols = st.columns(n_cols)
             for j, col in enumerate(cols):
                 idx = i * n_cols + j
                 if idx < len(df):
-                    # Access data safely
                     data_row = df.iloc[idx]
-                    crash_risk = data_row.get('Crash Risk', 'Unknown')  # Handle missing 'Crash Risk' gracefully
-                    color = color_map.get(crash_risk, '#FF5722')  # Default to a color if crash risk level is unknown
-                    
-                    # Display the colored box with the crash risk info
+                    crash_risk = data_row.get('Crash Risk', 'Unknown')
+                    color = color_map.get(crash_risk, '#FF5722')
                     col.markdown(
                         f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
                         f"{data_row.name.strftime('%Y-%m-%d')}<br>{crash_risk}</div>", 
                         unsafe_allow_html=True
                     )
                 else:
-                    col.empty()  # In case there are fewer entries than the number of columns
+                    col.empty()
 
-selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplicity
+vn30 = VN30()
+selected_symbols = vn30.symbols
 vn30_stocks = vn30.analyze_stocks(selected_symbols)
 
 if not vn30_stocks.empty:
@@ -196,6 +115,7 @@ if not vn30_stocks.empty:
     vn30.display_stock_status(vn30_stocks)
 else:
     st.error("No data available for VN30 stocks today.")
+
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
