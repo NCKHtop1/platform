@@ -76,96 +76,46 @@ def load_detailed_data(selected_stocks):
     return data
 
 # Define the VN30 class
-class VN30:
-    def __init__(self):
-        self.symbols = [
-            "ACB", "BCM", "BID", "BVH", "CTG", "FPT", "GAS", "GVR", "HDB", "HPG",
-            "MBB", "MSN", "MWG", "PLX", "POW", "SAB", "SHB", "SSB", "SSI", "STB",
-            "TCB", "TPB", "VCB", "VHM", "VIB", "VIC", "VJC", "VNM", "VPB", "VRE"
-        ]
+def display_stock_status(self, df):
+    if df.empty:
+        st.error("No data available.")
+        return
 
-    def fetch_data(self, symbol):
-        today = pd.Timestamp.today().strftime('%Y-%m-%d')
-        data = stock_historical_data(
-            symbol=symbol,
-            start_date=today,
-            end_date=today,
-            resolution='1D',
-            type='stock',
-            beautify=True,
-            decor=False,
-            source='DNSE'
-        )
-        df = pd.DataFrame(data)
-        if not df.empty:
-            if 'time' in df.columns:
-                df.rename(columns={'time': 'Datetime'}, inplace=True)
-            elif 'datetime' in df.columns:
-                df.rename(columns={'datetime': 'Datetime'}, inplace=True)
-            df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
-            return df.set_index('Datetime', drop=True)
-        return pd.DataFrame()  # Handle case where no data is returned
+    required_columns = ['Crash Risk', 'StockSymbol']
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        st.error(f"The following columns are missing from the data: {', '.join(missing_columns)}")
+        return
 
-    def analyze_stocks(self, selected_symbols):
-        results = []
-        for symbol in selected_symbols:
-            stock_data = self.fetch_data(symbol)
-            if not stock_data.empty:
-                stock_data['Crash Risk'] = self.calculate_crash_risk(stock_data)
-                results.append(stock_data)
-        if results:
-            combined_data = pd.concat(results)
-            return combined_data
-        else:
-            return pd.DataFrame()  # Handle case where no data is returned
+    color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
+    n_cols = 5
+    n_rows = (len(df) + n_cols - 1) // n_cols
 
-    def calculate_crash_risk(self, df):
-        # Dummy crash risk calculation, replace with actual logic
-        df['RSI'] = ta.rsi(df['close'], length=14)
-        conditions = [
-            (df['RSI'] < 30),
-            (df['RSI'].between(30, 70)),
-            (df['RSI'] > 70)
-        ]
-        choices = ['Low', 'Medium', 'High']
-        df['Crash Risk'] = np.select(conditions, choices, default='Medium')
-        return df['Crash Risk']
+    # Debug: Print the DataFrame to check its structure
+    st.write("Debug: DataFrame structure", df.head())
 
-    def display_stock_status(self, df):
-        if df.empty:
-            st.error("No data available.")
-            return
-        
-        if 'Crash Risk' not in df.columns:
-            st.error("The 'Crash Risk' column is missing from the data.")
-            return
+    for i in range(n_rows):
+        cols = st.columns(n_cols)
+        for j, col in enumerate(cols):
+            idx = i * n_cols + j
+            if idx < len(df):
+                data_row = df.iloc[idx]
+                # Ensure 'Crash Risk' and 'StockSymbol' columns exist and are accessible
+                crash_risk = data_row.get('Crash Risk', 'Unknown')
+                color = color_map.get(crash_risk, '#FF5722')
+                stock_symbol = data_row.get('StockSymbol', 'N/A')
 
-        color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
-        n_cols = 5
-        # Define rows based on the number of records to display
-        n_rows = (len(df) + n_cols - 1) // n_cols
+                # Debug: Print the current data row being processed
+                st.write(f"Debug: Processing row {idx}", data_row)
 
-        # Create a grid layout dynamically based on the number of entries
-        for i in range(n_rows):
-            cols = st.columns(n_cols)
-            for j, col in enumerate(cols):
-                idx = i * n_cols + j
-                if idx < len(df):
-                    # Access data safely
-                    data_row = df.iloc[idx]
-                    crash_risk = data_row.get('Crash Risk', 'Unknown')  # Handle missing 'Crash Risk' gracefully
-                    color = color_map.get(crash_risk, '#FF5722')  # Default to a color if crash risk level is unknown
-                    
-                    # Display the colored box with the crash risk info
-                    col.markdown(
-                        f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
-                        f"{data_row.name.strftime('%Y-%m-%d')}<br>{crash_risk}</div>", 
-                        unsafe_allow_html=True
-                    )
-                else:
-                    col.empty()  # In case there are fewer entries than the number of columns
+                col.markdown(
+                    f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
+                    f"{data_row.name.strftime('%Y-%m-%d')}<br><strong>{stock_symbol}</strong><br>{crash_risk}</div>", 
+                    unsafe_allow_html=True
+                )
+            else:
+                col.empty()  # In case there are fewer entries than the number of columns
 
-# Usage in Streamlit (main application flow)
 st.title('VN30 Stock Analysis Dashboard')
 vn30 = VN30()
 selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplicity
@@ -176,6 +126,7 @@ if not vn30_stocks.empty:
     vn30.display_stock_status(vn30_stocks)
 else:
     st.error("No data available for VN30 stocks today.")
+
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
