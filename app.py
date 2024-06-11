@@ -129,7 +129,7 @@ class VN30:
             (df['RSI'] > 70)
         ]
         choices = ['Thấp', 'Trung bình', 'Cao']
-        df['Crash Risk'] = np.select(conditions, choices, default='Trung bình')
+        df['Crash Risk'] = np.select(conditions, choices, default='Thấp')
         return df['Crash Risk']
 
     def display_stock_status(self, df):
