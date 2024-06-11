@@ -149,6 +149,9 @@ def display_stock_status(self, df):
     # Define rows based on the number of records to display
     n_rows = (len(df) + n_cols - 1) // n_cols
 
+    # Debug: Print the DataFrame to check its structure
+    st.write(df.head())
+
     # Create a grid layout dynamically based on the number of entries
     for i in range(n_rows):
         cols = st.columns(n_cols)
@@ -171,7 +174,6 @@ def display_stock_status(self, df):
                 )
             else:
                 col.empty()  # In case there are fewer entries than the number of columns
-
 
 st.title('VN30 Stock Analysis Dashboard')
 vn30 = VN30()
