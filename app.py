@@ -146,38 +146,38 @@ class VN30:
         df['Crash Risk'] = np.select(conditions, choices, default='Low')
         return df
 
-def display_stock_status(self, df):
-    if df.empty:
-        st.error("No data available.")
-        return
-
-    if 'Crash Risk' not in df.columns or 'StockSymbol' not in df.columns:
-        st.error("Data is missing necessary columns ('Crash Risk' or 'StockSymbol').")
-        return
-
-    color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
-    n_cols = 5
-    n_rows = (len(df) + n_cols - 1) // n_cols  # Determine the number of rows needed
-
-    for i in range(n_rows):
-        cols = st.columns(n_cols)  # Create a row of columns
-        for j, col in enumerate(cols):
-            idx = i * n_cols + j
-            if idx < len(df):
-                data_row = df.iloc[idx]
-                crash_risk = data_row.get('Crash Risk', 'Unknown')  # Safely get the crash risk
-                stock_symbol = data_row['StockSymbol']  # Get the stock symbol
-                color = color_map.get(crash_risk, '#FF5722')  # Get the color for the crash risk
-                date = data_row.name.strftime('%Y-%m-%d')  # Format the date
-
-                # Display the colored box with the symbol, date, and crash risk
-                col.markdown(
-                    f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
-                    f"<strong>{stock_symbol}</strong><br>{date}<br>{crash_risk}</div>", 
-                    unsafe_allow_html=True
-                )
-            else:
-                col.empty()  # If there are fewer items than columns, keep the column empty
+    def display_stock_status(self, df):
+        if df.empty:
+            st.error("No data available.")
+            return
+    
+        if 'Crash Risk' not in df.columns or 'StockSymbol' not in df.columns:
+            st.error("Data is missing necessary columns ('Crash Risk' or 'StockSymbol').")
+            return
+    
+        color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
+        n_cols = 5
+        n_rows = (len(df) + n_cols - 1) // n_cols  # Determine the number of rows needed
+    
+        for i in range(n_rows):
+            cols = st.columns(n_cols)  # Create a row of columns
+            for j, col in enumerate(cols):
+                idx = i * n_cols + j
+                if idx < len(df):
+                    data_row = df.iloc[idx]
+                    crash_risk = data_row.get('Crash Risk', 'Unknown')  # Safely get the crash risk
+                    stock_symbol = data_row['StockSymbol']  # Get the stock symbol
+                    color = color_map.get(crash_risk, '#FF5722')  # Get the color for the crash risk
+                    date = data_row.name.strftime('%Y-%m-%d')  # Format the date
+    
+                    # Display the colored box with the symbol, date, and crash risk
+                    col.markdown(
+                        f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
+                        f"<strong>{stock_symbol}</strong><br>{date}<br>{crash_risk}</div>", 
+                        unsafe_allow_html=True
+                    )
+                else:
+                    col.empty()  
 
 # Usage in Streamlit (main application flow)
 st.title('VN30 Stock Analysis Dashboard')
