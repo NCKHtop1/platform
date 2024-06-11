@@ -131,44 +131,38 @@ class VN30:
         df['Crash Risk'] = np.select(conditions, choices, default='Medium')
         return df['Crash Risk']
 
-def display_stock_status(self, df):
-    if df.empty:
-        st.error("No data available.")
-        return
+    def display_stock_status(self, df):
+        if df.empty:
+            st.error("No data available.")
+            return
+        
+        required_columns = ['Crash Risk', 'StockSymbol']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            st.error(f"The following columns are missing from the data: {', '.join(missing_columns)}")
+            return
     
-    required_columns = ['Crash Risk', 'StockSymbol']
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        st.error(f"The following columns are missing from the data: {', '.join(missing_columns)}")
-        return
-
-    color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
-    n_cols = 5
-    n_rows = (len(df) + n_cols - 1) // n_cols
-
-    # Debug: Print the DataFrame to check its structure
-    st.write("Debug: DataFrame structure", df.head())
-
-    for i in range(n_rows):
-        cols = st.columns(n_cols)
-        for j, col in enumerate(cols):
-            idx = i * n_cols + j
-            if idx < len(df):
-                data_row = df.iloc[idx]
-                crash_risk = data_row.get('Crash Risk', 'Unknown')
-                color = color_map.get(crash_risk, '#FF5722')
-                stock_symbol = data_row.get('StockSymbol', 'N/A')
-
-                # Debug: Print the current data row being processed
-                st.write(f"Debug: Processing row {idx}", data_row)
-
-                col.markdown(
-                    f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
-                    f"{data_row.name.strftime('%Y-%m-%d')}<br><strong>{stock_symbol}</strong><br>{crash_risk}</div>", 
-                    unsafe_allow_html=True
-                )
-            else:
-                col.empty()
+        color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
+        n_cols = 5
+        n_rows = (len(df) + n_cols - 1) // n_cols
+    
+        for i in range(n_rows):
+            cols = st.columns(n_cols)
+            for j, col in enumerate(cols):
+                idx = i * n_cols + j
+                if idx < len(df):
+                    data_row = df.iloc[idx]
+                    crash_risk = data_row.get('Crash Risk', 'Unknown')
+                    color = color_map.get(crash_risk, '#FF5722')
+                    stock_symbol = data_row.get('StockSymbol', 'N/A')
+    
+                    col.markdown(
+                        f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
+                        f"{data_row.name.strftime('%Y-%m-%d')}<br><strong>{stock_symbol}</strong><br>{crash_risk}</div>", 
+                        unsafe_allow_html=True
+                    )
+                else:
+                    col.empty()
 
 # Usage in Streamlit (main application flow)
 st.title('VN30 Stock Analysis Dashboard')
@@ -181,6 +175,7 @@ if not vn30_stocks.empty:
     vn30.display_stock_status(vn30_stocks)
 else:
     st.error("No data available for VN30 stocks today.")
+
 
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
