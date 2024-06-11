@@ -131,43 +131,40 @@ class VN30:
         df['Crash Risk'] = np.select(conditions, choices, default='Medium')
         return df['Crash Risk']
 
-class VN30:
-    # ... (other methods and class definition)
+def display_stock_status(self, df):
+    if df.empty:
+        st.error("No data available.")
+        return
 
-    def display_stock_status(self, df):
-        if df.empty:
-            st.error("No data available.")
-            return
+    required_columns = ['Crash Risk', 'StockSymbol']
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        st.error(f"The following columns are missing from the data: {', '.join(missing_columns)}")
+        return
 
-        if 'Crash Risk' not in df.columns:
-            st.error("The 'Crash Risk' column is missing from the data.")
-            return
+    color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
+    n_cols = 5
+    n_rows = (len(df) + n_cols - 1) // n_cols
 
-        color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
-        n_cols = 5
-        # Define rows based on the number of records to display
-        n_rows = (len(df) + n_cols - 1) // n_cols
+    for i in range(n_rows):
+        cols = st.columns(n_cols)
+        for j, col in enumerate(cols):
+            idx = i * n_cols + j
+            if idx < len(df):
+                data_row = df.iloc[idx]
+                crash_risk = data_row.get('Crash Risk', 'Unknown')
+                color = color_map.get(crash_risk, '#FF5722')
+                stock_symbol = data_row.get('StockSymbol', 'N/A')
+                date = data_row.name.strftime('%Y-%m-%d')
 
-        # Create a grid layout dynamically based on the number of entries
-        for i in range(n_rows):
-            cols = st.columns(n_cols)
-            for j, col in enumerate(cols):
-                idx = i * n_cols + j
-                if idx < len(df):
-                    # Access data safely
-                    data_row = df.iloc[idx]
-                    crash_risk = data_row.get('Crash Risk', 'Unknown')  # Handle missing 'Crash Risk' gracefully
-                    color = color_map.get(crash_risk, '#FF5722')  # Default to a color if crash risk level is unknown
-                    symbol = data_row.name  # Assuming the index holds the stock symbol
-                    
-                    # Display the colored box with the symbol and crash risk info
-                    col.markdown(
-                        f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
-                        f"Symbol: {symbol}<br>{crash_risk}</div>", 
-                        unsafe_allow_html=True
-                    )
-                else:
-                    col.empty()  # In case there are fewer entries than the number of columns
+                # Display the colored box with the symbol, date, and crash risk info
+                col.markdown(
+                    f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
+                    f"<strong>{stock_symbol}</strong><br>{date}<br>{crash_risk}</div>", 
+                    unsafe_allow_html=True
+                )
+            else:
+                col.empty()
 
 # Usage in Streamlit (main application flow)
 st.title('VN30 Stock Analysis Dashboard')
