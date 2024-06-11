@@ -131,50 +131,41 @@ class VN30:
         df['Crash Risk'] = np.select(conditions, choices, default='Medium')
         return df['Crash Risk']
 
-def display_stock_status(self, df):
-    if df.empty:
-        st.error("No data available.")
-        return
+    def display_stock_status(self, df):
+        if df.empty:
+            st.error("No data available.")
+            return
+        
+        if 'Crash Risk' not in df.columns:
+            st.error("The 'Crash Risk' column is missing from the data.")
+            return
 
-    if 'Crash Risk' not in df.columns:
-        st.error("The 'Crash Risk' column is missing from the data.")
-        return
+        color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
+        n_cols = 5
+        # Define rows based on the number of records to display
+        n_rows = (len(df) + n_cols - 1) // n_cols
 
-    if 'StockSymbol' not in df.columns:
-        st.error("The 'StockSymbol' column is missing from the data.")
-        return
+        # Create a grid layout dynamically based on the number of entries
+        for i in range(n_rows):
+            cols = st.columns(n_cols)
+            for j, col in enumerate(cols):
+                idx = i * n_cols + j
+                if idx < len(df):
+                    # Access data safely
+                    data_row = df.iloc[idx]
+                    crash_risk = data_row.get('Crash Risk', 'Unknown')  # Handle missing 'Crash Risk' gracefully
+                    color = color_map.get(crash_risk, '#FF5722')  # Default to a color if crash risk level is unknown
+                    
+                    # Display the colored box with the crash risk info
+                    col.markdown(
+                        f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
+                        f"{data_row.name.strftime('%Y-%m-%d')}<br>{crash_risk}</div>", 
+                        unsafe_allow_html=True
+                    )
+                else:
+                    col.empty()  # In case there are fewer entries than the number of columns
 
-    color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
-    n_cols = 5
-    # Define rows based on the number of records to display
-    n_rows = (len(df) + n_cols - 1) // n_cols
-
-    # Debug: Print the DataFrame to check its structure
-    st.write(df.head())
-
-    # Create a grid layout dynamically based on the number of entries
-    for i in range(n_rows):
-        cols = st.columns(n_cols)
-        for j, col in enumerate(cols):
-            idx = i * n_cols + j
-            if idx < len(df):
-                # Access data safely
-                data_row = df.iloc[idx]
-                crash_risk = data_row.get('Crash Risk', 'Unknown')  # Handle missing 'Crash Risk' gracefully
-                color = color_map.get(crash_risk, '#FF5722')  # Default to a color if crash risk level is unknown
-
-                # Ensure 'StockSymbol' column exists and is accessible
-                stock_symbol = data_row.get('StockSymbol', 'N/A')
-
-                # Display the colored box with the crash risk info and stock symbol
-                col.markdown(
-                    f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
-                    f"{data_row.name.strftime('%Y-%m-%d')}<br><strong>{stock_symbol}</strong><br>{crash_risk}</div>", 
-                    unsafe_allow_html=True
-                )
-            else:
-                col.empty()  # In case there are fewer entries than the number of columns
-
+# Usage in Streamlit (main application flow)
 st.title('VN30 Stock Analysis Dashboard')
 vn30 = VN30()
 selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplicity
@@ -185,7 +176,6 @@ if not vn30_stocks.empty:
     vn30.display_stock_status(vn30_stocks)
 else:
     st.error("No data available for VN30 stocks today.")
-
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
