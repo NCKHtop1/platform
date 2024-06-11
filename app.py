@@ -118,7 +118,7 @@ class VN30:
             combined_data = pd.concat(results)
             return combined_data
         else:
-            return pd.DataFrame()  # Xử lý trường hợp không có dữ liệu trả về
+            return pd.DataFrame()  # Handle case where no data is returned
 
     def calculate_crash_risk(self, df):
         # Tính toán rủi ro giảm giá giả định, thay thế bằng logic thực tế
@@ -136,17 +136,15 @@ class VN30:
         if df.empty:
             st.error("Không có dữ liệu.")
             return
-
+    
         if 'Crash Risk' not in df.columns or 'StockSymbol' not in df.columns:
             st.error("Dữ liệu không đầy đủ.")
             return
-
+    
         color_map = {'Thấp': '#4CAF50', 'Trung bình': '#FFC107', 'Cao': '#FF5722'}
         n_cols = 5
-        # Xác định số hàng dựa trên số lượng bản ghi cần hiển thị
         n_rows = (len(df) + n_cols - 1) // n_cols
-
-        # Tạo bố cục lưới động dựa trên số lượng mục
+    
         for i in range(n_rows):
             cols = st.columns(n_cols)
             for j, col in enumerate(cols):
@@ -157,7 +155,7 @@ class VN30:
                     color = color_map.get(crash_risk, '#FF5722')
                     stock_symbol = data_row.get('StockSymbol', 'N/A')
                     date = data_row.name.strftime('%Y-%m-%d')
-
+    
                     # Display the colored box with the symbol, date, and crash risk info
                     col.markdown(
                         f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
@@ -178,7 +176,7 @@ if not vn30_stocks.empty:
     vn30.display_stock_status(vn30_stocks)
 else:
     st.error("No data available for VN30 stocks today.")
-    
+
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
