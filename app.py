@@ -103,6 +103,7 @@ class VN30:
             elif 'datetime' in df.columns:
                 df.rename(columns={'datetime': 'Datetime'}, inplace=True)
             df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
+            df['StockSymbol'] = symbol  # Ensure StockSymbol is included
             return df.set_index('Datetime', drop=True)
         return pd.DataFrame()  # Handle case where no data is returned
 
