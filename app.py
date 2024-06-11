@@ -410,13 +410,17 @@ st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
 # Sidebar for Portfolio Selection
+# Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     vn30 = VN30()
     selected_stocks = []
+    display_vn30 = False  # Cờ để kiểm soát việc hiển thị kết quả VN30
+
     portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
 
     if 'VN30' in portfolio_options:
         selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
+        display_vn30 = True  # Người dùng chọn VN30, cần hiển thị kết quả cho VN30
         if st.button('Display VN30 Results'):
             vn30_stocks = vn30.analyze_stocks(selected_symbols)
             if not vn30_stocks.empty:
@@ -428,6 +432,7 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
         
     if 'Chọn mã theo ngành' in portfolio_options:
         selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
+        display_vn30 = False  # Người dùng chọn ngành, không hiển thị kết quả VN30
         if selected_sector:
             df_full = load_data(SECTOR_FILES[selected_sector])
             available_symbols = df_full['StockSymbol'].unique().tolist()
@@ -442,6 +447,15 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
                     # Add display or analysis functions here for sector stocks
                 else:
                     st.error(f"No data available for stocks in the {selected_sector} sector.")
+
+# Usage in Streamlit (main application flow)
+if display_vn30:  # Chỉ hiển thị VN30 nếu cờ được bật
+    st.title('VN30 Stock Analysis Dashboard')
+    if not vn30_stocks.empty:
+        st.write("Displaying results for VN30 stocks for today.")
+        vn30.display_stock_status(vn30_stocks)
+    else:
+        st.error("No data available for VN30 stocks today.")
 
 # Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
