@@ -1,12 +1,15 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from vnstock import stock_historical_data
+import os
+from scipy.optimize import minimize
+from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import seaborn as sns
 import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
+from vnstock import stock_historical_data
 
 # Check if the image file exists
 image_path = 'image.png'
@@ -23,6 +26,54 @@ st.markdown("""
     .stSidebar {background-color: #f0f2f6;}
     </style>
     """, unsafe_allow_html=True)
+
+# Sector and Portfolio files mapping
+SECTOR_FILES = {
+    'Ngân hàng': 'Banking.csv',
+    'Vật liệu xây dựng': 'Building Material.csv',
+    'Hóa chất': 'Chemical.csv',
+    'Dịch vụ tài chính': 'Financial Services.csv',
+    'Thực phẩm và đồ uống': 'Food and Beverage.csv',
+    'Dịch vụ công nghiệp': 'Industrial Services.csv',
+    'Công nghệ thông tin': 'Information Technology.csv',
+    'Khoáng sản': 'Mineral.csv',
+    'Dầu khí': 'Oil and Gas.csv',
+    'Bất động sản': 'Real Estate.csv',
+    'VNINDEX': 'Vnindex.csv'
+}
+
+# Load data function
+@st.cache_data
+def load_data(file_path):
+    if not os.path.exists(file_path):
+        st.error(f"File not found: {file_path}")
+        return pd.DataFrame()
+    return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
+
+def ensure_datetime_compatibility(start_date, end_date, df):
+    df = df[~df.index.duplicated(keep='first')]  # Ensure unique indices
+    if not isinstance(start_date, pd.Timestamp):
+        start_date = pd.Timestamp(start_date)
+    if not isinstance(end_date, pd.Timestamp):
+        end_date = pd.Timestamp(end_date)
+
+    # Check if the dates are within the dataframe's range
+    if start_date not in df.index:
+        start_date = df.index[df.index.searchsorted(start_date)]
+    if end_date not in df.index:
+        end_date = df.index[df.index.searchsorted(end_date)]
+
+    return df.loc[start_date:end_date]
+
+# Load and filter detailed data
+def load_detailed_data(selected_stocks):
+    data = pd.DataFrame()
+    for sector, file_path in SECTOR_FILES.items():
+        df = load_data(file_path)
+        if not df.empty:
+            sector_data = df[df['StockSymbol'].isin(selected_stocks)]
+            data = pd.concat([data, sector_data])
+    return data
 
 # Define the VN30 class
 class VN30:
