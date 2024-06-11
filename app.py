@@ -105,7 +105,17 @@ class VN30:
             df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
             return df.set_index('Datetime', drop=True)
         return pd.DataFrame()  # Handle case where no data is returned
-
+        data = pd.DataFrame({
+            'Symbol': self.symbols,
+            'Price': [100 + i for i in range(len(self.symbols))],
+            'Date': [today for _ in self.symbols]
+        })
+        return data.set_index('Symbol')
+# Load and display VN30 data
+vn30 = VN30()
+vn30_data = vn30.fetch_data()
+# Streamlit App
+st.title('VN30 Stock Analysis Dashboard')
     def analyze_stocks(self, selected_symbols):
         results = []
         for symbol in selected_symbols:
@@ -165,9 +175,6 @@ class VN30:
                 else:
                     col.empty()  # In case there are fewer entries than the number of columns
 
-# Usage in Streamlit (main application flow)
-st.title('VN30 Stock Analysis Dashboard')
-vn30 = VN30()
 selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplicity
 vn30_stocks = vn30.analyze_stocks(selected_symbols)
 
@@ -393,21 +400,36 @@ def calculate_crash_likelihood(df):
 st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
-# Sidebar for Portfolio Selection
-with st.sidebar.expander("Danh mục đầu tư", expanded=True):
-    vn30 = VN30()
-    selected_stocks = []
-    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
+# Load and display VN30 data
+vn30 = VN30()
+vn30_data = vn30.fetch_data()
 
-    if 'VN30' in portfolio_options:
+# Streamlit App
+st.title('VN30 Stock Analysis Dashboard')
+
+# Sidebar for Portfolio Selection
+with st.sidebar:
+    portfolio_options = st.radio('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
+
+    if portfolio_options == 'VN30':
         selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
-        vn30_stocks = vn30.analyze_stocks(selected_symbols)
-        if not vn30_stocks.empty:
-            # Process and display VN30 stocks data
-            st.write("Displaying results for VN30 stocks for today.")
-            vn30.display_stock_status(vn30_stocks)
-        else:
-            st.error("No data available for VN30 stocks today.")
+        if selected_symbols:
+            vn30_stocks = vn30_data.loc[selected_symbols]
+            if not vn30_stocks.empty:
+                st.write("Displaying results for VN30 stocks for today:")
+                st.write(", ".join(selected_symbols))
+                st.dataframe(vn30_stocks)
+            else:
+                st.error("No data available for VN30 stocks today.")
+
+    elif portfolio_options == 'Chọn mã theo ngành':
+        st.write("Sector selection logic here.")
+
+# Main panel display logic
+if portfolio_options == 'VN30' and selected_symbols:
+    st.subheader('VN30 Stock Analysis Dashboard')
+    st.write(f"Analyzing the following stocks today: {', '.join(selected_symbols)}")
+    # Analysis and display of VN30 stocks data here
         
     if 'Chọn mã theo ngành' in portfolio_options:
         selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
