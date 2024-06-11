@@ -104,67 +104,68 @@ class VN30:
                 df.rename(columns={'datetime': 'Datetime'}, inplace=True)
             df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
             return df.set_index('Datetime', drop=True)
-        return pd.DataFrame()  # Handle case where no data is returned
+        return pd.DataFrame()  # Xử lý trường hợp không có dữ liệu trả về
 
     def analyze_stocks(self, selected_symbols):
         results = []
         for symbol in selected_symbols:
             stock_data = self.fetch_data(symbol)
             if not stock_data.empty:
+                stock_data['StockSymbol'] = symbol  # Add stock symbol to the DataFrame
                 stock_data['Crash Risk'] = self.calculate_crash_risk(stock_data)
                 results.append(stock_data)
         if results:
             combined_data = pd.concat(results)
             return combined_data
         else:
-            return pd.DataFrame()  # Handle case where no data is returned
+            return pd.DataFrame()  # Xử lý trường hợp không có dữ liệu trả về
 
     def calculate_crash_risk(self, df):
-        # Dummy crash risk calculation, replace with actual logic
+        # Tính toán rủi ro giảm giá giả định, thay thế bằng logic thực tế
         df['RSI'] = ta.rsi(df['close'], length=14)
         conditions = [
             (df['RSI'] < 30),
             (df['RSI'].between(30, 70)),
             (df['RSI'] > 70)
         ]
-        choices = ['Low', 'Medium', 'High']
-        df['Crash Risk'] = np.select(conditions, choices, default='Medium')
+        choices = ['Thấp', 'Trung bình', 'Cao']
+        df['Crash Risk'] = np.select(conditions, choices, default='Trung bình')
         return df['Crash Risk']
 
-def display_stock_status(self, df):
-    if df.empty:
-        st.error("No data available.")
-        return
+    def display_stock_status(self, df):
+        if df.empty:
+            st.error("Không có dữ liệu.")
+            return
 
-    required_columns = ['Crash Risk', 'StockSymbol']
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        st.error(f"The following columns are missing from the data: {', '.join(missing_columns)}")
-        return
+        if 'Crash Risk' not in df.columns or 'StockSymbol' not in df.columns:
+            st.error("Dữ liệu không đầy đủ.")
+            return
 
-    color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
-    n_cols = 5
-    n_rows = (len(df) + n_cols - 1) // n_cols
+        color_map = {'Thấp': '#4CAF50', 'Trung bình': '#FFC107', 'Cao': '#FF5722'}
+        n_cols = 5
+        # Xác định số hàng dựa trên số lượng bản ghi cần hiển thị
+        n_rows = (len(df) + n_cols - 1) // n_cols
 
-    for i in range(n_rows):
-        cols = st.columns(n_cols)
-        for j, col in enumerate(cols):
-            idx = i * n_cols + j
-            if idx < len(df):
-                data_row = df.iloc[idx]
-                crash_risk = data_row.get('Crash Risk', 'Unknown')
-                color = color_map.get(crash_risk, '#FF5722')
-                stock_symbol = data_row.get('StockSymbol', 'N/A')
-                date = data_row.name.strftime('%Y-%m-%d')
+        # Tạo bố cục lưới động dựa trên số lượng mục
+        for i in range(n_rows):
+            cols = st.columns(n_cols)
+            for j, col in enumerate(cols):
+                idx = i * n_cols + j
+                if idx < len(df):
+                    data_row = df.iloc[idx]
+                    crash_risk = data_row.get('Crash Risk', 'Unknown')
+                    color = color_map.get(crash_risk, '#FF5722')
+                    stock_symbol = data_row.get('StockSymbol', 'N/A')
+                    date = data_row.name.strftime('%Y-%m-%d')
 
-                # Display the colored box with the symbol, date, and crash risk info
-                col.markdown(
-                    f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
-                    f"<strong>{stock_symbol}</strong><br>{date}<br>{crash_risk}</div>", 
-                    unsafe_allow_html=True
-                )
-            else:
-                col.empty()
+                    # Display the colored box with the symbol, date, and crash risk info
+                    col.markdown(
+                        f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
+                        f"<strong>{stock_symbol}</strong><br>{date}<br>{crash_risk}</div>", 
+                        unsafe_allow_html=True
+                    )
+                else:
+                    col.empty()
 
 # Usage in Streamlit (main application flow)
 st.title('VN30 Stock Analysis Dashboard')
