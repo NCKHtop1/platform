@@ -184,14 +184,14 @@ st.title('Bảng Phân Tích Cổ Phiếu Trong Danh Mục VN30')
 vn30 = VN30()
 selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplicity
 
-if st.button('Kết Quả'):
+if st.sidebar.button('Kết Quả'):
     vn30_stocks = vn30.analyze_stocks(selected_symbols)
     if not vn30_stocks.empty:
         st.write("Hiển thị kết quả sự sụt giảm cổ phiếu trong danh mục VN30 ngày hôm nay.")
         vn30.display_stock_status(vn30_stocks)
     else:
         st.error("Không có dữ liệu cho cổ phiếu VN30 hôm nay.")
-
+        
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
