@@ -86,29 +86,25 @@ class VN30:
 
     def fetch_data(self, symbol):
         today = pd.Timestamp.today().strftime('%Y-%m-%d')
-        try:
-            data = stock_historical_data(
-                symbol=symbol,
-                start_date=today,
-                end_date=today,
-                resolution='1D',
-                type='stock',
-                beautify=True,
-                decor=False,
-                source='DNSE'
-            )
-            df = pd.DataFrame(data)
-            if not df.empty:
-                if 'time' in df.columns:
-                    df.rename(columns={'time': 'Datetime'}, inplace=True)
-                elif 'datetime' in df.columns:
-                    df.rename(columns={'datetime': 'Datetime'}, inplace=True)
-                df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
-                return df.set_index('Datetime', drop=True)
-            return pd.DataFrame()  # Handle case where no data is returned
-        except Exception as e:
-            print(f"Error fetching real data for symbol {symbol}: {e}")
-            return pd.DataFrame()  # Return empty DataFrame on error
+        data = stock_historical_data(
+            symbol=symbol,
+            start_date=today,
+            end_date=today,
+            resolution='1D',
+            type='stock',
+            beautify=True,
+            decor=False,
+            source='DNSE'
+        )
+        df = pd.DataFrame(data)
+        if not df.empty:
+            if 'time' in df.columns:
+                df.rename(columns={'time': 'Datetime'}, inplace=True)
+            elif 'datetime' in df.columns:
+                df.rename(columns={'datetime': 'Datetime'}, inplace=True)
+            df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
+            return df.set_index('Datetime', drop=True)
+        return pd.DataFrame()  # Handle case where no data is returned
 
     def analyze_stocks(self, selected_symbols):
         results = []
@@ -124,6 +120,7 @@ class VN30:
             return pd.DataFrame()  # Handle case where no data is returned
 
     def calculate_crash_risk(self, df):
+        # Dummy crash risk calculation, replace with actual logic
         df['RSI'] = ta.rsi(df['close'], length=14)
         conditions = [
             (df['RSI'] < 30),
@@ -138,27 +135,40 @@ class VN30:
         if df.empty:
             st.error("No data available.")
             return
+        
+        if 'Crash Risk' not in df.columns:
+            st.error("The 'Crash Risk' column is missing from the data.")
+            return
+
         color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
         n_cols = 5
+        # Define rows based on the number of records to display
         n_rows = (len(df) + n_cols - 1) // n_cols
+
+        # Create a grid layout dynamically based on the number of entries
         for i in range(n_rows):
             cols = st.columns(n_cols)
             for j, col in enumerate(cols):
                 idx = i * n_cols + j
                 if idx < len(df):
+                    # Access data safely
                     data_row = df.iloc[idx]
-                    crash_risk = data_row.get('Crash Risk', 'Unknown')
-                    color = color_map.get(crash_risk, '#FF5722')
+                    crash_risk = data_row.get('Crash Risk', 'Unknown')  # Handle missing 'Crash Risk' gracefully
+                    color = color_map.get(crash_risk, '#FF5722')  # Default to a color if crash risk level is unknown
+                    
+                    # Display the colored box with the crash risk info
                     col.markdown(
                         f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
                         f"{data_row.name.strftime('%Y-%m-%d')}<br>{crash_risk}</div>", 
                         unsafe_allow_html=True
                     )
                 else:
-                    col.empty()
+                    col.empty()  # In case there are fewer entries than the number of columns
 
+# Usage in Streamlit (main application flow)
+st.title('VN30 Stock Analysis Dashboard')
 vn30 = VN30()
-selected_symbols = vn30.symbols
+selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplicity
 vn30_stocks = vn30.analyze_stocks(selected_symbols)
 
 if not vn30_stocks.empty:
@@ -166,7 +176,6 @@ if not vn30_stocks.empty:
     vn30.display_stock_status(vn30_stocks)
 else:
     st.error("No data available for VN30 stocks today.")
-
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
@@ -384,36 +393,21 @@ def calculate_crash_likelihood(df):
 st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
-# Load and display VN30 data
-vn30 = VN30()
-vn30_data = vn30.fetch_data()
-
-# Streamlit App
-st.title('VN30 Stock Analysis Dashboard')
-
 # Sidebar for Portfolio Selection
-with st.sidebar:
-    portfolio_options = st.radio('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
+with st.sidebar.expander("Danh mục đầu tư", expanded=True):
+    vn30 = VN30()
+    selected_stocks = []
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
 
-    if portfolio_options == 'VN30':
+    if 'VN30' in portfolio_options:
         selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
-        if selected_symbols:
-            vn30_stocks = vn30_data.loc[selected_symbols]
-            if not vn30_stocks.empty:
-                st.write("Displaying results for VN30 stocks for today:")
-                st.write(", ".join(selected_symbols))
-                st.dataframe(vn30_stocks)
-            else:
-                st.error("No data available for VN30 stocks today.")
-
-    elif portfolio_options == 'Chọn mã theo ngành':
-        st.write("Sector selection logic here.")
-
-# Main panel display logic
-if portfolio_options == 'VN30' and selected_symbols:
-    st.subheader('VN30 Stock Analysis Dashboard')
-    st.write(f"Analyzing the following stocks today: {', '.join(selected_symbols)}")
-    # Analysis and display of VN30 stocks data here
+        vn30_stocks = vn30.analyze_stocks(selected_symbols)
+        if not vn30_stocks.empty:
+            # Process and display VN30 stocks data
+            st.write("Displaying results for VN30 stocks for today.")
+            vn30.display_stock_status(vn30_stocks)
+        else:
+            st.error("No data available for VN30 stocks today.")
         
     if 'Chọn mã theo ngành' in portfolio_options:
         selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
