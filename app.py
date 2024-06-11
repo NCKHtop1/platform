@@ -615,33 +615,45 @@ if selected_stocks:
 
                         with tab6:
                             st.markdown("**Danh mục đầu tư:**")
-                            st.markdown("Danh sách các mã cổ phiếu theo danh mục.")
-                            optimizer = PortfolioOptimizer()
-                            df_selected_stocks = df_filtered[df_filtered['StockSymbol'].isin(selected_stocks)]
-                            data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
-                            optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
+                            st.markdown("Danh sách các mã cổ phiếu theo danh mục và trọng số tối ưu cho từng mã.")
+                        
+                            # Kiểm tra xem có dữ liệu đã chọn không
+                            if selected_stocks:
+                                # Lấy dữ liệu cho các cổ phiếu đã chọn
+                                df_selected_stocks = df_filtered[df_filtered['StockSymbol'].isin(selected_stocks)]
+                                if not df_selected_stocks.empty:
+                                    # Tạo ma trận dữ liệu để tính toán trọng số
+                                    data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
+                        
+                                    # Kiểm tra ma trận dữ liệu không trống
+                                    if not data_matrix.empty:
+                                        optimizer = PortfolioOptimizer()
+                                        optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
+                        
+                                        st.write("Trọng số tối ưu cho các mã đã chọn:")
+                                        for stock, weight in zip(data_matrix.columns, optimal_weights):
+                                            st.write(f"{stock}: {weight:.4f}")
+                                    else:
+                                        st.error("Không có đủ dữ liệu để tính toán trọng số tối ưu.")
+                        
+                                    # Tính xác suất sụt giảm
+                                    crash_likelihoods = {}
+                                    for stock in selected_stocks:
+                                        stock_df = df_filtered[df_filtered['StockSymbol'] == stock]
+                                        if not stock_df.empty:
+                                            crash_likelihoods[stock] = calculate_crash_likelihood(stock_df)
+                        
+                                    if crash_likelihoods:
+                                        st.markdown("**Xác suất sụt giảm:**")
+                                        crash_likelihoods_df = pd.DataFrame(list(crash_likelihoods.items()), columns=['Stock', 'Crash Likelihood'])
+                                        crash_likelihoods_df.set_index('Stock', inplace=True)
+                                        fig, ax = plt.subplots(figsize=(10, len(crash_likelihoods_df) / 2))
+                                        sns.heatmap(crash_likelihoods_df, annot=True, cmap='RdYlGn_r', ax=ax)
+                                        st.pyplot(fig)
+                                    else:
+                                        st.error("Không có dữ liệu xác suất sụt giảm cho các mã cổ phiếu đã chọn.")
+                                else:
+                                    st.error("Không có dữ liệu cho các mã cổ phiếu đã chọn.")
+                            else:
+                                st.error("Vui lòng chọn cổ phiếu để phân tích trong danh mục đầu tư.")
 
-                            st.write("Optimal Weights for Selected Stocks:")
-                            for stock, weight in zip(data_matrix.columns, optimal_weights):
-                                st.write(f"{stock}: {weight:.4f}")
-
-                        crash_likelihoods = {}
-                        for stock in selected_stocks:
-                            stock_df = df_filtered[df_filtered['StockSymbol'] == stock]
-                            crash_likelihoods[stock] = calculate_crash_likelihood(stock_df)
-
-                        if crash_likelihoods:
-                            st.markdown("**Xác suất sụt giảm:**")
-                            crash_likelihoods_df = pd.DataFrame(list(crash_likelihoods.items()), columns=['Stock', 'Crash Likelihood'])
-                            crash_likelihoods_df.set_index('Stock', inplace=True)
-                            fig, ax = plt.subplots(figsize=(10, len(crash_likelihoods_df) / 2))
-                            sns.heatmap(crash_likelihoods_df, annot=True, cmap='RdYlGn_r', ax=ax)
-                            st.pyplot(fig)
-            except KeyError as e:
-                st.error(f"Key error: {e}")
-            except Exception as e:
-                if 'tuple index out of range' not in str(e):
-                    st.error(f"An unexpected error occurred: {e}")
-
-else:
-    st.write("Please select a portfolio or sector to view data.")
