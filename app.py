@@ -152,33 +152,33 @@ class VN30:
             return
         
         if 'Crash Risk' not in df.columns or 'StockSymbol' not in df.columns:
-            st.error("The 'Crash Risk' column is missing from the data.")
+            st.error("The data is missing necessary columns.")
             return
-
+    
         color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
         n_cols = 5
-        # Define rows based on the number of records to display
         n_rows = (len(df) + n_cols - 1) // n_cols
-
-        # Create a grid layout dynamically based on the number of entries
+    
         for i in range(n_rows):
             cols = st.columns(n_cols)
             for j, col in enumerate(cols):
                 idx = i * n_cols + j
                 if idx < len(df):
-                    # Access data safely
                     data_row = df.iloc[idx]
-                    crash_risk = data_row.get('Crash Risk', 'Unknown')  # Handle missing 'Crash Risk' gracefully
-                    color = color_map.get(crash_risk, '#FF5722')  # Default to a color if crash risk level is unknown
-                    
-                    # Display the colored box with the crash risk info
+                    crash_risk = data_row.get('Crash Risk', 'Unknown')
+                    stock_symbol = data_row['StockSymbol']
+                    color = color_map.get(crash_risk, '#FF5722')
+                    date = data_row.name.strftime('%Y-%m-%d')
+    
+                    # Display the colored box with the symbol, date, and crash risk info
                     col.markdown(
                         f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
-                        f"{data_row.name.strftime('%Y-%m-%d')}<br>{data_row['StockSymbol']}<br>{crash_risk}</div>", 
+                        f"<strong>{stock_symbol}</strong><br>{date}<br>{crash_risk}</div>", 
                         unsafe_allow_html=True
                     )
                 else:
-                    col.empty()  # In case there are fewer entries than the number of columns
+                    col.empty()
+
 
 # Usage in Streamlit (main application flow)
 st.title('VN30 Stock Analysis Dashboard')
