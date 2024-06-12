@@ -155,7 +155,7 @@ class VN30:
             st.error("Data is missing necessary columns ('Crash Risk' or 'StockSymbol').")
             return
     
-        color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5722'}
+        color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5733'}
         n_cols = 5
         n_rows = (len(df) + n_cols - 1) // n_cols  # Determine the number of rows needed
     
@@ -184,6 +184,38 @@ st.title('Bảng Phân Tích Cổ Phiếu Trong Danh Mục VN30')
 vn30 = VN30()
 selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplicity
 
+# Sidebar for Portfolio Selection
+with st.sidebar.expander("Danh mục đầu tư", expanded=True):
+    vn30 = VN30()
+    selected_stocks = []
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
+
+    display_vn30 = 'VN30' in portfolio_options  # Set to True only if VN30 is selected
+
+    if 'VN30' in portfolio_options:
+        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
+        
+    if 'Chọn mã theo ngành' in portfolio_options:
+        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
+        if selected_sector:
+            df_full = load_data(SECTOR_FILES[selected_sector])
+            available_symbols = df_full['StockSymbol'].unique().tolist()
+            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
+            selected_stocks.extend(sector_selected_symbols)
+            display_vn30 = False  # Disable VN30 display if sector is selected
+
+    # Display color key for crash risk
+    st.markdown("""
+    <div style='margin-top: 20px;'>
+        <strong>Chỉ số Đánh Giá Rủi Ro Sụp Đổ:</strong>
+        <ul>
+            <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span></li>
+            <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span></li>
+            <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span></li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
 if st.sidebar.button('Kết Quả'):
     vn30_stocks = vn30.analyze_stocks(selected_symbols)
     if not vn30_stocks.empty:
@@ -191,7 +223,7 @@ if st.sidebar.button('Kết Quả'):
         vn30.display_stock_status(vn30_stocks)
     else:
         st.error("Không có dữ liệu cho cổ phiếu VN30 hôm nay.")
-        
+
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
