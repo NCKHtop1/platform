@@ -220,6 +220,16 @@ if st.sidebar.button('Kết Quả'):
     vn30_stocks = vn30.analyze_stocks(selected_symbols)
     if not vn30_stocks.empty:
         st.write("Hiển thị kết quả sự sụt giảm cổ phiếu trong danh mục VN30 ngày hôm nay.")
+        st.write("""
+        <div>
+            <strong>Chú thích màu sắc:</strong>
+            <ul>
+                <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span> - Rủi ro sụt giảm giá cao.</li>
+                <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span> - Rủi ro sụt giảm giá trung bình.</li>
+                <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span> - Rủi ro sụt giảm giá thấp.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
         vn30.display_stock_status(vn30_stocks)
     else:
         st.error("Không có dữ liệu cho cổ phiếu VN30 hôm nay.")
