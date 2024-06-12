@@ -429,6 +429,18 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
             selected_stocks.extend(sector_selected_symbols)
             display_vn30 = False  # Disable VN30 display if sector is selected
 
+    # Display color key for crash risk
+    st.markdown("""
+    <div style='margin-top: 20px;'>
+        <strong>Chỉ số Đánh Giá Rủi Ro Sụp Đổ:</strong>
+        <ul>
+            <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span></li>
+            <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span></li>
+            <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span></li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
 # Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
     init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000)
