@@ -91,21 +91,6 @@ with st.sidebar:
         else:
             st.error("No data available for the selected sector.")
 
-def calculate_VaR(returns, confidence_level=0.95):
-    """
-    Calculate the Value at Risk (VaR) for a series of returns
-    :param returns: pandas.Series of returns
-    :param confidence_level: float, confidence level for VaR
-    :return: float, VaR value
-    """
-    if not isinstance(returns, pd.Series):
-        returns = pd.Series(returns)
-    # Assuming normal distribution of returns
-    mean_return = returns.mean()
-    std_return = returns.std()
-    var = np.percentile(returns, 100 * (1 - confidence_level))
-    return var
-
 # Define the VN30 class
 class VN30:
     def __init__(self):
