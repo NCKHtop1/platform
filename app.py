@@ -10,6 +10,10 @@ import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 from vnstock import stock_historical_data
+from tvDatafeed import TvDatafeed, Interval
+
+# Initialize TradingView Datafeed
+tv = TvDatafeed(username="tradingpro.112233@gmail.com", password="Quantmatic@2024")
 
 # Check if the image file exists
 image_path = 'image.png'
@@ -65,14 +69,30 @@ def ensure_datetime_compatibility(start_date, end_date, df):
 
     return df.loc[start_date:end_date]
 
+# Fetch data from TradingView
+@st.cache_data
+def fetch_data_from_tradingview(symbol, exchange, interval, n_bars):
+    try:
+        data = tv.get_hist(symbol=symbol, exchange=exchange, interval=interval, n_bars=n_bars)
+        if data.empty:
+            st.error(f"No data found for symbol: {symbol}")
+            return pd.DataFrame()
+        data = data.rename(columns={'time': 'Datetime'})
+        data['Datetime'] = pd.to_datetime(data['Datetime'])
+        data.set_index('Datetime', inplace=True)
+        return data
+    except Exception as e:
+        st.error(f"Error fetching data from TradingView: {e}")
+        return pd.DataFrame()
+
 # Load and filter detailed data
-def load_detailed_data(selected_stocks):
+def load_detailed_data(selected_stocks, interval, n_bars):
     data = pd.DataFrame()
-    for sector, file_path in SECTOR_FILES.items():
-        df = load_data(file_path)
+    for stock in selected_stocks:
+        df = fetch_data_from_tradingview(stock, 'HOSE', interval, n_bars)
         if not df.empty:
-            sector_data = df[df['StockSymbol'].isin(selected_stocks)]
-            data = pd.concat([data, sector_data])
+            df['StockSymbol'] = stock
+            data = pd.concat([data, df])
     return data
 
 def calculate_VaR(returns, confidence_level=0.95):
@@ -101,24 +121,9 @@ class VN30:
 
     def fetch_data(self, symbol):
         today = pd.Timestamp.today().strftime('%Y-%m-%d')
-        data = stock_historical_data(
-            symbol=symbol,
-            start_date=today,
-            end_date=today,
-            resolution='1D',
-            type='stock',
-            beautify=True,
-            decor=False,
-            source='DNSE'
-        )
-        df = pd.DataFrame(data)
-        if not df.empty:
-            if 'time' in df.columns:
-                df.rename(columns={'time': 'Datetime'}, inplace=True)
-            elif 'datetime' in df.columns:
-                df.rename(columns={'datetime': 'Datetime'}, inplace=True)
-            df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
-            return df.set_index('Datetime', drop=True)
+        data = fetch_data_from_tradingview(symbol, 'HOSE', interval, n_bars)
+        if not data.empty:
+            return data
         return pd.DataFrame()  # Handle case where no data is returned
 
     def analyze_stocks(self, selected_symbols):
@@ -186,7 +191,6 @@ selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplic
 
 # Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
-    vn30 = VN30()
     selected_stocks = []
     portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
 
@@ -503,12 +507,12 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 # Ensure that the date range is within the available data
 if selected_stocks:
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
-        sector_data = load_detailed_data(selected_stocks)
+        sector_data = load_detailed_data(selected_stocks, interval, n_bars)
         combined_data = pd.concat([vn30_stocks, sector_data])
     elif 'VN30' in portfolio_options:
         combined_data = vn30_stocks
     elif 'Chọn mã theo ngành' in portfolio_options:
-        combined_data = load_detailed_data(selected_stocks)
+        combined_data = load_detailed_data(selected_stocks, interval, n_bars)
     else:
         combined_data = pd.DataFrame()
 
