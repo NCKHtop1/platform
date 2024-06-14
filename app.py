@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 from vnstock import stock_historical_data
+from tvDatafeed import TvDatafeed, Interval
 
 # Check if the image file exists
 image_path = 'image.png'
