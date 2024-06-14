@@ -34,29 +34,31 @@ SECTOR_FILES = {
     'Công nghệ thông tin': 'Information Technology.csv',
     'Khoáng sản': 'Mineral.csv',
     'Dầu khí': 'Oil and Gas.csv',
-    'Bất động sản': 'Real Estate.csv',
-    'VNINDEX': 'Vnindex.csv'
+    'Bất động sản': 'Real Estate.csv'
 }
 
 # Fetch data from TradingView
-def fetch_data_from_tradingview(symbol, exchange='HOSE', interval=Interval.in_daily, n_bars=1000):
+def fetch_data_from_tradingview(symbol, exchange='HOSE', interval=Interval.in_daily):
     try:
-        data = tv.get_hist(symbol=symbol, exchange=exchange, interval=interval, n_bars=n_bars)
+        today = pd.Timestamp.today()
+        start_date = today - pd.Timedelta(days=365)  # Last year data
+        data = tv.get_hist(symbol=symbol, exchange=exchange, interval=interval, n=365, from_date=start_date.strftime('%Y-%m-%d'), to_date=today.strftime('%Y-%m-%d'))
         if data.empty:
             st.error(f"No data found for symbol: {symbol}")
             return pd.DataFrame()
+        data.index.name = 'Datetime'
         return data
     except Exception as e:
         st.error(f"Error fetching data from TradingView: {e}")
         return pd.DataFrame()
 
 # Load and filter detailed data
-def load_detailed_data(sector_file_path, interval, n_bars):
+def load_detailed_data(sector_file_path):
     try:
         sector_stocks = pd.read_csv(sector_file_path)['StockSymbol'].unique()
         data = pd.DataFrame()
         for stock in sector_stocks:
-            df = fetch_data_from_tradingview(stock, 'HOSE', interval, n_bars)
+            df = fetch_data_from_tradingview(stock, 'HOSE')
             if not df.empty:
                 df['StockSymbol'] = stock
                 data = pd.concat([data, df])
@@ -72,11 +74,11 @@ with st.sidebar:
     if selected_sector:
         # Path to the sector file
         sector_file_path = SECTOR_FILES[selected_sector]
-        data = load_detailed_data(sector_file_path, Interval.in_daily, 1000)
+        data = load_detailed_data(sector_file_path)
 
         if not data.empty:
             st.success("Data loaded successfully.")
-            st.write(data.head())
+            st.write(data.tail())  # Display the most recent data
         else:
             st.error("No data available for the selected sector.")
 
