@@ -142,7 +142,7 @@ class VN30:
             st.error("Data is missing necessary columns ('Crash Risk' or 'StockSymbol').")
             return
     
-        color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5733'}
+        color_map = {'Low': '#4CAF50', 'High': '#FF5733'}
         n_cols = 5
         n_rows = (len(df) + n_cols - 1) // n_cols  # Determine the number of rows needed
     
@@ -196,7 +196,6 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
         <strong>Chỉ số Đánh Giá Rủi Ro Sụp Đổ:</strong>
         <ul>
             <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span></li>
-            <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span></li>
             <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span></li>
         </ul>
     </div>
@@ -211,7 +210,6 @@ if st.sidebar.button('Kết Quả'):
             <strong>Chú thích màu sắc:</strong>
             <ul>
                 <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span> - Rủi ro sụt giảm giá cao.</li>
-                <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span> - Rủi ro sụt giảm giá trung bình.</li>
                 <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span> - Rủi ro sụt giảm giá thấp.</li>
             </ul>
         </div>
@@ -348,7 +346,6 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
         <strong>Chỉ số Đánh Giá Rủi Ro Sụp Đổ:</strong>
         <ul>
             <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span></li>
-            <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span></li>
             <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span></li>
         </ul>
     </div>
@@ -363,7 +360,6 @@ if st.sidebar.button('Kết Quả'):
             <strong>Chú thích màu sắc:</strong>
             <ul>
                 <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span> - Rủi ro sụt giảm giá cao.</li>
-                <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span> - Rủi ro sụt giảm giá trung bình.</li>
                 <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span> - Rủi ro sụt giảm giá thấp.</li>
             </ul>
         </div>
@@ -500,7 +496,6 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
         <strong>Chỉ số Đánh Giá Rủi Ro Sụp Đổ:</strong>
         <ul>
             <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span></li>
-            <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span></li>
             <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span></li>
         </ul>
     </div>
@@ -515,7 +510,6 @@ if st.sidebar.button('Kết Quả'):
             <strong>Chú thích màu sắc:</strong>
             <ul>
                 <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span> - Rủi ro sụt giảm giá cao.</li>
-                <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span> - Rủi ro sụt giảm giá trung bình.</li>
                 <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span> - Rủi ro sụt giảm giá thấp.</li>
             </ul>
         </div>
@@ -652,7 +646,6 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
         <strong>Chỉ số Đánh Giá Rủi Ro Sụp Đổ:</strong>
         <ul>
             <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span></li>
-            <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span></li>
             <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span></li>
         </ul>
     </div>
