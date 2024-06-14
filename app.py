@@ -9,7 +9,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
-from vnstock import stock_historical_data
 from tvDatafeed import TvDatafeed, Interval
 
 # Initialize TradingView Datafeed
@@ -48,26 +47,12 @@ SECTOR_FILES = {
 
 # Load data function
 @st.cache_data
-def load_data(file_path):
+def load_sector_symbols(file_path):
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
-        return pd.DataFrame()
-    return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
-
-def ensure_datetime_compatibility(start_date, end_date, df):
-    df = df[~df.index.duplicated(keep='first')]  # Ensure unique indices
-    if not isinstance(start_date, pd.Timestamp):
-        start_date = pd.Timestamp(start_date)
-    if not isinstance(end_date, pd.Timestamp):
-        end_date = pd.Timestamp(end_date)
-
-    # Check if the dates are within the dataframe's range
-    if start_date not in df.index:
-        start_date = df.index[df.index.searchsorted(start_date)]
-    if end_date not in df.index:
-        end_date = df.index[df.index.searchsorted(end_date)]
-
-    return df.loc[start_date:end_date]
+        return []
+    df = pd.read_csv(file_path)
+    return df['StockSymbol'].unique().tolist()
 
 # Fetch data from TradingView
 @st.cache_data
@@ -121,7 +106,7 @@ class VN30:
 
     def fetch_data(self, symbol):
         today = pd.Timestamp.today().strftime('%Y-%m-%d')
-        data = fetch_data_from_tradingview(symbol, 'HOSE', interval, n_bars)
+        data = fetch_data_from_tradingview(symbol, 'HOSE', Interval.in_daily, 10000)
         if not data.empty:
             return data
         return pd.DataFrame()  # Handle case where no data is returned
@@ -202,8 +187,7 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     if 'Chọn mã theo ngành' in portfolio_options:
         selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
         if selected_sector:
-            df_full = load_data(SECTOR_FILES[selected_sector])
-            available_symbols = df_full['StockSymbol'].unique().tolist()
+            available_symbols = load_sector_symbols(SECTOR_FILES[selected_sector])
             sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
             selected_stocks.extend(sector_selected_symbols)
             display_vn30 = False  # Disable VN30 display if sector is selected
