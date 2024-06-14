@@ -129,7 +129,7 @@ class VN30:
         # Mark significant drawdowns as crashes
         crash_threshold = 0.175
         df['Crash'] = drawdowns >= crash_threshold
-        choices = ['High', 'Medium', 'Low']
+        choices = ['High', 'Low']
         df['Crash Risk'] = np.select(choices)
         return df
 
