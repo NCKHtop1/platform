@@ -129,14 +129,8 @@ class VN30:
         # Mark significant drawdowns as crashes
         crash_threshold = 0.175
         df['Crash'] = drawdowns >= crash_threshold
-
-        conditions = [
-            (df['Crash'] == True),  # High risk if crash condition is met
-            (df['Crash'] == False) & (drawdowns > 0.02) & (drawdowns <= crash_threshold),  # Medium risk
-            (drawdowns <= 0.02)  # Low risk
-        ]
         choices = ['High', 'Medium', 'Low']
-        df['Crash Risk'] = np.select(conditions, choices, default='Low')
+        df['Crash Risk'] = np.select(choices)
         return df
 
     def display_stock_status(self, df):
