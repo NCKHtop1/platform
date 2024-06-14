@@ -14,13 +14,6 @@ from tvDatafeed import TvDatafeed, Interval
 # Initialize TradingView Datafeed
 tv = TvDatafeed(username="tradingpro.112233@gmail.com", password="Quantmatic@2024")
 
-# Check if the image file exists
-image_path = 'image.png'
-if not os.path.exists(image_path):
-    st.error(f"Image file not found: {image_path}")
-else:
-    st.image(image_path, use_column_width=True)
-
 # Custom CSS for better UI
 st.markdown("""
     <style>
@@ -45,40 +38,47 @@ SECTOR_FILES = {
     'VNINDEX': 'Vnindex.csv'
 }
 
-# Load data function
-@st.cache_data
-def load_sector_symbols(file_path):
-    if not os.path.exists(file_path):
-        st.error(f"File not found: {file_path}")
-        return []
-    df = pd.read_csv(file_path)
-    return df['StockSymbol'].unique().tolist()
-
 # Fetch data from TradingView
-@st.cache_data
-def fetch_data_from_tradingview(symbol, exchange, interval, n_bars):
+def fetch_data_from_tradingview(symbol, exchange='HOSE', interval=Interval.in_daily, n_bars=1000):
     try:
         data = tv.get_hist(symbol=symbol, exchange=exchange, interval=interval, n_bars=n_bars)
         if data.empty:
             st.error(f"No data found for symbol: {symbol}")
             return pd.DataFrame()
-        data = data.rename(columns={'time': 'Datetime'})
-        data['Datetime'] = pd.to_datetime(data['Datetime'])
-        data.set_index('Datetime', inplace=True)
         return data
     except Exception as e:
         st.error(f"Error fetching data from TradingView: {e}")
         return pd.DataFrame()
 
 # Load and filter detailed data
-def load_detailed_data(selected_stocks, interval, n_bars):
-    data = pd.DataFrame()
-    for stock in selected_stocks:
-        df = fetch_data_from_tradingview(stock, 'HOSE', interval, n_bars)
-        if not df.empty:
-            df['StockSymbol'] = stock
-            data = pd.concat([data, df])
-    return data
+def load_detailed_data(sector_file_path, interval, n_bars):
+    try:
+        sector_stocks = pd.read_csv(sector_file_path)['StockSymbol'].unique()
+        data = pd.DataFrame()
+        for stock in sector_stocks:
+            df = fetch_data_from_tradingview(stock, 'HOSE', interval, n_bars)
+            if not df.empty:
+                df['StockSymbol'] = stock
+                data = pd.concat([data, df])
+        return data
+    except FileNotFoundError:
+        st.error(f"File not found: {sector_file_path}")
+        return pd.DataFrame()
+
+# Sidebar for selecting sectors and fetching data
+with st.sidebar:
+    st.title('Select Sector for Data Retrieval')
+    selected_sector = st.selectbox("Choose a sector", list(SECTOR_FILES.keys()))
+    if selected_sector:
+        # Path to the sector file
+        sector_file_path = SECTOR_FILES[selected_sector]
+        data = load_detailed_data(sector_file_path, Interval.in_daily, 1000)
+
+        if not data.empty:
+            st.success("Data loaded successfully.")
+            st.write(data.head())
+        else:
+            st.error("No data available for the selected sector.")
 
 def calculate_VaR(returns, confidence_level=0.95):
     """
