@@ -279,32 +279,24 @@ if st.sidebar.button('Kết Quả', key='result_button'):
     combined_df = pd.DataFrame()
     
     # Modify fetching of VNINDEX to ensure 'close' column exists
-# Fetch VNINDEX data and ensure proper column names
-# Fetching VNINDEX data
-        if display_vnindex:
-            vnindex_data = stock_historical_data("VNINDEX", "2000-06-01", pd.Timestamp.today().strftime('%Y-%m-%d'), "1D", "index", source='TCBS')
-            vnindex_df = pd.DataFrame(vnindex_data)
-            if vnindex_df.empty:
-                print("No data retrieved for VNINDEX.")
+    # Fetching VNINDEX data
+    if display_vnindex:
+        vnindex_data = stock_historical_data("VNINDEX", "2000-06-01", pd.Timestamp.today().strftime('%Y-%m-%d'), "1D", "index", source='TCBS')
+        vnindex_df = pd.DataFrame(vnindex_data)
+        if vnindex_df.empty:
+            print("No data retrieved for VNINDEX.")
+        else:
+            vnindex_df.rename(columns={'time': 'Datetime', 'close': 'close'}, inplace=True)
+            vnindex_df['Datetime'] = pd.to_datetime(vnindex_df['Datetime'], errors='coerce')
+            vnindex_df.set_index('Datetime', inplace=True)
+    
+            if 'close' in vnindex_df.columns:
+                vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)
             else:
-                vnindex_df.rename(columns={'time': 'Datetime', 'close': 'close'}, inplace=True)
-                vnindex_df['Datetime'] = pd.to_datetime(vnindex_df['Datetime'], errors='coerce')
-                vnindex_df.set_index('Datetime', inplace=True)
-        
-                if 'close' in vnindex_df.columns:
-                    vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)
-                else:
-                    print("Data fetched does not contain 'close' column:", vnindex_df.columns)
-        
-                combined_df = pd.concat([combined_df, vnindex_df]) if 'combined_df' in locals() else vnindex_df
+                print("Data fetched does not contain 'close' column:", vnindex_df.columns)
     
-        # Assuming the close price data is named as 'close' in the fetched data
-        if 'close' not in vnindex_df.columns:
-            print("Fetched data does not contain 'close' column:", vnindex_df.columns)
-            st.error("Data error: 'close' column missing in the fetched data.")
-    
-        vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)
-        combined_df = pd.concat([combined_df, vnindex_df])
+            combined_df = pd.concat([combined_df, vnindex_df]) if 'combined_df' in locals() else vnindex_df
+
     
     if display_vn30:
         vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
