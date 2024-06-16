@@ -126,15 +126,28 @@ class VN30:
             return pd.DataFrame()  # Handle case where no data is returned
 
 def calculate_crash_risk(self, df):
-    if df.empty or 'close' not in df.columns:
-        return pd.Series(index=df.index, name='Crash Risk')  # Return an empty series with the same index
+    print("Debug Info: DataFrame Head\n", df.head())  # Print first few rows to check data
+    print("Debug Info: DataFrame Columns\n", df.columns)  # Verify column names
 
-    df['returns'] = df['close'].pct_change()
-    # Ensure there's enough data for VaR calculation
-    if len(df['returns'].dropna()) < 2:
+    if df.empty:
+        return pd.Series([], index=df.index, name='Crash Risk')
+
+    if 'close' not in df.columns:
+        print("Error: 'close' column not found in DataFrame")
+        return pd.Series(['Unknown'] * len(df), index=df.index, name='Crash Risk')
+    
+    try:
+        df['returns'] = df['close'].astype(float).pct_change()  # Ensure conversion to float for calculation
+    except Exception as e:
+        print(f"Error in calculating returns: {e}")
         return pd.Series(['Unknown'] * len(df), index=df.index, name='Crash Risk')
 
-    df['VaR'] = df['returns'].rolling(window=30).apply(lambda x: np.percentile(x, 5))  # Using a rolling window if applicable
+    if df['returns'].isnull().all():
+        print("All returns are NaN.")
+        return pd.Series(['Unknown'] * len(df), index=df.index, name='Crash Risk')
+    
+    df['VaR'] = df['returns'].rolling(window=30, min_periods=1).apply(lambda x: np.percentile(x.dropna(), 5))  # Safe percentile calc
+
     conditions = [
         (df['VaR'] < -0.02),
         (df['VaR'].between(-0.02, -0.01)),
@@ -271,13 +284,15 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
 if st.sidebar.button('Kết Quả', key='result_button'):
     combined_df = pd.DataFrame()
     
+    # Modify fetching of VNINDEX to ensure 'close' column exists
     if display_vnindex:
         vnindex_data = stock_historical_data("VNINDEX", "2000-06-01", pd.Timestamp.today().strftime('%Y-%m-%d'), "1D", "index", source='TCBS')
         vnindex_df = pd.DataFrame(vnindex_data)
-        vnindex_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+        vnindex_df.rename(columns={'time': 'Datetime', 'close': 'StockSymbol'}, inplace=True)
         vnindex_df['Datetime'] = pd.to_datetime(vnindex_df['Datetime'], errors='coerce')
         vnindex_df.set_index('Datetime', inplace=True)
-        vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)  # Revised method call
+        vnindex_df['close'] = vnindex_df['close']  # Ensure this is a numeric column
+        vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)  # Applying the revised method
         combined_df = pd.concat([combined_df, vnindex_df])
     
     if display_vn30:
