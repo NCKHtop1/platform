@@ -125,17 +125,25 @@ class VN30:
         else:
             return pd.DataFrame()  # Handle case where no data is returned
 
-    def calculate_crash_risk(self, df):
-        df['returns'] = df['close'].pct_change()
-        df['VaR'] = df.groupby('StockSymbol')['returns'].transform(lambda x: calculate_VaR(x))
-        conditions = [
-            (df['VaR'] < -0.02),  # Adjust these thresholds based on your risk tolerance
-            (df['VaR'].between(-0.02, -0.01)),
-            (df['VaR'] > -0.01)
-        ]
-        choices = ['High', 'Medium', 'Low']
-        df['Crash Risk'] = np.select(conditions, choices, default='Low')
-        return df
+def calculate_crash_risk(self, df):
+    if df.empty or 'close' not in df.columns:
+        return pd.Series(index=df.index, name='Crash Risk')  # Return an empty series with the same index
+
+    df['returns'] = df['close'].pct_change()
+    # Ensure there's enough data for VaR calculation
+    if len(df['returns'].dropna()) < 2:
+        return pd.Series(['Unknown'] * len(df), index=df.index, name='Crash Risk')
+
+    df['VaR'] = df['returns'].rolling(window=30).apply(lambda x: np.percentile(x, 5))  # Using a rolling window if applicable
+    conditions = [
+        (df['VaR'] < -0.02),
+        (df['VaR'].between(-0.02, -0.01)),
+        (df['VaR'] > -0.01)
+    ]
+    choices = ['High', 'Medium', 'Low']
+    crash_risk_series = np.select(conditions, choices, default='Unknown')
+
+    return pd.Series(crash_risk_series, index=df.index, name='Crash Risk')
 
     def display_stock_status(self, df):
         if df.empty:
@@ -269,7 +277,7 @@ if st.sidebar.button('Kết Quả', key='result_button'):
         vnindex_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
         vnindex_df['Datetime'] = pd.to_datetime(vnindex_df['Datetime'], errors='coerce')
         vnindex_df.set_index('Datetime', inplace=True)
-        vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)
+        vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)  # Revised method call
         combined_df = pd.concat([combined_df, vnindex_df])
     
     if display_vn30:
