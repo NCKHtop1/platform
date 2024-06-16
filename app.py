@@ -10,7 +10,7 @@ import pandas_ta as ta
 from vnstock import stock_historical_data
 
 # Check if the image file exists
-image_path = 'image.png'
+image_path = '/mnt/data/image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
 else:
@@ -176,6 +176,26 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
     # Ngày cuối cùng có trong dữ liệu lịch sử
     latest_historical_date = historical_data.index.max()
     
+    if latest_historical_date < pd.Timestamp(start_date):
+        # Chỉ truy vấn dữ liệu từ vnstock nếu ngày bắt đầu yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
+        fetched_data = stock_historical_data(
+            symbol=symbol, 
+            start_date=start_date, 
+            end_date=end_date, 
+            resolution='1D', 
+            type='stock', 
+            beautify=True, 
+            decor=False, 
+            source='DNSE'
+        )
+        if fetched_data:
+            fetched_data_df = pd.DataFrame(fetched_data)
+            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
+            fetched_data_df.set_index('Datetime', inplace=True)
+            return fetched_data_df
+        return pd.DataFrame()
+    
     # Kiểm tra nếu ngày kết thúc yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
     if end_date > latest_historical_date:
         # Truy vấn dữ liệu từ ngày sau ngày cuối trong file đến ngày kết thúc yêu cầu
@@ -243,8 +263,7 @@ if st.sidebar.button('Kết Quả', key='result_button'):
     if display_vn30:
         vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
     else:
-        vn30_stocks = load_detailed_data(selected_stocks)
-        # Fetch and combine data for selected stocks
+        vn30_stocks = pd.DataFrame()
         for symbol in selected_stocks:
             sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
             vn30_stocks = pd.concat([vn30_stocks, sector_data])
@@ -417,13 +436,17 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
 # Ensure that the date range is within the available data
 if selected_stocks:
+    combined_data = pd.DataFrame()
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
         sector_data = load_detailed_data(selected_stocks)
+        vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
         combined_data = pd.concat([vn30_stocks, sector_data])
     elif 'VN30' in portfolio_options:
-        combined_data = vn30_stocks
+        combined_data = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
     elif 'Chọn mã theo ngành' in portfolio_options:
-        combined_data = load_detailed_data(selected_stocks)
+        for symbol in selected_stocks:
+            sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+            combined_data = pd.concat([combined_data, sector_data])
     else:
         combined_data = pd.DataFrame()
 
