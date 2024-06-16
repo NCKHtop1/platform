@@ -567,7 +567,7 @@ if selected_stocks:
                             st.markdown("Tab này cung cấp danh sách chi tiết của tất cả các lệnh mua/bán được thực hiện bởi chiến lược. \
                                         Bạn có thể phân tích các điểm vào và ra của từng giao dịch, cùng với lợi nhuận hoặc lỗ.")
                             trades_df = portfolio.trades.records_readable
-                            trades_df là trades_df.round(2)
+                            trades_df = trades_df.round(2)
                             trades_df.index.name = 'Số giao dịch'
                             trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
                             st.dataframe(trades_df, width=800, height=600)
