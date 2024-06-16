@@ -132,9 +132,9 @@ class VN30:
     def analyze_stocks(self, selected_symbols, start_date, end_date):
         results = []
         for symbol in selected_symbols:
-            stock_data = fetch_and_combine_data(symbol, 'Vnindex.csv', start_date, end_date)
+            stock_data = self.fetch_data(symbol, start_date, end_date)
             if not stock_data.empty:
-                stock_data = self.calculate_crash_risk(stock_data)
+                stock_data['Crash Risk'] = self.calculate_crash_risk(stock_data)
                 results.append(stock_data)
         if results:
             combined_data = pd.concat(results)
@@ -240,7 +240,7 @@ class PortfolioOptimizer:
         X = X[~np.isnan(X).any(axis=1)]
 
         if shrinkage:
-            if shrinkage type == 'ledoit':
+            if shrinkage_type == 'ledoit':
                 Sigma = self.ledoit_wolf_shrinkage(X)
             elif shrinkage_type == 'ledoit_cc':
                 Sigma = self.ledoitwolf_cc(X)
@@ -440,7 +440,7 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 if selected_stocks:
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
         sector_data = load_detailed_data(selected_stocks)
-        combined_data = pd.concat([vn30_stocks, sector_data])
+        combined_data = pd.concat([vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d')), sector_data])
     elif 'VN30' in portfolio_options:
         combined_data = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
     elif 'Chọn mã theo ngành' in portfolio_options:
