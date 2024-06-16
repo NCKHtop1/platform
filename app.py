@@ -71,6 +71,10 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
     # Ngày cuối cùng có trong dữ liệu lịch sử
     latest_historical_date = historical_data.index.max()
     
+    # Ensure latest_historical_date is a pd.Timestamp
+    if not isinstance(latest_historical_date, pd.Timestamp):
+        latest_historical_date = pd.Timestamp(latest_historical_date)
+    
     if latest_historical_date < pd.Timestamp(start_date):
         # Chỉ truy vấn dữ liệu từ vnstock nếu ngày bắt đầu yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
         fetched_data = stock_historical_data(
@@ -92,11 +96,11 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
         return pd.DataFrame()
     
     # Kiểm tra nếu ngày kết thúc yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
-    if end_date > latest_historical_date:
+    if pd.Timestamp(end_date) > latest_historical_date:
         # Truy vấn dữ liệu từ ngày sau ngày cuối trong file đến ngày kết thúc yêu cầu
         fetched_data = stock_historical_data(
             symbol=symbol, 
-            start_date=latest_historical_date + pd.Timedelta(days=1), 
+            start_date=(latest_historical_date + pd.Timedelta(days=1)).strftime('%Y-%m-%d'), 
             end_date=end_date, 
             resolution='1D', 
             type='stock', 
@@ -206,6 +210,7 @@ class VN30:
                     )
                 else:
                     col.empty()
+
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)
@@ -459,12 +464,13 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
 if selected_stocks:
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
-        sector_data = load_detailed_data(selected_stocks)
-        combined_data = pd.concat([vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d')), sector_data])
+        sector_data = load_detailed_data(selected_stocks, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+        vn30_data = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+        combined_data = pd.concat([vn30_data, sector_data])
     elif 'VN30' in portfolio_options:
         combined_data = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
     elif 'Chọn mã theo ngành' in portfolio_options:
-        combined_data = load_detailed_data(selected_stocks)
+        combined_data = load_detailed_data(selected_stocks, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
     else:
         combined_data = pd.DataFrame()
 
