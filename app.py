@@ -66,17 +66,10 @@ def ensure_datetime_compatibility(start_date, end_date, df):
     return df.loc[start_date:end_date]
 
 def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
-    # Đọc dữ liệu lịch sử từ file CSV
     historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
-    # Ngày cuối cùng có trong dữ liệu lịch sử
     latest_historical_date = historical_data.index.max()
     
-    # Ensure latest_historical_date is a pd.Timestamp
-    if not isinstance(latest_historical_date, pd.Timestamp):
-        latest_historical_date = pd.Timestamp(latest_historical_date)
-    
     if latest_historical_date < pd.Timestamp(start_date):
-        # Chỉ truy vấn dữ liệu từ vnstock nếu ngày bắt đầu yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
         fetched_data = stock_historical_data(
             symbol=symbol, 
             start_date=start_date, 
@@ -95,12 +88,10 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
             return fetched_data_df
         return pd.DataFrame()
     
-    # Kiểm tra nếu ngày kết thúc yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
-    if pd.Timestamp(end_date) > latest_historical_date:
-        # Truy vấn dữ liệu từ ngày sau ngày cuối trong file đến ngày kết thúc yêu cầu
+    if end_date > latest_historical_date:
         fetched_data = stock_historical_data(
             symbol=symbol, 
-            start_date=(latest_historical_date + pd.Timedelta(days=1)).strftime('%Y-%m-%d'), 
+            start_date=latest_historical_date + pd.Timedelta(days=1), 
             end_date=end_date, 
             resolution='1D', 
             type='stock', 
@@ -108,19 +99,25 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
             decor=False, 
             source='DNSE'
         )
-        # Nếu có dữ liệu được trả về
         if not fetched_data.empty:
             fetched_data_df = pd.DataFrame(fetched_data)
             fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
             fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
             fetched_data_df.set_index('Datetime', inplace=True)
 
-            # Kết hợp dữ liệu lịch sử và dữ liệu mới truy vấn được
             combined_data = pd.concat([historical_data.loc[:latest_historical_date], fetched_data_df])
             return combined_data
 
-    # Trường hợp không cần truy vấn dữ liệu mới, trả về dữ liệu lịch sử
     return historical_data.loc[start_date:end_date]
+
+def load_detailed_data(selected_stocks):
+    data = pd.DataFrame()
+    for sector, file_path in SECTOR_FILES.items():
+        df = load_data(file_path)
+        if not df.empty:
+            sector_data = df[df['StockSymbol'].isin(selected_stocks)]
+            data = pd.concat([data, sector_data])
+    return data
 
 def calculate_VaR(returns, confidence_level=0.95):
     if not isinstance(returns, pd.Series):
@@ -462,17 +459,18 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
     strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
-if selected_stocks:
+if selected_stocks or selected_symbols:
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
-        sector_data = load_detailed_data(selected_stocks, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
-        vn30_data = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
-        combined_data = pd.concat([vn30_data, sector_data])
+        sector_data = load_detailed_data(selected_stocks)
+        vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+        combined_data = pd.concat([vn30_stocks, sector_data])
     elif 'VN30' in portfolio_options:
         combined_data = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
     elif 'Chọn mã theo ngành' in portfolio_options:
-        combined_data = load_detailed_data(selected_stocks, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
-    else:
         combined_data = pd.DataFrame()
+        for symbol in selected_stocks:
+            sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+            combined_data = pd.concat([combined_data, sector_data])
 
     if not combined_data.empty:
         combined_data = combined_data[~combined_data.index.duplicated(keep='first')]
