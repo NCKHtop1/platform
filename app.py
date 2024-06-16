@@ -154,10 +154,17 @@ class VN30:
     def analyze_stocks(self, selected_symbols, start_date, end_date):
         results = []
         for symbol in selected_symbols:
-            stock_data = self.fetch_data(symbol, start_date, end_date)
+            stock_data = fetch_and_combine_data(symbol, 'Vnindex.csv', start_date, end_date)
             if not stock_data.empty:
-                stock_data['Crash Risk'] = self.calculate_crash_risk(stock_data)
-                results.append(stock_data)
+                try:
+                    crash_risk = self.calculate_crash_risk(stock_data)
+                    if len(crash_risk) == len(stock_data):
+                        stock_data['Crash Risk'] = crash_risk
+                    else:
+                        stock_data['Crash Risk'] = 'Data mismatch'
+                    results.append(stock_data)
+                except Exception as e:
+                    print(f"Error processing {symbol}: {str(e)}")
         if results:
             combined_data = pd.concat(results)
             return combined_data
@@ -173,8 +180,8 @@ class VN30:
             (df['VaR'] > -0.01)
         ]
         choices = ['High', 'Medium', 'Low']
-        df['Crash Risk'] = np.select(conditions, choices, default='Low')
-        return df
+        crash_risk = np.select(conditions, choices, default='Low')
+        return pd.Series(crash_risk, index=df.index)
 
     def display_stock_status(self, df):
         if df.empty:
@@ -459,18 +466,16 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
     strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
-if selected_stocks or selected_symbols:
+if selected_stocks:
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
         sector_data = load_detailed_data(selected_stocks)
-        vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
-        combined_data = pd.concat([vn30_stocks, sector_data])
+        combined_data = pd.concat([vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d')), sector_data])
     elif 'VN30' in portfolio_options:
         combined_data = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
     elif 'Chọn mã theo ngành' in portfolio_options:
+        combined_data = load_detailed_data(selected_stocks)
+    else:
         combined_data = pd.DataFrame()
-        for symbol in selected_stocks:
-            sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
-            combined_data = pd.concat([combined_data, sector_data])
 
     if not combined_data.empty:
         combined_data = combined_data[~combined_data.index.duplicated(keep='first')]
