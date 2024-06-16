@@ -126,27 +126,31 @@ class VN30:
             return pd.DataFrame()  # Handle case where no data is returned
 
 def calculate_crash_risk(self, df):
-    # Debugging to check the DataFrame structure
     if 'close' not in df.columns:
-        print("Missing 'close' column:", df.columns)
-        return pd.Series([np.nan]*len(df), index=df.index, name='Crash Risk')  # Return NaN series with proper index
+        print("Error: 'close' column is missing from the DataFrame.")
+        return pd.Series([np.nan] * len(df), index=df.index, name='Crash Risk')  # Return a NaN series if 'close' column is missing
 
     try:
-        df['returns'] = df['close'].astype(float).pct_change()  # Convert to float and calculate percentage change
-        # Calculate Value at Risk (VaR) using a conservative approach if enough data points are available
-        df['VaR'] = df['returns'].rolling(window=30, min_periods=1).apply(lambda x: np.percentile(x.dropna(), 5) if len(x.dropna()) > 1 else np.nan)
-        # Determine crash risk based on VaR thresholds
-        conditions = [
-            (df['VaR'] < -0.02),
-            (df['VaR'].between(-0.02, -0.01)),
-            (df['VaR'] > -0.01)
-        ]
-        choices = ['High', 'Medium', 'Low']
-        crash_risk_series = np.select(conditions, choices, default='Unknown')
+        # Ensure 'close' data is float for calculations
+        df['close'] = pd.to_numeric(df['close'], errors='coerce')
+        df['returns'] = df['close'].pct_change()
+        # Calculate VaR only if there are enough data points
+        if df['returns'].dropna().shape[0] > 1:
+            df['VaR'] = df['returns'].rolling(window=30, min_periods=2).apply(lambda x: np.percentile(x.dropna(), 5))
+            conditions = [
+                (df['VaR'] < -0.02),
+                (df['VaR'].between(-0.02, -0.01)),
+                (df['VaR'] > -0.01)
+            ]
+            choices = ['High', 'Medium', 'Low']
+            crash_risk_series = np.select(conditions, choices, default='Unknown')
+        else:
+            crash_risk_series = ['Unknown'] * len(df)
+        
         return pd.Series(crash_risk_series, index=df.index, name='Crash Risk')
     except Exception as e:
-        print("Error in crash risk calculation:", str(e))
-        return pd.Series(['Error']*len(df), index=df.index, name='Crash Risk')  
+        print(f"Error processing crash risk calculation: {e}")
+        return pd.Series(['Error'] * len(df), index=df.index, name='Crash Risk')
 
     def display_stock_status(self, df):
         if df.empty:
@@ -276,12 +280,23 @@ if st.sidebar.button('Kết Quả', key='result_button'):
     
     # Modify fetching of VNINDEX to ensure 'close' column exists
 # Fetch VNINDEX data and ensure proper column names
-    if display_vnindex:
-        vnindex_data = stock_historical_data("VNINDEX", "2000-06-01", pd.Timestamp.today().strftime('%Y-%m-%d'), "1D", "index", source='TCBS')
-        vnindex_df = pd.DataFrame(vnindex_data)
-        vnindex_df.rename(columns={'time': 'Datetime'}, inplace=True)
-        vnindex_df['Datetime'] = pd.to_datetime(vnindex_df['Datetime'], errors='coerce')
-        vnindex_df.set_index('Datetime', inplace=True)
+# Fetching VNINDEX data
+        if display_vnindex:
+            vnindex_data = stock_historical_data("VNINDEX", "2000-06-01", pd.Timestamp.today().strftime('%Y-%m-%d'), "1D", "index", source='TCBS')
+            vnindex_df = pd.DataFrame(vnindex_data)
+            if vnindex_df.empty:
+                print("No data retrieved for VNINDEX.")
+            else:
+                vnindex_df.rename(columns={'time': 'Datetime', 'close': 'close'}, inplace=True)
+                vnindex_df['Datetime'] = pd.to_datetime(vnindex_df['Datetime'], errors='coerce')
+                vnindex_df.set_index('Datetime', inplace=True)
+        
+                if 'close' in vnindex_df.columns:
+                    vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)
+                else:
+                    print("Data fetched does not contain 'close' column:", vnindex_df.columns)
+        
+                combined_df = pd.concat([combined_df, vnindex_df]) if 'combined_df' in locals() else vnindex_df
     
         # Assuming the close price data is named as 'close' in the fetched data
         if 'close' not in vnindex_df.columns:
