@@ -65,50 +65,28 @@ def ensure_datetime_compatibility(start_date, end_date, df):
 
     return df.loc[start_date:end_date]
 
-def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
-    historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
-    latest_historical_date = historical_data.index.max()
-    
-    if latest_historical_date < pd.Timestamp(start_date):
-        fetched_data = stock_historical_data(
-            symbol=symbol, 
-            start_date=start_date, 
-            end_date=end_date, 
-            resolution='1D', 
-            type='stock', 
-            beautify=True, 
-            decor=False, 
-            source='DNSE'
-        )
-        if not fetched_data.empty:
-            fetched_data_df = pd.DataFrame(fetched_data)
-            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
-            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
-            fetched_data_df.set_index('Datetime', inplace=True)
-            return fetched_data_df
-        return pd.DataFrame()
-    
-    if end_date > latest_historical_date:
-        fetched_data = stock_historical_data(
-            symbol=symbol, 
-            start_date=latest_historical_date + pd.Timedelta(days=1), 
-            end_date=end_date, 
-            resolution='1D', 
-            type='stock', 
-            beautify=True, 
-            decor=False, 
-            source='DNSE'
-        )
-        if not fetched_data.empty:
-            fetched_data_df = pd.DataFrame(fetched_data)
-            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
-            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
-            fetched_data_df.set_index('Datetime', inplace=True)
-
-            combined_data = pd.concat([historical_data.loc[:latest_historical_date], fetched_data_df])
-            return combined_data
-
-    return historical_data.loc[start_date:end_date]
+def fetch_and_combine_data(symbol, file_path, start_date, end_date):
+    df = load_data(file_path)
+    if not df.empty:
+        df = ensure_datetime_compatibility(start_date, end_date, df)
+        if end_date > '2024-01-25':
+            today_data = stock_historical_data(
+                symbol=symbol,
+                start_date='2024-01-25',
+                end_date=end_date,
+                resolution='1D',
+                type='stock',
+                beautify=True,
+                decor=False,
+                source='DNSE'
+            )
+            fetched_data = pd.DataFrame(today_data)
+            if not fetched_data.empty:
+                fetched_data.rename(columns={'time': 'Datetime'}, inplace=True)
+                fetched_data['Datetime'] = pd.to_datetime(fetched_data['Datetime'], errors='coerce')
+                fetched_data.set_index('Datetime', inplace=True, drop=True)
+                df = pd.concat([df, fetched_data])
+    return df
 
 def load_detailed_data(selected_stocks):
     data = pd.DataFrame()
@@ -156,15 +134,8 @@ class VN30:
         for symbol in selected_symbols:
             stock_data = fetch_and_combine_data(symbol, 'Vnindex.csv', start_date, end_date)
             if not stock_data.empty:
-                try:
-                    crash_risk = self.calculate_crash_risk(stock_data)
-                    if len(crash_risk) == len(stock_data):
-                        stock_data['Crash Risk'] = crash_risk
-                    else:
-                        stock_data['Crash Risk'] = 'Data mismatch'
-                    results.append(stock_data)
-                except Exception as e:
-                    print(f"Error processing {symbol}: {str(e)}")
+                stock_data = self.calculate_crash_risk(stock_data)
+                results.append(stock_data)
         if results:
             combined_data = pd.concat(results)
             return combined_data
@@ -180,8 +151,8 @@ class VN30:
             (df['VaR'] > -0.01)
         ]
         choices = ['High', 'Medium', 'Low']
-        crash_risk = np.select(conditions, choices, default='Low')
-        return pd.Series(crash_risk, index=df.index)
+        df['Crash Risk'] = np.select(conditions, choices, default='Low')
+        return df
 
     def display_stock_status(self, df):
         if df.empty:
@@ -269,7 +240,7 @@ class PortfolioOptimizer:
         X = X[~np.isnan(X).any(axis=1)]
 
         if shrinkage:
-            if shrinkage_type == 'ledoit':
+            if shrinkage type == 'ledoit':
                 Sigma = self.ledoit_wolf_shrinkage(X)
             elif shrinkage_type == 'ledoit_cc':
                 Sigma = self.ledoitwolf_cc(X)
@@ -469,7 +440,7 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 if selected_stocks:
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
         sector_data = load_detailed_data(selected_stocks)
-        combined_data = pd.concat([vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d')), sector_data])
+        combined_data = pd.concat([vn30_stocks, sector_data])
     elif 'VN30' in portfolio_options:
         combined_data = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
     elif 'Chọn mã theo ngành' in portfolio_options:
