@@ -143,6 +143,7 @@ class VN30:
         if not df.empty:
             df.rename(columns={'time': 'Datetime'}, inplace=True)
             df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
+            df['StockSymbol'] = symbol  # Ensure StockSymbol column exists
             return df.set_index('Datetime', drop=True)
         return pd.DataFrame()  # Handle case where no data is returned
 
@@ -160,6 +161,10 @@ class VN30:
             return pd.DataFrame()  # Handle case where no data is returned
 
     def calculate_crash_risk(self, df):
+        if 'StockSymbol' not in df.columns:
+            st.error("Data is missing 'StockSymbol' column.")
+            return df
+
         df['returns'] = df['close'].pct_change()
         df['VaR'] = df.groupby('StockSymbol')['returns'].transform(lambda x: calculate_VaR(x))
         conditions = [
