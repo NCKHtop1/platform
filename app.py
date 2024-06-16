@@ -2,17 +2,15 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-from scipy.optimize import minimize
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import seaborn as sns
-import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 from vnstock import stock_historical_data
 
 # Check if the image file exists
-image_path = 'image.png'
+image_path = '/mnt/data/image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
 else:
@@ -65,51 +63,7 @@ def ensure_datetime_compatibility(start_date, end_date, df):
 
     return df.loc[start_date:end_date]
 
-def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
-    historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
-    latest_historical_date = historical_data.index.max()
-    
-    if latest_historical_date < pd.Timestamp(start_date):
-        fetched_data = stock_historical_data(
-            symbol=symbol, 
-            start_date=start_date, 
-            end_date=end_date, 
-            resolution='1D', 
-            type='stock', 
-            beautify=True, 
-            decor=False, 
-            source='DNSE'
-        )
-        if not fetched_data.empty:
-            fetched_data_df = pd.DataFrame(fetched_data)
-            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
-            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
-            fetched_data_df.set_index('Datetime', inplace=True)
-            return fetched_data_df
-        return pd.DataFrame()
-    
-    if end_date > latest_historical_date:
-        fetched_data = stock_historical_data(
-            symbol=symbol, 
-            start_date=latest_historical_date + pd.Timedelta(days=1), 
-            end_date=end_date, 
-            resolution='1D', 
-            type='stock', 
-            beautify=True, 
-            decor=False, 
-            source='DNSE'
-        )
-        if not fetched_data.empty:
-            fetched_data_df = pd.DataFrame(fetched_data)
-            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
-            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
-            fetched_data_df.set_index('Datetime', inplace=True)
-
-            combined_data = pd.concat([historical_data.loc[:latest_historical_date], fetched_data_df])
-            return combined_data
-
-    return historical_data.loc[start_date:end_date]
-
+# Load and filter detailed data
 def load_detailed_data(selected_stocks):
     data = pd.DataFrame()
     for sector, file_path in SECTOR_FILES.items():
@@ -120,11 +74,18 @@ def load_detailed_data(selected_stocks):
     return data
 
 def calculate_VaR(returns, confidence_level=0.95):
+    """
+    Calculate the Value at Risk (VaR) for a series of returns
+    :param returns: pandas.Series of returns
+    :param confidence_level: float, confidence level for VaR
+    :return: float, VaR value
+    """
     if not isinstance(returns, pd.Series):
         returns = pd.Series(returns)
     var = np.percentile(returns, 100 * (1 - confidence_level))
     return var
 
+# Define the VN30 class
 class VN30:
     def __init__(self):
         self.symbols = [
@@ -149,7 +110,7 @@ class VN30:
             df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
             df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
             return df.set_index('Datetime', drop=True)
-        return pd.DataFrame()
+        return pd.DataFrame()  # Handle case where no data is returned
 
     def analyze_stocks(self, selected_symbols, start_date, end_date):
         results = []
@@ -162,13 +123,13 @@ class VN30:
             combined_data = pd.concat(results)
             return combined_data
         else:
-            return pd.DataFrame()
+            return pd.DataFrame()  # Handle case where no data is returned
 
     def calculate_crash_risk(self, df):
         df['returns'] = df['close'].pct_change()
         df['VaR'] = df.groupby('StockSymbol')['returns'].transform(lambda x: calculate_VaR(x))
         conditions = [
-            (df['VaR'] < -0.02),
+            (df['VaR'] < -0.02),  # Adjust these thresholds based on your risk tolerance
             (df['VaR'].between(-0.02, -0.01)),
             (df['VaR'] > -0.01)
         ]
@@ -180,147 +141,148 @@ class VN30:
         if df.empty:
             st.error("No data available.")
             return
-
+    
         if 'Crash Risk' not in df.columns or 'StockSymbol' not in df.columns:
             st.error("Data is missing necessary columns ('Crash Risk' or 'StockSymbol').")
             return
-
+    
         color_map = {'Low': '#4CAF50', 'Medium': '#FFC107', 'High': '#FF5733'}
         n_cols = 5
-        n_rows = (len(df) + n_cols - 1) // n_cols
-
+        n_rows = (len(df) + n_cols - 1) // n_cols  # Determine the number of rows needed
+    
         for i in range(n_rows):
-            cols = st.columns(n_cols)
+            cols = st.columns(n_cols)  # Create a row of columns
             for j, col in enumerate(cols):
                 idx = i * n_cols + j
                 if idx < len(df):
                     data_row = df.iloc[idx]
-                    crash_risk = data_row.get('Crash Risk', 'Unknown')
-                    stock_symbol = data_row['StockSymbol']
-                    color = color_map.get(crash_risk, '#FF5722')
-                    date = data_row.name.strftime('%Y-%m-%d')
-
+                    crash_risk = data_row.get('Crash Risk', 'Unknown')  # Safely get the crash risk
+                    stock_symbol = data_row['StockSymbol']  # Get the stock symbol
+                    color = color_map.get(crash_risk, '#FF5722')  # Get the color for the crash risk
+                    date = data_row.name.strftime('%Y-%m-%d')  # Format the date
+    
+                    # Display the colored box with the symbol, date, and crash risk
                     col.markdown(
                         f"<div style='background-color: {color}; padding: 10px; border-radius: 5px; text-align: center;'>"
-                        f"<strong>{stock_symbol}</strong><br>{date}<br>{crash_risk}</div>",
+                        f"<strong>{stock_symbol}</strong><br>{date}<br>{crash_risk}</div>", 
                         unsafe_allow_html=True
                     )
                 else:
-                    col.empty()
+                    col.empty()  
 
-class PortfolioOptimizer:
-    def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
-        X = np.diff(np.log(data), axis=0)
-        mu = np.mean(X, axis=0)
-        Sigma = np.cov(X, rowvar=False)
+def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
+    # Đọc dữ liệu lịch sử từ file CSV
+    historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
+    # Ngày cuối cùng có trong dữ liệu lịch sử
+    latest_historical_date = historical_data.index.max()
+    
+    if latest_historical_date < pd.Timestamp(start_date):
+        # Chỉ truy vấn dữ liệu từ vnstock nếu ngày bắt đầu yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
+        fetched_data = stock_historical_data(
+            symbol=symbol, 
+            start_date=start_date, 
+            end_date=end_date, 
+            resolution='1D', 
+            type='stock', 
+            beautify=True, 
+            decor=False, 
+            source='DNSE'
+        )
+        if not fetched_data.empty:
+            fetched_data_df = pd.DataFrame(fetched_data)
+            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
+            fetched_data_df.set_index('Datetime', inplace=True)
+            return fetched_data_df
+        return pd.DataFrame()
+    
+    # Kiểm tra nếu ngày kết thúc yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
+    if end_date > latest_historical_date:
+        # Truy vấn dữ liệu từ ngày sau ngày cuối trong file đến ngày kết thúc yêu cầu
+        fetched_data = stock_historical_data(
+            symbol=symbol, 
+            start_date=latest_historical_date + pd.Timedelta(days=1), 
+            end_date=end_date, 
+            resolution='1D', 
+            type='stock', 
+            beautify=True, 
+            decor=False, 
+            source='DNSE'
+        )
+        # Nếu có dữ liệu được trả về
+        if not fetched_data.empty:
+            fetched_data_df = pd.DataFrame(fetched_data)
+            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
+            fetched_data_df.set_index('Datetime', inplace=True)
 
-        w = self.MSRP_solver(mu, Sigma)
-        return w
+            # Kết hợp dữ liệu lịch sử và dữ liệu mới truy vấn được
+            combined_data = pd.concat([historical_data.loc[:latest_historical_date], fetched_data_df])
+            return combined_data
 
-    def MSRP_solver(self, mu: np.ndarray, Sigma: np.ndarray) -> np.ndarray:
-        N = Sigma.shape[0]
-        if np.all(mu <= 1e-8):
-            return np.zeros(N)
+    # Trường hợp không cần truy vấn dữ liệu mới, trả về dữ liệu lịch sử
+    return historical_data.loc[start_date:end_date]
 
-        Dmat = 2 * Sigma
-        Amat = np.vstack((mu, np.ones(N)))
-        bvec = np.array([1, 1])
-        dvec = np.zeros(N)
+# Usage in Streamlit (main application flow)
+st.title('Bảng Phân Tích Cổ Phiếu Trong Danh Mục VN30')
+vn30 = VN30()
+selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplicity
 
-        w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=2)
-        return w / np.sum(abs(w))
+# Sidebar for Portfolio Selection
+with st.sidebar.expander("Danh mục đầu tư", expanded=True):
+    selected_stocks = []
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'], key='portfolio_options')
 
-    def solve_QP(self, Dmat: np.ndarray, dvec: np.ndarray, Amat: np.ndarray, bvec: np.ndarray, meq: int = 0) -> np.ndarray:
-        def portfolio_obj(x):
-            return 0.5 * np.dot(x, np.dot(Dmat, x)) + np.dot(dvec, x)
+    display_vn30 = 'VN30' in portfolio_options  # Set to True only if VN30 is selected
 
-        def portfolio_constr_eq(x):
-            return np.dot(Amat[:meq], x) - bvec[:meq]
+    if 'VN30' in portfolio_options:
+        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols, key='vn30_symbols')
+        
+    if 'Chọn mã theo ngành' in portfolio_options:
+        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()), key='sector_selection')
+        if selected_sector:
+            df_full = load_data(SECTOR_FILES[selected_sector])
+            available_symbols = df_full['StockSymbol'].unique().tolist()
+            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols, key='sector_symbols')
+            selected_stocks.extend(sector_selected_symbols)
+            display_vn30 = False  # Disable VN30 display if sector is selected
 
-        def portfolio_constr_ineq(x):
-            if Amat.shape[0] - meq == 0:
-                return np.array([])
-            else:
-                return np.dot(Amat[meq:], x) - bvec[meq:]
+    # Display color key for crash risk
+    st.markdown("""
+    <div style='margin-top: 20px;'>
+        <strong>Chỉ số Đánh Giá Rủi Ro Sụp Đổ:</strong>
+        <ul>
+            <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span></li>
+            <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span></li>
+            <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span></li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
 
-        cons = [{'type': 'eq', 'fun': portfolio_constr_eq}]
-
-        if meq < len(bvec):
-            cons.append({'type': 'ineq', 'fun': portfolio_constr_ineq})
-
-        initial_guess = np.ones(Dmat.shape[0]) / Dmat.shape[0]
-
-        res = minimize(portfolio_obj, initial_guess, constraints=cons, method='SLSQP')
-
-        if not res.success:
-            raise ValueError('Quadratic programming failed to find a solution.')
-
-        return res.x
-
-    def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit', shortselling: bool = True, leverage: int = None) -> np.ndarray:
-        X = np.diff(np.log(data), axis=0)
-        X = X[~np.isnan(X).any(axis=1)]
-
-        if shrinkage:
-            if shrinkage_type == 'ledoit':
-                Sigma = self.ledoit_wolf_shrinkage(X)
-            elif shrinkage_type == 'ledoit_cc':
-                Sigma = self.ledoitwolf_cc(X)
-            elif shrinkage_type == 'oas':
-                Sigma = self.oas_shrinkage(X)
-            elif shrinkage_type == 'graphical_lasso':
-                Sigma = self.graphical_lasso_shrinkage(X)
-            elif shrinkage_type == 'mcd':
-                Sigma = self.mcd_shrinkage(X)
-            else:
-                raise ValueError('Invalid shrinkage type. Choose from: ledoit, ledoit_cc, oas, graphical_lasso, mcd')
-        else:
-            Sigma = np.cov(X, rowvar=False)
-
-        if not shortselling:
-            N = Sigma.shape[0]
-            Dmat = 2 * Sigma
-            Amat = np.vstack((np.ones(N), np.eye(N)))
-            bvec = np.array([1] + [0] * N)
-            dvec = np.zeros(N)
-            w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=1)
-        else:
-            ones = np.ones(Sigma.shape[0])
-            w = np.linalg.solve(Sigma, ones)
-            w /= np.sum(w)
-
-        if leverage is not None and leverage < np.inf:
-            w = leverage * w / np.sum(np.abs(w))
-
-        return w
-
-    def ledoitwolf_cc(self, returns: np.ndarray) -> np.ndarray:
-        T, N = returns.shape
-        returns = returns - np.mean(returns, axis=0, keepdims=True)
-        df = pd.DataFrame(returns)
-        Sigma = df.cov().values
-        Cor = df.corr().values
-        diagonals = np.diag(Sigma)
-        var = diagonals.reshape(len(Sigma), 1)
-        vols = var ** 0.5
-
-        rbar = np.mean((Cor.sum(1) - 1) / (Cor.shape[1] - 1))
-        cc_cor = np.matrix([[rbar] * N for _ in range(N)])
-        np.fill_diagonal(cc_cor, 1)
-        F = np.diag((diagonals ** 0.5)) @ cc_cor @ np.diag((diagonals ** 0.5))
-
-        y = returns ** 2
-        mat1 = (y.transpose() @ y) / T - Sigma ** 2
-        pihat = mat1.sum()
-
-        mat2 = ((returns ** 3).transpose() @ returns) / T - var * Sigma
-        np.fill_diagonal(mat2, 0)
-        rhohat = np.diag(mat1).sum() + rbar * ((1 / vols) @ vols.transpose() * mat2).sum()
-        gammahat = np.linalg.norm(Sigma - F, "fro") ** 2
-        kappahat = (pihat - rhohat) / gammahat
-        delta = max(0, min(1, kappahat / T))
-
-        return delta * F + (1 - delta) * Sigma
+if st.sidebar.button('Kết Quả', key='result_button'):
+    if display_vn30:
+        vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+    else:
+        vn30_stocks = pd.DataFrame()
+        for symbol in selected_stocks:
+            sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+            vn30_stocks = pd.concat([vn30_stocks, sector_data])
+    
+    if not vn30_stocks.empty:
+        st.write("Hiển thị kết quả sự sụt giảm cổ phiếu trong danh mục VN30 ngày hôm nay.")
+        st.write("""
+        <div>
+            <strong>Chú thích màu sắc:</strong>
+            <ul>
+                <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span> - Rủi ro sụt giảm giá cao.</li>
+                <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span> - Rủi ro sụt giảm giá trung bình.</li>
+                <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span> - Rủi ro sụt giảm giá thấp.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        vn30.display_stock_status(vn30_stocks)
+    else:
+        st.error("Không có dữ liệu cho cổ phiếu VN30 hôm nay.")
 
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
@@ -340,8 +302,8 @@ def calculate_indicators_and_crashes(df, strategies):
             supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
             if 'SUPERTd_7_3.0' in supertrend.columns:
                 df['Supertrend'] = supertrend['SUPERTd_7_3.0']
-                df['Supertrend Buy'] = supertrend['SUPERTd_7_3.0'] == 1
-                df['Supertrend Sell'] = supertrend['SUPERTd_7_3.0'] == -1
+                df['Supertrend Buy'] = supertrend['SUPERTd_7_3.0'] == 1  # Buy when supertrend is positive
+                df['Supertrend Sell'] = supertrend['SUPERTd_7_3.0'] == -1  # Sell when supertrend is negative
 
         if "Stochastic" in strategies:
             stochastic = df.ta.stoch(append=True)
@@ -353,19 +315,24 @@ def calculate_indicators_and_crashes(df, strategies):
 
         if "RSI" in strategies:
             df['RSI'] = ta.rsi(df['close'], length=14)
-            df['RSI Buy'] = df['RSI'] < 30
-            df['RSI Sell'] = df['RSI'] > 70
+            df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
+            df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
 
         peaks, _ = find_peaks(df['close'])
         df['Peaks'] = df.index.isin(df.index[peaks])
 
+        # Forward-fill peak prices to compute drawdowns
         peak_prices = df['close'].where(df['Peaks']).ffill()
         drawdowns = (peak_prices - df['close']) / peak_prices
 
+        # Mark significant drawdowns as crashes
         crash_threshold = 0.175
         df['Crash'] = drawdowns >= crash_threshold
+
+        # Filter crashes to keep only one per week (on Fridays)
         df['Crash'] = df['Crash'] & (df.index.weekday == 4)
 
+        # Adjust buy and sell signals based on crashes
         df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
                                 (~df['Crash'].shift(1).fillna(False)))
         df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
@@ -376,6 +343,7 @@ def calculate_indicators_and_crashes(df, strategies):
         st.error(f"An error occurred: {e}")
     return df
 
+# Function to apply T+ holding constraint
 def apply_t_plus(df, t_plus):
     t_plus_days = int(t_plus)
 
@@ -388,6 +356,7 @@ def apply_t_plus(df, t_plus):
 
     return df
 
+# Function to run backtesting using vectorbt's from_signals
 def run_backtest(df, init_cash, fees, direction, t_plus):
     df = apply_t_plus(df, t_plus)
     entries = df['Adjusted Buy']
@@ -406,34 +375,37 @@ def run_backtest(df, init_cash, fees, direction, t_plus):
     )
     return portfolio
 
+# Calculate crash likelihood
 def calculate_crash_likelihood(df):
     crash_counts = df['Crash'].resample('W').sum()
     total_weeks = len(crash_counts)
     crash_weeks = crash_counts[crash_counts > 0].count()
     return crash_weeks / total_weeks if total_weeks > 0 else 0
 
+# Streamlit App
 st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
+# Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
-    vn30 = VN30()
     selected_stocks = []
-    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'], key='portfolio_options_main')
 
-    display_vn30 = 'VN30' in portfolio_options
+    display_vn30 = 'VN30' in portfolio_options  # Set to True only if VN30 is selected
 
     if 'VN30' in portfolio_options:
-        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
+        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols, key='vn30_symbols_main')
         
     if 'Chọn mã theo ngành' in portfolio_options:
-        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
+        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()), key='sector_selection_main')
         if selected_sector:
             df_full = load_data(SECTOR_FILES[selected_sector])
             available_symbols = df_full['StockSymbol'].unique().tolist()
-            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
+            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols, key='sector_symbols_main')
             selected_stocks.extend(sector_selected_symbols)
-            display_vn30 = False
+            display_vn30 = False  # Disable VN30 display if sector is selected
 
+    # Display color key for crash risk
     st.markdown("""
     <div style='margin-top: 20px;'>
         <strong>Chỉ số Đánh Giá Rủi Ro Sụp Đổ:</strong>
@@ -445,21 +417,26 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     </div>
     """, unsafe_allow_html=True)
 
+# Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
-    init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000)
-    fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
-    direction_vi = st.selectbox("Vị thế", ["Mua", "Bán"], index=0)
+    init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000, key='init_cash_main')
+    fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01, key='fees_main') / 100
+    direction_vi = st.selectbox("Vị thế", ["Mua", "Bán"], index=0, key='direction_vi_main')
     direction = "longonly" if direction_vi == "Mua" else "shortonly"
-    t_plus = st.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0)
+    t_plus = st.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0, key='t_plus_main')
 
-    take_profit_percentage = st.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
-    stop_loss_percentage = st.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
-    trailing_take_profit_percentage = st.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
-    trailing_stop_loss_percentage = st.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
+    # New trading parameters
+    take_profit_percentage = st.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1, key='take_profit_main')
+    stop_loss_percentage = st.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1, key='stop_loss_main')
+    trailing_take_profit_percentage = st.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1, key='trailing_take_profit_main')
+    trailing_stop_loss_percentage = st.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1, key='trailing_stop_loss_main')
 
-    strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
+    # Sidebar: Choose the strategies to apply
+    strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"], key='strategies_main')
 
-if selected_stocks or selected_symbols:
+# Ensure that the date range is within the available data
+if selected_stocks:
+    combined_data = pd.DataFrame()
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
         sector_data = load_detailed_data(selected_stocks)
         vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
@@ -467,19 +444,22 @@ if selected_stocks or selected_symbols:
     elif 'VN30' in portfolio_options:
         combined_data = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
     elif 'Chọn mã theo ngành' in portfolio_options:
-        combined_data = pd.DataFrame()
         for symbol in selected_stocks:
             sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
             combined_data = pd.concat([combined_data, sector_data])
+    else:
+        combined_data = pd.DataFrame()
 
     if not combined_data.empty:
-        combined_data = combined_data[~combined_data.index.duplicated(keep='first')]
+        combined_data = combined_data[~combined_data.index.duplicated(keep='first')]  # Ensure unique indices
 
+        # Assuming the combined data already covers today's data for VN30 and possibly other dates for sector stocks
         first_available_date = combined_data.index.min().date()
         last_available_date = combined_data.index.max().date()
 
-        start_date = st.date_input('Ngày bắt đầu', first_available_date)
-        end_date = st.date_input('Ngày kết thúc', last_available_date)
+        # Ensure selected date range is within the available data range
+        start_date = st.date_input('Ngày bắt đầu', first_available_date, key='start_date_main')
+        end_date = st.date_input('Ngày kết thúc', last_available_date, key='end_date_main')
 
         if start_date < first_available_date:
             start_date = first_available_date
@@ -498,24 +478,30 @@ if selected_stocks or selected_symbols:
                 if df_filtered.empty:
                     st.error("Không có dữ liệu cho khoảng thời gian đã chọn.")
                 else:
+                    # Calculate indicators and crashes
                     df_filtered = calculate_indicators_and_crashes(df_filtered, strategies)
+
+                    # Run backtest
                     portfolio = run_backtest(df_filtered, init_cash, fees, direction, t_plus)
 
                     if portfolio is None or len(portfolio.orders.records) == 0:
                         st.error("Không có giao dịch nào được thực hiện trong khoảng thời gian này.")
                     else:
+                        # Create tabs for different views on the main screen
                         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Biểu đồ", "Danh mục đầu tư"])
                         
                         with tab1:
                             try:
                                 st.markdown("<h2 style='text-align: center; color: #4CAF50;'>Tóm tắt chiến lược</h2>", unsafe_allow_html=True)
                                 
+                                # Hiển thị tên chỉ báo và tỷ lệ thắng
                                 indicator_name = ", ".join(strategies)
                                 win_rate = portfolio.stats()['Win Rate [%]']
                                 win_rate_color = "#4CAF50" if win_rate > 50 else "#FF5733"
                         
                                 st.markdown(f"<div style='text-align: center; margin-bottom: 20px;'><span style='color: {win_rate_color}; font-size: 24px; font-weight: bold;'>Tỷ lệ thắng: {win_rate:.2f}%</span><br><span style='font-size: 18px;'>Sử dụng chỉ báo: {indicator_name}</span></div>", unsafe_allow_html=True)
                         
+                                # Mục hiệu suất
                                 cumulative_return = portfolio.stats()['Total Return [%]']
                                 annualized_return = portfolio.stats().get('Annual Return [%]', 0)
                                 st.markdown("<div style='background-color: #f0f2f6; padding: 10px; border-radius: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
@@ -523,6 +509,7 @@ if selected_stocks or selected_symbols:
                                 st.markdown(f"<p style='text-align: center; margin: 0;'><strong>Tổng lợi nhuận: {cumulative_return:.2f}%</strong> | <strong>Lợi nhuận hàng năm: {annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
                                 st.markdown("</div>", unsafe_allow_html=True)
                         
+                                # Đồ thị giá và điểm sụt giảm
                                 price_data = df_filtered['close']
                                 crash_df = df_filtered[df_filtered['Crash']]
                                 fig = go.Figure()
@@ -538,17 +525,19 @@ if selected_stocks or selected_symbols:
                                 )
                                 st.plotly_chart(fig, use_container_width=True)
                         
+                                # Xem chi tiết các điểm sụt giảm
                                 crash_details = crash_df[['close']]
                                 crash_details.reset_index(inplace=True)
                                 crash_details.rename(columns={'Datetime': 'Ngày Sụt Giảm', 'close': 'Giá'}, inplace=True)
                                 
-                                if st.button('Xem Chi Tiết'):
+                                if st.button('Xem Chi Tiết', key='detail_button'):
                                     st.markdown("**Danh sách các điểm sụt giảm:**")
                                     st.dataframe(crash_details.style.format(subset=['Giá'], formatter="{:.2f}"), height=300)
                         
                             except Exception as e:
                                 st.error(f"Đã xảy ra lỗi: {e}")
                         
+
                         with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
                             st.markdown("Tab này hiển thị hiệu suất tổng thể của chiến lược giao dịch đã chọn. \
