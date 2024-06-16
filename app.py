@@ -65,37 +65,58 @@ def ensure_datetime_compatibility(start_date, end_date, df):
 
     return df.loc[start_date:end_date]
 
-def fetch_and_combine_data(symbol, file_path, start_date, end_date):
-    df = load_data(file_path)
-    if not df.empty:
-        df = ensure_datetime_compatibility(start_date, end_date, df)
-        if end_date > '2024-01-25':
-            today_data = stock_historical_data(
-                symbol=symbol,
-                start_date='2024-01-25',
-                end_date=end_date,
-                resolution='1D',
-                type='stock',
-                beautify=True,
-                decor=False,
-                source='DNSE'
-            )
-            fetched_data = pd.DataFrame(today_data)
-            if not fetched_data.empty:
-                fetched_data.rename(columns={'time': 'Datetime'}, inplace=True)
-                fetched_data['Datetime'] = pd.to_datetime(fetched_data['Datetime'], errors='coerce')
-                fetched_data.set_index('Datetime', inplace=True, drop=True)
-                df = pd.concat([df, fetched_data])
-    return df
+def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
+    # Đọc dữ liệu lịch sử từ file CSV
+    historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
+    # Ngày cuối cùng có trong dữ liệu lịch sử
+    latest_historical_date = historical_data.index.max()
+    
+    if latest_historical_date < pd.Timestamp(start_date):
+        # Chỉ truy vấn dữ liệu từ vnstock nếu ngày bắt đầu yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
+        fetched_data = stock_historical_data(
+            symbol=symbol, 
+            start_date=start_date, 
+            end_date=end_date, 
+            resolution='1D', 
+            type='stock', 
+            beautify=True, 
+            decor=False, 
+            source='DNSE'
+        )
+        if not fetched_data.empty:
+            fetched_data_df = pd.DataFrame(fetched_data)
+            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
+            fetched_data_df.set_index('Datetime', inplace=True)
+            return fetched_data_df
+        return pd.DataFrame()
+    
+    # Kiểm tra nếu ngày kết thúc yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
+    if end_date > latest_historical_date:
+        # Truy vấn dữ liệu từ ngày sau ngày cuối trong file đến ngày kết thúc yêu cầu
+        fetched_data = stock_historical_data(
+            symbol=symbol, 
+            start_date=latest_historical_date + pd.Timedelta(days=1), 
+            end_date=end_date, 
+            resolution='1D', 
+            type='stock', 
+            beautify=True, 
+            decor=False, 
+            source='DNSE'
+        )
+        # Nếu có dữ liệu được trả về
+        if not fetched_data.empty:
+            fetched_data_df = pd.DataFrame(fetched_data)
+            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
+            fetched_data_df.set_index('Datetime', inplace=True)
 
-def load_detailed_data(selected_stocks):
-    data = pd.DataFrame()
-    for sector, file_path in SECTOR_FILES.items():
-        df = load_data(file_path)
-        if not df.empty:
-            sector_data = df[df['StockSymbol'].isin(selected_stocks)]
-            data = pd.concat([data, sector_data])
-    return data
+            # Kết hợp dữ liệu lịch sử và dữ liệu mới truy vấn được
+            combined_data = pd.concat([historical_data.loc[:latest_historical_date], fetched_data_df])
+            return combined_data
+
+    # Trường hợp không cần truy vấn dữ liệu mới, trả về dữ liệu lịch sử
+    return historical_data.loc[start_date:end_date]
 
 def calculate_VaR(returns, confidence_level=0.95):
     if not isinstance(returns, pd.Series):
@@ -185,7 +206,6 @@ class VN30:
                     )
                 else:
                     col.empty()
-
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)
