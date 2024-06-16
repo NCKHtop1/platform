@@ -10,4 +10,3 @@ seaborn
 matplotlib
 vnstock
 beautifulsoup4
-tvDatafeed
