@@ -170,7 +170,7 @@ class VN30:
             for j, col in enumerate(cols):
                 idx = i * n_cols + j
                 if idx < len(df):
-                    data_row = df.iloc[idx]
+                    data_row = df.iloc(idx)
                     crash_risk = data_row.get('Crash Risk', 'Unknown')  # Safely get the crash risk
                     stock_symbol = data_row['StockSymbol']  # Get the stock symbol
                     color = color_map.get(crash_risk, '#FF5722')  # Get the color for the crash risk
@@ -185,49 +185,34 @@ class VN30:
                 else:
                     col.empty()  
 
-def fetch_and_combine_data(symbol, historical_path, start_date, end_date, source='DNSE', data_type='stock'):
+def fetch_and_combine_data(symbol, historical_path, start_date, end_date, source='DNSE', type='stock'):
     if os.path.exists(historical_path):
         historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
         latest_historical_date = historical_data.index.max()
-
-        if pd.Timestamp(start_date) < historical_data.index.min() or pd.Timestamp(end_date) > latest_historical_date:
-            fetched_data = stock_historical_data(
-                symbol=symbol, 
-                start_date=start_date, 
-                end_date=end_date, 
-                resolution='1D', 
-                type=data_type, 
-                beautify=True, 
-                decor=False, 
-                source=source
-            )
-            if fetched_data:
-                fetched_data_df = pd.DataFrame(fetched_data)
-                fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol', 'close': 'close'}, inplace=True)
-                fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
-                fetched_data_df.set_index('Datetime', inplace=True)
-                combined_data = pd.concat([historical_data, fetched_data_df]).sort_index()
-                return combined_data
-            return pd.DataFrame()
-        return historical_data.loc[start_date:end_date]
     else:
+        historical_data = pd.DataFrame()
+        latest_historical_date = pd.Timestamp.min
+
+    fetched_data_df = pd.DataFrame()
+    if latest_historical_date < pd.Timestamp(end_date):
         fetched_data = stock_historical_data(
             symbol=symbol,
             start_date=start_date,
             end_date=end_date,
             resolution='1D',
-            type=data_type,
+            type=type,
             beautify=True,
             decor=False,
             source=source
         )
-        if not fetched_data.empty:
-            fetched_df = pd.DataFrame(fetched_data)
-            fetched_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
-            fetched_df['Datetime'] = pd.to_datetime(fetched_df['Datetime'], errors='coerce')
-            fetched_df.set_index('Datetime', inplace=True)
-            return fetched_df
-        return pd.DataFrame()
+        if fetched_data:
+            fetched_data_df = pd.DataFrame(fetched_data)
+            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
+            fetched_data_df.set_index('Datetime', inplace=True)
+
+    combined_data = pd.concat([historical_data, fetched_data_df]).sort_index()
+    return combined_data.loc[start_date:end_date]
 
 # Usage in Streamlit (main application flow)
 st.title('Bảng Phân Tích Cổ Phiếu Trong Danh Mục VN30')
