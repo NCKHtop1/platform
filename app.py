@@ -185,18 +185,18 @@ class VN30:
                 else:
                     col.empty()  
 
-def fetch_and_combine_data(symbol, historical_path, start_date, end_date, source='DNSE', type='stock'):
+def fetch_and_combine_data(symbol, historical_path, start_date, end_date, source='DNSE', data_type='stock'):
     if os.path.exists(historical_path):
         historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
         latest_historical_date = historical_data.index.max()
-        
+
         if pd.Timestamp(start_date) < historical_data.index.min() or pd.Timestamp(end_date) > latest_historical_date:
             fetched_data = stock_historical_data(
                 symbol=symbol, 
                 start_date=start_date, 
                 end_date=end_date, 
                 resolution='1D', 
-                type=type, 
+                type=data_type, 
                 beautify=True, 
                 decor=False, 
                 source=source
@@ -209,16 +209,14 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date, source
                 combined_data = pd.concat([historical_data, fetched_data_df]).sort_index()
                 return combined_data
             return pd.DataFrame()
-        
         return historical_data.loc[start_date:end_date]
     else:
-        # Fetch data if no historical data file exists
         fetched_data = stock_historical_data(
             symbol=symbol,
             start_date=start_date,
             end_date=end_date,
             resolution='1D',
-            type=type,
+            type=data_type,
             beautify=True,
             decor=False,
             source=source
