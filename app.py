@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-from scipy.optimize import minimize
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import seaborn as sns
@@ -84,9 +83,6 @@ def calculate_VaR(returns, confidence_level=0.95):
     """
     if not isinstance(returns, pd.Series):
         returns = pd.Series(returns)
-    # Assuming normal distribution of returns
-    mean_return = returns.mean()
-    std_return = returns.std()
     var = np.percentile(returns, 100 * (1 - confidence_level))
     return var
 
@@ -99,12 +95,11 @@ class VN30:
             "TCB", "TPB", "VCB", "VHM", "VIB", "VIC", "VJC", "VNM", "VPB", "VRE"
         ]
 
-    def fetch_data(self, symbol):
-        today = pd.Timestamp.today().strftime('%Y-%m-%d')
+    def fetch_data(self, symbol, start_date, end_date):
         data = stock_historical_data(
             symbol=symbol,
-            start_date=today,
-            end_date=today,
+            start_date=start_date,
+            end_date=end_date,
             resolution='1D',
             type='stock',
             beautify=True,
@@ -113,18 +108,15 @@ class VN30:
         )
         df = pd.DataFrame(data)
         if not df.empty:
-            if 'time' in df.columns:
-                df.rename(columns={'time': 'Datetime'}, inplace=True)
-            elif 'datetime' in df.columns:
-                df.rename(columns={'datetime': 'Datetime'}, inplace=True)
+            df.rename(columns={'time': 'Datetime'}, inplace=True)
             df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
             return df.set_index('Datetime', drop=True)
         return pd.DataFrame()  # Handle case where no data is returned
 
-    def analyze_stocks(self, selected_symbols):
+    def analyze_stocks(self, selected_symbols, start_date, end_date):
         results = []
         for symbol in selected_symbols:
-            stock_data = self.fetch_data(symbol)
+            stock_data = self.fetch_data(symbol, start_date, end_date)
             if not stock_data.empty:
                 stock_data['Crash Risk'] = self.calculate_crash_risk(stock_data)
                 results.append(stock_data)
@@ -179,6 +171,39 @@ class VN30:
                 else:
                     col.empty()  
 
+def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
+    # Đọc dữ liệu lịch sử từ file CSV
+    historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
+    # Ngày cuối cùng có trong dữ liệu lịch sử
+    latest_historical_date = historical_data.index.max()
+    
+    # Kiểm tra nếu ngày kết thúc yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
+    if end_date > latest_historical_date:
+        # Truy vấn dữ liệu từ ngày sau ngày cuối trong file đến ngày kết thúc yêu cầu
+        fetched_data = stock_historical_data(
+            symbol=symbol, 
+            start_date=latest_historical_date + pd.Timedelta(days=1), 
+            end_date=end_date, 
+            resolution='1D', 
+            type='stock', 
+            beautify=True, 
+            decor=False, 
+            source='DNSE'
+        )
+        # Nếu có dữ liệu được trả về
+        if fetched_data:
+            fetched_data_df = pd.DataFrame(fetched_data)
+            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['time'], unit='ms')
+            fetched_data_df.set_index('Datetime', inplace=True)
+            fetched_data_df = fetched_data_df[['close', 'open', 'high', 'low', 'volume']]  # Giả sử các cột này có sẵn
+
+            # Kết hợp dữ liệu lịch sử và dữ liệu mới truy vấn được
+            combined_data = pd.concat([historical_data.loc[:latest_historical_date], fetched_data_df])
+            return combined_data
+
+    # Trường hợp không cần truy vấn dữ liệu mới, trả về dữ liệu lịch sử
+    return historical_data
+
 # Usage in Streamlit (main application flow)
 st.title('Bảng Phân Tích Cổ Phiếu Trong Danh Mục VN30')
 vn30 = VN30()
@@ -217,7 +242,7 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     """, unsafe_allow_html=True)
 
 if st.sidebar.button('Kết Quả'):
-    vn30_stocks = vn30.analyze_stocks(selected_symbols)
+    vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
     if not vn30_stocks.empty:
         st.write("Hiển thị kết quả sự sụt giảm cổ phiếu trong danh mục VN30 ngày hôm nay.")
         st.write("""
@@ -233,121 +258,6 @@ if st.sidebar.button('Kết Quả'):
         vn30.display_stock_status(vn30_stocks)
     else:
         st.error("Không có dữ liệu cho cổ phiếu VN30 hôm nay.")
-
-class PortfolioOptimizer:
-    def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
-        X = np.diff(np.log(data), axis=0)  # Calculate log returns from historical price data
-        mu = np.mean(X, axis=0)  # Calculate the mean returns of the assets
-        Sigma = np.cov(X, rowvar=False)  # Calculate the covariance matrix of the returns
-
-        w = self.MSRP_solver(mu, Sigma)  # Use the MSRP solver to get the optimal weights
-        return w  # Return the optimal weights
-
-    def MSRP_solver(self, mu: np.ndarray, Sigma: np.ndarray) -> np.ndarray:
-        N = Sigma.shape[0]  # Number of assets (stocks)
-        if np.all(mu <= 1e-8):  # Check if mean returns are close to zero
-            return np.zeros(N)  # Return zero weights if no returns
-
-        Dmat = 2 * Sigma  # Quadratic term for the optimizer
-        Amat = np.vstack((mu, np.ones(N)))  # Combine mean returns and sum constraint for constraints
-        bvec = np.array([1, 1])  # Right-hand side of constraints (1 for mean returns and sum)
-        dvec = np.zeros(N)  # Linear term (zero for this problem)
-
-        # Call the QP solver
-        w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=2)
-        return w / np.sum(abs(w))  # Normalize weights to sum to 1
-
-    def solve_QP(self, Dmat: np.ndarray, dvec: np.ndarray, Amat: np.ndarray, bvec: np.ndarray, meq: int = 0) -> np.ndarray:
-        def portfolio_obj(x):
-            return 0.5 * np.dot(x, np.dot(Dmat, x)) + np.dot(dvec, x)
-
-        def portfolio_constr_eq(x):
-            return np.dot(Amat[:meq], x) - bvec[:meq]
-
-        def portfolio_constr_ineq(x):
-            if Amat.shape[0] - meq == 0:
-                return np.array([])
-            else:
-                return np.dot(Amat[meq:], x) - bvec[meq:]
-
-        cons = [{'type': 'eq', 'fun': portfolio_constr_eq}]
-
-        if meq < len(bvec):
-            cons.append({'type': 'ineq', 'fun': portfolio_constr_ineq})
-
-        initial_guess = np.ones(Dmat.shape[0]) / Dmat.shape[0]
-
-        res = minimize(portfolio_obj, initial_guess, constraints=cons, method='SLSQP')
-
-        if not res.success:
-            raise ValueError('Quadratic programming failed to find a solution.')
-
-        return res.x
-
-    def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit', shortselling: bool = True, leverage: int = None) -> np.ndarray:
-        X = np.diff(np.log(data), axis=0)
-        X = X[~np.isnan(X).any(axis=1)]  # Remove rows with NaN values
-
-        if shrinkage:
-            if shrinkage_type == 'ledoit':
-                Sigma = self.ledoit_wolf_shrinkage(X)
-            elif shrinkage_type == 'ledoit_cc':
-                Sigma = self.ledoitwolf_cc(X)
-            elif shrinkage_type == 'oas':
-                Sigma = self.oas_shrinkage(X)
-            elif shrinkage_type == 'graphical_lasso':
-                Sigma = self.graphical_lasso_shrinkage(X)
-            elif shrinkage_type == 'mcd':
-                Sigma = self.mcd_shrinkage(X)
-            else:
-                raise ValueError('Invalid shrinkage type. Choose from: ledoit, ledoit_cc, oas, graphical_lasso, mcd')
-        else:
-            Sigma = np.cov(X, rowvar=False)
-
-        if not shortselling:
-            N = Sigma.shape[0]
-            Dmat = 2 * Sigma
-            Amat = np.vstack((np.ones(N), np.eye(N)))
-            bvec = np.array([1] + [0] * N)
-            dvec = np.zeros(N)
-            w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=1)
-        else:
-            ones = np.ones(Sigma.shape[0])
-            w = np.linalg.solve(Sigma, ones)
-            w /= np.sum(w)
-
-        if leverage is not None and leverage < np.inf:
-            w = leverage * w / np.sum(np.abs(w))
-
-        return w
-
-    def ledoitwolf_cc(self, returns: np.ndarray) -> np.ndarray:
-        T, N = returns.shape
-        returns = returns - np.mean(returns, axis=0, keepdims=True)
-        df = pd.DataFrame(returns)
-        Sigma = df.cov().values
-        Cor = df.corr().values
-        diagonals = np.diag(Sigma)
-        var = diagonals.reshape(len(Sigma), 1)
-        vols = var ** 0.5
-
-        rbar = np.mean((Cor.sum(1) - 1) / (Cor.shape[1] - 1))
-        cc_cor = np.matrix([[rbar] * N for _ in range(N)])
-        np.fill_diagonal(cc_cor, 1)
-        F = np.diag((diagonals ** 0.5)) @ cc_cor @ np.diag((diagonals ** 0.5))
-
-        y = returns ** 2
-        mat1 = (y.transpose() @ y) / T - Sigma ** 2
-        pihat = mat1.sum()
-
-        mat2 = ((returns ** 3).transpose() @ returns) / T - var * Sigma
-        np.fill_diagonal(mat2, 0)
-        rhohat = np.diag(mat1).sum() + rbar * ((1 / vols) @ vols.transpose() * mat2).sum()
-        gammahat = np.linalg.norm(Sigma - F, "fro") ** 2
-        kappahat = (pihat - rhohat) / gammahat
-        delta = max(0, min(1, kappahat / T))
-
-        return delta * F + (1 - delta) * Sigma
 
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
