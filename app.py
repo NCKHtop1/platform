@@ -197,11 +197,11 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
         return pd.DataFrame()
     
     # Kiểm tra nếu ngày kết thúc yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
-    if pd.Timestamp(end_date) > latest_historical_date:
+    if end_date > latest_historical_date:
         # Truy vấn dữ liệu từ ngày sau ngày cuối trong file đến ngày kết thúc yêu cầu
         fetched_data = stock_historical_data(
             symbol=symbol, 
-            start_date=(latest_historical_date + pd.Timedelta(days=1)).strftime('%Y-%m-%d'), 
+            start_date=latest_historical_date + pd.Timedelta(days=1), 
             end_date=end_date, 
             resolution='1D', 
             type='stock', 
@@ -227,6 +227,164 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
 st.title('Bảng Phân Tích Cổ Phiếu Trong Danh Mục VN30')
 vn30 = VN30()
 selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplicity
+
+# Sidebar for Portfolio Selection
+with st.sidebar.expander("Danh mục đầu tư", expanded=True):
+    selected_stocks = []
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'], key='portfolio_options')
+
+    display_vn30 = 'VN30' in portfolio_options  # Set to True only if VN30 is selected
+
+    if 'VN30' in portfolio_options:
+        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols, key='vn30_symbols')
+        
+    if 'Chọn mã theo ngành' in portfolio_options:
+        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()), key='sector_selection')
+        if selected_sector:
+            df_full = load_data(SECTOR_FILES[selected_sector])
+            available_symbols = df_full['StockSymbol'].unique().tolist()
+            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols, key='sector_symbols')
+            selected_stocks.extend(sector_selected_symbols)
+            display_vn30 = False  # Disable VN30 display if sector is selected
+
+    # Display color key for crash risk
+    st.markdown("""
+    <div style='margin-top: 20px;'>
+        <strong>Chỉ số Đánh Giá Rủi Ro Sụp Đổ:</strong>
+        <ul>
+            <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span></li>
+            <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span></li>
+            <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span></li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
+if st.sidebar.button('Kết Quả', key='result_button'):
+    if display_vn30:
+        vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+    else:
+        vn30_stocks = pd.DataFrame()
+        for symbol in selected_stocks:
+            sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+            vn30_stocks = pd.concat([vn30_stocks, sector_data])
+    
+    if not vn30_stocks.empty:
+        st.write("Hiển thị kết quả sự sụt giảm cổ phiếu trong danh mục VN30 ngày hôm nay.")
+        st.write("""
+        <div>
+            <strong>Chú thích màu sắc:</strong>
+            <ul>
+                <li><span style='color: #FF5733;'>Màu Đỏ: Rủi Ro Cao</span> - Rủi ro sụt giảm giá cao.</li>
+                <li><span style='color: #FFC107;'>Màu Vàng: Rủi Ro Trung Bình</span> - Rủi ro sụt giảm giá trung bình.</li>
+                <li><span style='color: #4CAF50;'>Màu Xanh Lá: Rủi Ro Thấp</span> - Rủi ro sụt giảm giá thấp.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        vn30.display_stock_status(vn30_stocks)
+    else:
+        st.error("Không có dữ liệu cho cổ phiếu VN30 hôm nay.")
+
+def calculate_indicators_and_crashes(df, strategies):
+    if df.empty:
+        st.error("No data available for the selected date range.")
+        return df
+
+    try:
+        if "MACD" in strategies:
+            macd = df.ta.macd(close='close', fast=12, slow=26, signal=9, append=True)
+            if 'MACD_12_26_9' in macd.columns:
+                df['MACD Line'] = macd['MACD_12_26_9']
+                df['Signal Line'] = macd['MACDs_12_26_9']
+                df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
+                df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
+
+        if "Supertrend" in strategies:
+            supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
+            if 'SUPERTd_7_3.0' in supertrend.columns:
+                df['Supertrend'] = supertrend['SUPERTd_7_3.0']
+                df['Supertrend Buy'] = supertrend['SUPERTd_7_3.0'] == 1  # Buy when supertrend is positive
+                df['Supertrend Sell'] = supertrend['SUPERTd_7_3.0'] == -1  # Sell when supertrend is negative
+
+        if "Stochastic" in strategies:
+            stochastic = df.ta.stoch(append=True)
+            if 'STOCHk_14_3_3' in stochastic.columns and 'STOCHd_14_3_3' in stochastic.columns:
+                df['Stochastic K'] = stochastic['STOCHk_14_3_3']
+                df['Stochastic D'] = stochastic['STOCHd_14_3_3']
+                df['Stochastic Buy'] = (df['Stochastic K'] > df['Stochastic D']) & (df['Stochastic K'].shift(1) <= df['Stochastic D'].shift(1))
+                df['Stochastic Sell'] = (df['Stochastic K'] < df['Stochastic D']) & (df['Stochastic K'].shift(1) >= df['Stochastic D'].shift(1))
+
+        if "RSI" in strategies:
+            df['RSI'] = ta.rsi(df['close'], length=14)
+            df['RSI Buy'] = df['RSI'] < 30  # RSI below 30 often considered as oversold
+            df['RSI Sell'] = df['RSI'] > 70  # RSI above 70 often considered as overbought
+
+        peaks, _ = find_peaks(df['close'])
+        df['Peaks'] = df.index.isin(df.index[peaks])
+
+        # Forward-fill peak prices to compute drawdowns
+        peak_prices = df['close'].where(df['Peaks']).ffill()
+        drawdowns = (peak_prices - df['close']) / peak_prices
+
+        # Mark significant drawdowns as crashes
+        crash_threshold = 0.175
+        df['Crash'] = drawdowns >= crash_threshold
+
+        # Filter crashes to keep only one per week (on Fridays)
+        df['Crash'] = df['Crash'] & (df.index.weekday == 4)
+
+        # Adjust buy and sell signals based on crashes
+        df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
+                                (~df['Crash'].shift(1).fillna(False)))
+        df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
+                               (~df['Crash'].shift(1).fillna(False)))
+    except KeyError as e:
+        st.error(f"KeyError: {e}")
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+    return df
+
+# Function to apply T+ holding constraint
+def apply_t_plus(df, t_plus):
+    t_plus_days = int(t_plus)
+
+    if t_plus_days > 0:
+        df['Buy Date'] = np.nan
+        df.loc[df['Adjusted Buy'], 'Buy Date'] = df.index[df['Adjusted Buy']]
+        df['Buy Date'] = df['Buy Date'].ffill()
+        df['Earliest Sell Date'] = df['Buy Date'] + pd.to_timedelta(t_plus_days, unit='D')
+        df['Adjusted Sell'] = df['Adjusted Sell'] & (df.index > df['Earliest Sell Date'])
+
+    return df
+
+# Function to run backtesting using vectorbt's from_signals
+def run_backtest(df, init_cash, fees, direction, t_plus):
+    df = apply_t_plus(df, t_plus)
+    entries = df['Adjusted Buy']
+    exits = df['Adjusted Sell']
+
+    if entries.empty or exits.empty or not entries.any() or not exits.any():
+        return None
+
+    portfolio = vbt.Portfolio.from_signals(
+        df['close'],
+        entries,
+        exits,
+        init_cash=init_cash,
+        fees=fees,
+        direction=direction
+    )
+    return portfolio
+
+# Calculate crash likelihood
+def calculate_crash_likelihood(df):
+    crash_counts = df['Crash'].resample('W').sum()
+    total_weeks = len(crash_counts)
+    crash_weeks = crash_counts[crash_counts > 0].count()
+    return crash_weeks / total_weeks if total_weeks > 0 else 0
+
+# Streamlit App
+st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
+st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
 # Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
