@@ -186,38 +186,31 @@ class VN30:
                     col.empty()  
 
 def fetch_and_combine_data(symbol, historical_path, start_date, end_date, source='DNSE', type='stock'):
-    historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
-    latest_historical_date = historical_data.index.max()
-
-    if pd.Timestamp(start_date) < historical_data.index.min() or pd.Timestamp(end_date) > latest_historical_date:
-        fetched_data = stock_historical_data(
-            symbol=symbol, 
-            start_date=start_date, 
-            end_date=end_date, 
-            resolution='1D', 
-            type=type, 
-            beautify=True, 
-            decor=False, 
-            source=source
-        )
-        if fetched_data:
-            fetched_data_df = pd.DataFrame(fetched_data)
-            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol', 'close': 'close'}, inplace=True)
-            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
-            fetched_data_df.set_index('Datetime', inplace=True)
-            combined_data = pd.concat([historical_data, fetched_data_df]).sort_index()
-            return combined_data
-        return pd.DataFrame()
-    
-    return historical_data.loc[start_date:end_date]
-vnindex_data = fetch_and_combine_data(
-    "VNINDEX",
-    SECTOR_FILES['VNINDEX'],
-    '2000-06-01',
-    pd.Timestamp.today().strftime('%Y-%m-%d'),
-    source='TCBS',
-    type='index'
-)
+    if os.path.exists(historical_path):
+        historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
+        latest_historical_date = historical_data.index.max()
+        
+        if pd.Timestamp(start_date) < historical_data.index.min() or pd.Timestamp(end_date) > latest_historical_date:
+            fetched_data = stock_historical_data(
+                symbol=symbol, 
+                start_date=start_date, 
+                end_date=end_date, 
+                resolution='1D', 
+                type=type, 
+                beautify=True, 
+                decor=False, 
+                source=source
+            )
+            if fetched_data:
+                fetched_data_df = pd.DataFrame(fetched_data)
+                fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol', 'close': 'close'}, inplace=True)
+                fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
+                fetched_data_df.set_index('Datetime', inplace=True)
+                combined_data = pd.concat([historical_data, fetched_data_df]).sort_index()
+                return combined_data
+            return pd.DataFrame()
+        
+        return historical_data.loc[start_date:end_date]
     else:
         # Fetch data if no historical data file exists
         fetched_data = stock_historical_data(
@@ -225,7 +218,7 @@ vnindex_data = fetch_and_combine_data(
             start_date=start_date,
             end_date=end_date,
             resolution='1D',
-            type=data_type,
+            type=type,
             beautify=True,
             decor=False,
             source=source
