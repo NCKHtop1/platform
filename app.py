@@ -608,7 +608,7 @@ if selected_stocks:
                         with tab6:
                             st.markdown("**Danh mục đầu tư:**")
                             st.markdown("Danh sách các mã cổ phiếu theo danh mục.")
-                            optimizer là PortfolioOptimizer()
+                            optimizer = PortfolioOptimizer()
                             df_selected_stocks = df_filtered[df_filtered['StockSymbol'].isin(selected_stocks)]
                             data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
                             optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
