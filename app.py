@@ -65,28 +65,50 @@ def ensure_datetime_compatibility(start_date, end_date, df):
 
     return df.loc[start_date:end_date]
 
-def fetch_and_combine_data(symbol, file_path, start_date, end_date):
-    df = load_data(file_path)
-    if not df.empty:
-        df = ensure_datetime_compatibility(start_date, end_date, df)
-        if end_date > '2024-01-25':
-            today_data = stock_historical_data(
-                symbol=symbol,
-                start_date='2024-01-25',
-                end_date=end_date,
-                resolution='1D',
-                type='stock',
-                beautify=True,
-                decor=False,
-                source='DNSE'
-            )
-            fetched_data = pd.DataFrame(today_data)
-            if not fetched_data.empty:
-                fetched_data.rename(columns={'time': 'Datetime'}, inplace=True)
-                fetched_data['Datetime'] = pd.to_datetime(fetched_data['Datetime'], errors='coerce')
-                fetched_data.set_index('Datetime', inplace=True, drop=True)
-                df = pd.concat([df, fetched_data])
-    return df
+def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
+    historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
+    latest_historical_date = historical_data.index.max()
+    
+    if latest_historical_date < pd.Timestamp(start_date):
+        fetched_data = stock_historical_data(
+            symbol=symbol, 
+            start_date=start_date, 
+            end_date=end_date, 
+            resolution='1D', 
+            type='stock', 
+            beautify=True, 
+            decor=False, 
+            source='DNSE'
+        )
+        if not fetched_data.empty:
+            fetched_data_df = pd.DataFrame(fetched_data)
+            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
+            fetched_data_df.set_index('Datetime', inplace=True)
+            return fetched_data_df
+        return pd.DataFrame()
+    
+    if end_date > latest_historical_date:
+        fetched_data = stock_historical_data(
+            symbol=symbol, 
+            start_date=latest_historical_date + pd.Timedelta(days=1), 
+            end_date=end_date, 
+            resolution='1D', 
+            type='stock', 
+            beautify=True, 
+            decor=False, 
+            source='DNSE'
+        )
+        if not fetched_data.empty:
+            fetched_data_df = pd.DataFrame(fetched_data)
+            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
+            fetched_data_df.set_index('Datetime', inplace=True)
+
+            combined_data = pd.concat([historical_data.loc[:latest_historical_date], fetched_data_df])
+            return combined_data
+
+    return historical_data.loc[start_date:end_date]
 
 def load_detailed_data(selected_stocks):
     data = pd.DataFrame()
@@ -111,12 +133,11 @@ class VN30:
             "TCB", "TPB", "VCB", "VHM", "VIB", "VIC", "VJC", "VNM", "VPB", "VRE"
         ]
 
-    def fetch_data(self, symbol):
-        today = pd.Timestamp.today().strftime('%Y-%m-%d')
+    def fetch_data(self, symbol, start_date, end_date):
         data = stock_historical_data(
             symbol=symbol,
-            start_date=today,
-            end_date=today,
+            start_date=start_date,
+            end_date=end_date,
             resolution='1D',
             type='stock',
             beautify=True,
@@ -125,10 +146,7 @@ class VN30:
         )
         df = pd.DataFrame(data)
         if not df.empty:
-            if 'time' in df.columns:
-                df.rename(columns={'time': 'Datetime'}, inplace=True)
-            elif 'datetime' in df.columns:
-                df.rename(columns={'datetime': 'Datetime'}, inplace=True)
+            df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
             df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
             return df.set_index('Datetime', drop=True)
         return pd.DataFrame()
@@ -136,7 +154,7 @@ class VN30:
     def analyze_stocks(self, selected_symbols, start_date, end_date):
         results = []
         for symbol in selected_symbols:
-            stock_data = fetch_and_combine_data(symbol, 'Vnindex.csv', start_date, end_date)
+            stock_data = self.fetch_data(symbol, start_date, end_date)
             if not stock_data.empty:
                 stock_data['Crash Risk'] = self.calculate_crash_risk(stock_data)
                 results.append(stock_data)
@@ -448,7 +466,10 @@ if selected_stocks:
     elif 'VN30' in portfolio_options:
         combined_data = vn30_stocks
     elif 'Chọn mã theo ngành' in portfolio_options:
-        combined_data = load_detailed_data(selected_stocks)
+        combined_data = pd.DataFrame()
+        for symbol in selected_stocks:
+            sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+            combined_data = pd.concat([combined_data, sector_data])
     else:
         combined_data = pd.DataFrame()
 
