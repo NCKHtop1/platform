@@ -231,9 +231,10 @@ selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplic
 # Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     selected_stocks = []
-    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'], key='portfolio_options')
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành', 'VNINDEX'], key='portfolio_options')
 
     display_vn30 = 'VN30' in portfolio_options  # Set to True only if VN30 is selected
+    display_vnindex = 'VNINDEX' in portfolio_options
 
     if 'VN30' in portfolio_options:
         selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols, key='vn30_symbols')
@@ -260,6 +261,16 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     """, unsafe_allow_html=True)
 
 if st.sidebar.button('Kết Quả', key='result_button'):
+    if display_vnindex:
+        vnindex_data = stock_historical_data("VNINDEX", "2000-06-01", pd.Timestamp.today().strftime('%Y-%m-%d'), "1D", "index", source='TCBS')
+        vnindex_df = pd.DataFrame(vnindex_data)
+        vnindex_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+        vnindex_df['Datetime'] = pd.to_datetime(vnindex_df['Datetime'], errors='coerce')
+        vnindex_df.set_index('Datetime', inplace=True)
+        vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)
+    else:
+        vnindex_df = pd.DataFrame()
+
     if display_vn30:
         vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
     else:
@@ -267,9 +278,11 @@ if st.sidebar.button('Kết Quả', key='result_button'):
         for symbol in selected_stocks:
             sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
             vn30_stocks = pd.concat([vn30_stocks, sector_data])
-    
-    if not vn30_stocks.empty:
-        st.write("Hiển thị kết quả sự sụt giảm cổ phiếu trong danh mục VN30 ngày hôm nay.")
+
+    combined_df = pd.concat([vnindex_df, vn30_stocks])
+
+    if not combined_df.empty:
+        st.write("Hiển thị kết quả sự sụt giảm cổ phiếu trong danh mục VN30 và VNINDEX ngày hôm nay.")
         st.write("""
         <div>
             <strong>Chú thích màu sắc:</strong>
@@ -280,9 +293,9 @@ if st.sidebar.button('Kết Quả', key='result_button'):
             </ul>
         </div>
         """, unsafe_allow_html=True)
-        vn30.display_stock_status(vn30_stocks)
+        vn30.display_stock_status(combined_df)
     else:
-        st.error("Không có dữ liệu cho cổ phiếu VN30 hôm nay.")
+        st.error("Không có dữ liệu cho cổ phiếu VN30 hoặc VNINDEX hôm nay.")
 
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
@@ -389,9 +402,10 @@ st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu
 # Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     selected_stocks = []
-    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'], key='portfolio_options_main')
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành', 'VNINDEX'], key='portfolio_options_main')
 
     display_vn30 = 'VN30' in portfolio_options  # Set to True only if VN30 is selected
+    display_vnindex = 'VNINDEX' in portfolio_options
 
     if 'VN30' in portfolio_options:
         selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols, key='vn30_symbols_main')
@@ -435,7 +449,7 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
     strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"], key='strategies_main')
 
 # Ensure that the date range is within the available data
-if selected_stocks:
+if selected_stocks or display_vnindex:
     combined_data = pd.DataFrame()
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
         sector_data = load_detailed_data(selected_stocks)
@@ -447,8 +461,14 @@ if selected_stocks:
         for symbol in selected_stocks:
             sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
             combined_data = pd.concat([combined_data, sector_data])
-    else:
-        combined_data = pd.DataFrame()
+    elif display_vnindex:
+        vnindex_data = stock_historical_data("VNINDEX", "2000-06-01", pd.Timestamp.today().strftime('%Y-%m-%d'), "1D", "index", source='TCBS')
+        vnindex_df = pd.DataFrame(vnindex_data)
+        vnindex_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+        vnindex_df['Datetime'] = pd.to_datetime(vnindex_df['Datetime'], errors='coerce')
+        vnindex_df.set_index('Datetime', inplace=True)
+        vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)
+        combined_data = vnindex_df
 
     if not combined_data.empty:
         combined_data = combined_data[~combined_data.index.duplicated(keep='first')]  # Ensure unique indices
