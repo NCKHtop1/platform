@@ -261,6 +261,8 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     """, unsafe_allow_html=True)
 
 if st.sidebar.button('Kết Quả', key='result_button'):
+    combined_df = pd.DataFrame()
+    
     if display_vnindex:
         vnindex_data = stock_historical_data("VNINDEX", "2000-06-01", pd.Timestamp.today().strftime('%Y-%m-%d'), "1D", "index", source='TCBS')
         vnindex_df = pd.DataFrame(vnindex_data)
@@ -268,18 +270,16 @@ if st.sidebar.button('Kết Quả', key='result_button'):
         vnindex_df['Datetime'] = pd.to_datetime(vnindex_df['Datetime'], errors='coerce')
         vnindex_df.set_index('Datetime', inplace=True)
         vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)
-    else:
-        vnindex_df = pd.DataFrame()
-
+        combined_df = pd.concat([combined_df, vnindex_df])
+    
     if display_vn30:
         vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
-    else:
-        vn30_stocks = pd.DataFrame()
+        combined_df = pd.concat([combined_df, vn30_stocks])
+    
+    if 'Chọn mã theo ngành' in portfolio_options:
         for symbol in selected_stocks:
             sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
-            vn30_stocks = pd.concat([vn30_stocks, sector_data])
-
-    combined_df = pd.concat([vnindex_df, vn30_stocks])
+            combined_df = pd.concat([combined_df, sector_data])
 
     if not combined_df.empty:
         st.write("Hiển thị kết quả sự sụt giảm cổ phiếu trong danh mục VN30 và VNINDEX ngày hôm nay.")
