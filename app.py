@@ -126,37 +126,27 @@ class VN30:
             return pd.DataFrame()  # Handle case where no data is returned
 
 def calculate_crash_risk(self, df):
-    print("Debug Info: DataFrame Head\n", df.head())  # Print first few rows to check data
-    print("Debug Info: DataFrame Columns\n", df.columns)  # Verify column names
-
-    if df.empty:
-        return pd.Series([], index=df.index, name='Crash Risk')
-
+    # Debugging to check the DataFrame structure
     if 'close' not in df.columns:
-        print("Error: 'close' column not found in DataFrame")
-        return pd.Series(['Unknown'] * len(df), index=df.index, name='Crash Risk')
-    
+        print("Missing 'close' column:", df.columns)
+        return pd.Series([np.nan]*len(df), index=df.index, name='Crash Risk')  # Return NaN series with proper index
+
     try:
-        df['returns'] = df['close'].astype(float).pct_change()  # Ensure conversion to float for calculation
+        df['returns'] = df['close'].astype(float).pct_change()  # Convert to float and calculate percentage change
+        # Calculate Value at Risk (VaR) using a conservative approach if enough data points are available
+        df['VaR'] = df['returns'].rolling(window=30, min_periods=1).apply(lambda x: np.percentile(x.dropna(), 5) if len(x.dropna()) > 1 else np.nan)
+        # Determine crash risk based on VaR thresholds
+        conditions = [
+            (df['VaR'] < -0.02),
+            (df['VaR'].between(-0.02, -0.01)),
+            (df['VaR'] > -0.01)
+        ]
+        choices = ['High', 'Medium', 'Low']
+        crash_risk_series = np.select(conditions, choices, default='Unknown')
+        return pd.Series(crash_risk_series, index=df.index, name='Crash Risk')
     except Exception as e:
-        print(f"Error in calculating returns: {e}")
-        return pd.Series(['Unknown'] * len(df), index=df.index, name='Crash Risk')
-
-    if df['returns'].isnull().all():
-        print("All returns are NaN.")
-        return pd.Series(['Unknown'] * len(df), index=df.index, name='Crash Risk')
-    
-    df['VaR'] = df['returns'].rolling(window=30, min_periods=1).apply(lambda x: np.percentile(x.dropna(), 5))  # Safe percentile calc
-
-    conditions = [
-        (df['VaR'] < -0.02),
-        (df['VaR'].between(-0.02, -0.01)),
-        (df['VaR'] > -0.01)
-    ]
-    choices = ['High', 'Medium', 'Low']
-    crash_risk_series = np.select(conditions, choices, default='Unknown')
-
-    return pd.Series(crash_risk_series, index=df.index, name='Crash Risk')
+        print("Error in crash risk calculation:", str(e))
+        return pd.Series(['Error']*len(df), index=df.index, name='Crash Risk')  
 
     def display_stock_status(self, df):
         if df.empty:
@@ -285,14 +275,20 @@ if st.sidebar.button('Kết Quả', key='result_button'):
     combined_df = pd.DataFrame()
     
     # Modify fetching of VNINDEX to ensure 'close' column exists
+# Fetch VNINDEX data and ensure proper column names
     if display_vnindex:
         vnindex_data = stock_historical_data("VNINDEX", "2000-06-01", pd.Timestamp.today().strftime('%Y-%m-%d'), "1D", "index", source='TCBS')
         vnindex_df = pd.DataFrame(vnindex_data)
-        vnindex_df.rename(columns={'time': 'Datetime', 'close': 'StockSymbol'}, inplace=True)
+        vnindex_df.rename(columns={'time': 'Datetime'}, inplace=True)
         vnindex_df['Datetime'] = pd.to_datetime(vnindex_df['Datetime'], errors='coerce')
         vnindex_df.set_index('Datetime', inplace=True)
-        vnindex_df['close'] = vnindex_df['close']  # Ensure this is a numeric column
-        vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)  # Applying the revised method
+    
+        # Assuming the close price data is named as 'close' in the fetched data
+        if 'close' not in vnindex_df.columns:
+            print("Fetched data does not contain 'close' column:", vnindex_df.columns)
+            st.error("Data error: 'close' column missing in the fetched data.")
+    
+        vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)
         combined_df = pd.concat([combined_df, vnindex_df])
     
     if display_vn30:
