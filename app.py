@@ -437,13 +437,13 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 # Ensure that the date range is within the available data
 if selected_stocks:
     combined_data = pd.DataFrame()
-    if 'VN30' in portfolio_options and 'Chọn mã theo ngành' trong portfolio_options:
+    if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
         sector_data = load_detailed_data(selected_stocks)
         vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
         combined_data = pd.concat([vn30_stocks, sector_data])
     elif 'VN30' in portfolio_options:
         combined_data = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
-    elif 'Chọn mã theo ngành' trong portfolio_options:
+    elif 'Chọn mã theo ngành' in portfolio_options:
         for symbol in selected_stocks:
             sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
             combined_data = pd.concat([combined_data, sector_data])
@@ -484,13 +484,13 @@ if selected_stocks:
                     # Run backtest
                     portfolio = run_backtest(df_filtered, init_cash, fees, direction, t_plus)
 
-                    if portfolio is None hoặc len(portfolio.orders.records) == 0:
+                    if portfolio is None or len(portfolio.orders.records) == 0:
                         st.error("Không có giao dịch nào được thực hiện trong khoảng thời gian này.")
                     else:
                         # Create tabs for different views on the main screen
                         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Biểu đồ", "Danh mục đầu tư"])
                         
-                        với tab1:
+                        with tab1:
                             try:
                                 st.markdown("<h2 style='text-align: center; color: #4CAF50;'>Tóm tắt chiến lược</h2>", unsafe_allow_html=True)
                                 
@@ -538,7 +538,7 @@ if selected_stocks:
                                 st.error(f"Đã xảy ra lỗi: {e}")
                         
 
-                        với tab2:
+                        with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
                             st.markdown("Tab này hiển thị hiệu suất tổng thể của chiến lược giao dịch đã chọn. \
                                         Bạn sẽ tìm thấy các chỉ số quan trọng như tổng lợi nhuận, lợi nhuận/lỗ, và các thống kê liên quan khác.")
@@ -562,12 +562,12 @@ if selected_stocks:
                             stats_df.rename(index=metrics_vi, inplace=True)
                             st.dataframe(stats_df, height=800)
 
-                        với tab3:
+                        with tab3:
                             st.markdown("**Tổng hợp lệnh mua/bán:**")
                             st.markdown("Tab này cung cấp danh sách chi tiết của tất cả các lệnh mua/bán được thực hiện bởi chiến lược. \
                                         Bạn có thể phân tích các điểm vào và ra của từng giao dịch, cùng với lợi nhuận hoặc lỗ.")
                             trades_df = portfolio.trades.records_readable
-                            trades_df là trades_df.round(2)
+                            trades_df = trades_df.round(2)
                             trades_df.index.name = 'Số giao dịch'
                             trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
                             st.dataframe(trades_df, width=800, height=600)
@@ -575,7 +575,7 @@ if selected_stocks:
                         equity_data = portfolio.value()
                         drawdown_data = portfolio.drawdown() * 100
 
-                        với tab4:
+                        with tab4:
                             equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Giá trị', line=dict(color='green'))
                             equity_fig = go.Figure(data=[equity_trace])
                             equity_fig.update_layout(
@@ -590,7 +590,7 @@ if selected_stocks:
                             st.markdown("Biểu đồ này hiển thị sự tăng trưởng giá trị danh mục của bạn theo thời gian, \
                                         cho phép bạn thấy cách chiến lược hoạt động trong các điều kiện thị trường khác nhau.")
 
-                        với tab5:
+                        with tab5:
                             fig = portfolio.plot()
                             crash_df = df_filtered[df_filtered['Crash']]
                             fig.add_scatter(
@@ -605,10 +605,10 @@ if selected_stocks:
                                         cung cấp cái nhìn tổng thể về hiệu suất của chiến lược.")
                             st.plotly_chart(fig, use_container_width=True)
 
-                        với tab6:
+                        with tab6:
                             st.markdown("**Danh mục đầu tư:**")
                             st.markdown("Danh sách các mã cổ phiếu theo danh mục.")
-                            optimizer là PortfolioOptimizer()
+                            optimizer = PortfolioOptimizer()
                             df_selected_stocks = df_filtered[df_filtered['StockSymbol'].isin(selected_stocks)]
                             data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
                             optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
