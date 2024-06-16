@@ -213,19 +213,19 @@ selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplic
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     vn30 = VN30()
     selected_stocks = []
-    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'], key='portfolio_options')
 
     display_vn30 = 'VN30' in portfolio_options  # Set to True only if VN30 is selected
 
     if 'VN30' in portfolio_options:
-        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
+        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols, key='vn30_symbols')
         
     if 'Chọn mã theo ngành' in portfolio_options:
-        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
+        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()), key='sector_selection')
         if selected_sector:
             df_full = load_data(SECTOR_FILES[selected_sector])
             available_symbols = df_full['StockSymbol'].unique().tolist()
-            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
+            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols, key='sector_symbols')
             selected_stocks.extend(sector_selected_symbols)
             display_vn30 = False  # Disable VN30 display if sector is selected
 
@@ -241,7 +241,7 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     </div>
     """, unsafe_allow_html=True)
 
-if st.sidebar.button('Kết Quả'):
+if st.sidebar.button('Kết Quả', key='result_button'):
     vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
     if not vn30_stocks.empty:
         st.write("Hiển thị kết quả sự sụt giảm cổ phiếu trong danh mục VN30 ngày hôm nay.")
@@ -365,19 +365,19 @@ st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     vn30 = VN30()
     selected_stocks = []
-    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'], key='portfolio_options_main')
 
     display_vn30 = 'VN30' in portfolio_options  # Set to True only if VN30 is selected
 
     if 'VN30' in portfolio_options:
-        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
+        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols, key='vn30_symbols_main')
         
     if 'Chọn mã theo ngành' in portfolio_options:
-        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
+        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()), key='sector_selection_main')
         if selected_sector:
             df_full = load_data(SECTOR_FILES[selected_sector])
             available_symbols = df_full['StockSymbol'].unique().tolist()
-            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
+            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols, key='sector_symbols_main')
             selected_stocks.extend(sector_selected_symbols)
             display_vn30 = False  # Disable VN30 display if sector is selected
 
@@ -395,20 +395,20 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
 
 # Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
-    init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000)
-    fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
-    direction_vi = st.selectbox("Vị thế", ["Mua", "Bán"], index=0)
+    init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000, key='init_cash_main')
+    fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01, key='fees_main') / 100
+    direction_vi = st.selectbox("Vị thế", ["Mua", "Bán"], index=0, key='direction_vi_main')
     direction = "longonly" if direction_vi == "Mua" else "shortonly"
-    t_plus = st.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0)
+    t_plus = st.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0, key='t_plus_main')
 
     # New trading parameters
-    take_profit_percentage = st.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
-    stop_loss_percentage = st.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
-    trailing_take_profit_percentage = st.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
-    trailing_stop_loss_percentage = st.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
+    take_profit_percentage = st.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1, key='take_profit_main')
+    stop_loss_percentage = st.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1, key='stop_loss_main')
+    trailing_take_profit_percentage = st.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1, key='trailing_take_profit_main')
+    trailing_stop_loss_percentage = st.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1, key='trailing_stop_loss_main')
 
     # Sidebar: Choose the strategies to apply
-    strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
+    strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"], key='strategies_main')
 
 # Ensure that the date range is within the available data
 if selected_stocks:
@@ -430,8 +430,8 @@ if selected_stocks:
         last_available_date = combined_data.index.max().date()
 
         # Ensure selected date range is within the available data range
-        start_date = st.date_input('Ngày bắt đầu', first_available_date)
-        end_date = st.date_input('Ngày kết thúc', last_available_date)
+        start_date = st.date_input('Ngày bắt đầu', first_available_date, key='start_date_main')
+        end_date = st.date_input('Ngày kết thúc', last_available_date, key='end_date_main')
 
         if start_date < first_available_date:
             start_date = first_available_date
@@ -502,7 +502,7 @@ if selected_stocks:
                                 crash_details.reset_index(inplace=True)
                                 crash_details.rename(columns={'Datetime': 'Ngày Sụt Giảm', 'close': 'Giá'}, inplace=True)
                                 
-                                if st.button('Xem Chi Tiết'):
+                                if st.button('Xem Chi Tiết', key='detail_button'):
                                     st.markdown("**Danh sách các điểm sụt giảm:**")
                                     st.dataframe(crash_details.style.format(subset=['Giá'], formatter="{:.2f}"), height=300)
                         
