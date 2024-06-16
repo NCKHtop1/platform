@@ -2,9 +2,11 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
+from scipy.optimize import minimize
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import seaborn as sns
+import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 from vnstock import stock_historical_data
@@ -82,6 +84,9 @@ def calculate_VaR(returns, confidence_level=0.95):
     """
     if not isinstance(returns, pd.Series):
         returns = pd.Series(returns)
+    # Assuming normal distribution of returns
+    mean_return = returns.mean()
+    std_return = returns.std()
     var = np.percentile(returns, 100 * (1 - confidence_level))
     return var
 
@@ -94,11 +99,12 @@ class VN30:
             "TCB", "TPB", "VCB", "VHM", "VIB", "VIC", "VJC", "VNM", "VPB", "VRE"
         ]
 
-    def fetch_data(self, symbol, start_date, end_date):
+    def fetch_data(self, symbol):
+        today = pd.Timestamp.today().strftime('%Y-%m-%d')
         data = stock_historical_data(
             symbol=symbol,
-            start_date=start_date,
-            end_date=end_date,
+            start_date=today,
+            end_date=today,
             resolution='1D',
             type='stock',
             beautify=True,
@@ -107,15 +113,18 @@ class VN30:
         )
         df = pd.DataFrame(data)
         if not df.empty:
-            df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+            if 'time' in df.columns:
+                df.rename(columns={'time': 'Datetime'}, inplace=True)
+            elif 'datetime' in df.columns:
+                df.rename(columns={'datetime': 'Datetime'}, inplace=True)
             df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
             return df.set_index('Datetime', drop=True)
         return pd.DataFrame()  # Handle case where no data is returned
 
-    def analyze_stocks(self, selected_symbols, start_date, end_date):
+    def analyze_stocks(self, selected_symbols):
         results = []
         for symbol in selected_symbols:
-            stock_data = self.fetch_data(symbol, start_date, end_date)
+            stock_data = self.fetch_data(symbol)
             if not stock_data.empty:
                 stock_data['Crash Risk'] = self.calculate_crash_risk(stock_data)
                 results.append(stock_data)
@@ -170,59 +179,6 @@ class VN30:
                 else:
                     col.empty()  
 
-def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
-    # Đọc dữ liệu lịch sử từ file CSV
-    historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
-    # Ngày cuối cùng có trong dữ liệu lịch sử
-    latest_historical_date = historical_data.index.max()
-    
-    if latest_historical_date < pd.Timestamp(start_date):
-        # Chỉ truy vấn dữ liệu từ vnstock nếu ngày bắt đầu yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
-        fetched_data = stock_historical_data(
-            symbol=symbol, 
-            start_date=start_date, 
-            end_date=end_date, 
-            resolution='1D', 
-            type='stock', 
-            beautify=True, 
-            decor=False, 
-            source='DNSE'
-        )
-        if fetched_data:
-            fetched_data_df = pd.DataFrame(fetched_data)
-            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
-            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
-            fetched_data_df.set_index('Datetime', inplace=True)
-            return fetched_data_df
-        return pd.DataFrame()
-    
-    # Kiểm tra nếu ngày kết thúc yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
-    if end_date > latest_historical_date:
-        # Truy vấn dữ liệu từ ngày sau ngày cuối trong file đến ngày kết thúc yêu cầu
-        fetched_data = stock_historical_data(
-            symbol=symbol, 
-            start_date=latest_historical_date + pd.Timedelta(days=1), 
-            end_date=end_date, 
-            resolution='1D', 
-            type='stock', 
-            beautify=True, 
-            decor=False, 
-            source='DNSE'
-        )
-        # Nếu có dữ liệu được trả về
-        if fetched_data:
-            fetched_data_df = pd.DataFrame(fetched_data)
-            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
-            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
-            fetched_data_df.set_index('Datetime', inplace=True)
-
-            # Kết hợp dữ liệu lịch sử và dữ liệu mới truy vấn được
-            combined_data = pd.concat([historical_data.loc[:latest_historical_date], fetched_data_df])
-            return combined_data
-
-    # Trường hợp không cần truy vấn dữ liệu mới, trả về dữ liệu lịch sử
-    return historical_data
-
 # Usage in Streamlit (main application flow)
 st.title('Bảng Phân Tích Cổ Phiếu Trong Danh Mục VN30')
 vn30 = VN30()
@@ -230,20 +186,21 @@ selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplic
 
 # Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
+    vn30 = VN30()
     selected_stocks = []
-    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'], key='portfolio_options')
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
 
     display_vn30 = 'VN30' in portfolio_options  # Set to True only if VN30 is selected
 
     if 'VN30' in portfolio_options:
-        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols, key='vn30_symbols')
+        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
         
     if 'Chọn mã theo ngành' in portfolio_options:
-        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()), key='sector_selection')
+        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
         if selected_sector:
             df_full = load_data(SECTOR_FILES[selected_sector])
             available_symbols = df_full['StockSymbol'].unique().tolist()
-            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols, key='sector_symbols')
+            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
             selected_stocks.extend(sector_selected_symbols)
             display_vn30 = False  # Disable VN30 display if sector is selected
 
@@ -259,15 +216,8 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     </div>
     """, unsafe_allow_html=True)
 
-if st.sidebar.button('Kết Quả', key='result_button'):
-    if display_vn30:
-        vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
-    else:
-        vn30_stocks = pd.DataFrame()
-        for symbol in selected_stocks:
-            sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
-            vn30_stocks = pd.concat([vn30_stocks, sector_data])
-    
+if st.sidebar.button('Kết Quả'):
+    vn30_stocks = vn30.analyze_stocks(selected_symbols)
     if not vn30_stocks.empty:
         st.write("Hiển thị kết quả sự sụt giảm cổ phiếu trong danh mục VN30 ngày hôm nay.")
         st.write("""
@@ -388,20 +338,21 @@ st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu
 
 # Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
+    vn30 = VN30()
     selected_stocks = []
-    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'], key='portfolio_options_main')
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'])
 
     display_vn30 = 'VN30' in portfolio_options  # Set to True only if VN30 is selected
 
     if 'VN30' in portfolio_options:
-        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols, key='vn30_symbols_main')
+        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
         
     if 'Chọn mã theo ngành' in portfolio_options:
-        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()), key='sector_selection_main')
+        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
         if selected_sector:
             df_full = load_data(SECTOR_FILES[selected_sector])
             available_symbols = df_full['StockSymbol'].unique().tolist()
-            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols, key='sector_symbols_main')
+            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols)
             selected_stocks.extend(sector_selected_symbols)
             display_vn30 = False  # Disable VN30 display if sector is selected
 
@@ -419,34 +370,30 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
 
 # Portfolio tab
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
-    init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000, key='init_cash_main')
-    fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01, key='fees_main') / 100
-    direction_vi = st.selectbox("Vị thế", ["Mua", "Bán"], index=0, key='direction_vi_main')
+    init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000)
+    fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
+    direction_vi = st.selectbox("Vị thế", ["Mua", "Bán"], index=0)
     direction = "longonly" if direction_vi == "Mua" else "shortonly"
-    t_plus = st.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0, key='t_plus_main')
+    t_plus = st.selectbox("Thời gian nắm giữ tối thiểu", [0, 1, 2.5, 3], index=0)
 
     # New trading parameters
-    take_profit_percentage = st.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1, key='take_profit_main')
-    stop_loss_percentage = st.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1, key='stop_loss_main')
-    trailing_take_profit_percentage = st.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1, key='trailing_take_profit_main')
-    trailing_stop_loss_percentage = st.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1, key='trailing_stop_loss_main')
+    take_profit_percentage = st.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
+    stop_loss_percentage = st.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
+    trailing_take_profit_percentage = st.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
+    trailing_stop_loss_percentage = st.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
     # Sidebar: Choose the strategies to apply
-    strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"], key='strategies_main')
+    strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
 # Ensure that the date range is within the available data
 if selected_stocks:
-    combined_data = pd.DataFrame()
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
         sector_data = load_detailed_data(selected_stocks)
-        vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
         combined_data = pd.concat([vn30_stocks, sector_data])
     elif 'VN30' in portfolio_options:
-        combined_data = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+        combined_data = vn30_stocks
     elif 'Chọn mã theo ngành' in portfolio_options:
-        for symbol in selected_stocks:
-            sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
-            combined_data = pd.concat([combined_data, sector_data])
+        combined_data = load_detailed_data(selected_stocks)
     else:
         combined_data = pd.DataFrame()
 
@@ -458,8 +405,8 @@ if selected_stocks:
         last_available_date = combined_data.index.max().date()
 
         # Ensure selected date range is within the available data range
-        start_date = st.date_input('Ngày bắt đầu', first_available_date, key='start_date_main')
-        end_date = st.date_input('Ngày kết thúc', last_available_date, key='end_date_main')
+        start_date = st.date_input('Ngày bắt đầu', first_available_date)
+        end_date = st.date_input('Ngày kết thúc', last_available_date)
 
         if start_date < first_available_date:
             start_date = first_available_date
@@ -530,7 +477,7 @@ if selected_stocks:
                                 crash_details.reset_index(inplace=True)
                                 crash_details.rename(columns={'Datetime': 'Ngày Sụt Giảm', 'close': 'Giá'}, inplace=True)
                                 
-                                if st.button('Xem Chi Tiết', key='detail_button'):
+                                if st.button('Xem Chi Tiết'):
                                     st.markdown("**Danh sách các điểm sụt giảm:**")
                                     st.dataframe(crash_details.style.format(subset=['Giá'], formatter="{:.2f}"), height=300)
                         
