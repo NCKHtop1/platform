@@ -459,19 +459,18 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
     strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
-if selected_stocks:
+if selected_stocks or selected_symbols:
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
         sector_data = load_detailed_data(selected_stocks)
+        vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
         combined_data = pd.concat([vn30_stocks, sector_data])
     elif 'VN30' in portfolio_options:
-        combined_data = vn30_stocks
+        combined_data = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
     elif 'Chọn mã theo ngành' in portfolio_options:
         combined_data = pd.DataFrame()
         for symbol in selected_stocks:
             sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
             combined_data = pd.concat([combined_data, sector_data])
-    else:
-        combined_data = pd.DataFrame()
 
     if not combined_data.empty:
         combined_data = combined_data[~combined_data.index.duplicated(keep='first')]
