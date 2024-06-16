@@ -48,7 +48,9 @@ def load_data(file_path):
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
-    return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
+    df = pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
+    st.write(f"Loaded data from {file_path} with {len(df)} rows.")  # Debug statement
+    return df
 
 def ensure_datetime_compatibility(start_date, end_date, df):
     df = df[~df.index.duplicated(keep='first')]  # Ensure unique indices
@@ -68,19 +70,20 @@ def ensure_datetime_compatibility(start_date, end_date, df):
 def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
     # Đọc dữ liệu lịch sử từ file CSV
     historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
+    st.write(f"Loaded historical data for {symbol} from {historical_path} with {len(historical_data)} rows.")  # Debug statement
     # Ngày cuối cùng có trong dữ liệu lịch sử
     latest_historical_date = historical_data.index.max()
 
     if latest_historical_date < pd.Timestamp(start_date):
         # Chỉ truy vấn dữ liệu từ vnstock nếu ngày bắt đầu yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
         fetched_data = stock_historical_data(
-            symbol=symbol,
-            start_date=start_date,
-            end_date=end_date,
-            resolution='1D',
-            type='stock',
-            beautify=True,
-            decor=False,
+            symbol=symbol, 
+            start_date=start_date, 
+            end_date=end_date, 
+            resolution='1D', 
+            type='stock', 
+            beautify=True, 
+            decor=False, 
             source='DNSE'
         )
         if fetched_data:
@@ -88,19 +91,21 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
             fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
             fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
             fetched_data_df.set_index('Datetime', inplace=True)
+            st.write(f"Fetched {len(fetched_data_df)} rows of new data for {symbol}.")  # Debug statement
             return fetched_data_df
+        return pd.DataFrame()
 
     # Kiểm tra nếu ngày kết thúc yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
     if end_date > latest_historical_date:
         # Truy vấn dữ liệu từ ngày sau ngày cuối trong file đến ngày kết thúc yêu cầu
         fetched_data = stock_historical_data(
-            symbol=symbol,
-            start_date=latest_historical_date + pd.Timedelta(days=1),
-            end_date=end_date,
-            resolution='1D',
-            type='stock',
-            beautify=True,
-            decor=False,
+            symbol=symbol, 
+            start_date=latest_historical_date + pd.Timedelta(days=1), 
+            end_date=end_date, 
+            resolution='1D', 
+            type='stock', 
+            beautify=True, 
+            decor=False, 
             source='DNSE'
         )
         # Nếu có dữ liệu được trả về
@@ -109,6 +114,7 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
             fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
             fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
             fetched_data_df.set_index('Datetime', inplace=True)
+            st.write(f"Fetched {len(fetched_data_df)} rows of new data for {symbol}.")  # Debug statement
 
             # Kết hợp dữ liệu lịch sử và dữ liệu mới truy vấn được
             combined_data = pd.concat([historical_data.loc[:latest_historical_date], fetched_data_df])
@@ -116,6 +122,18 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
 
     # Trường hợp không cần truy vấn dữ liệu mới, trả về dữ liệu lịch sử
     return historical_data.loc[start_date:end_date]
+
+def load_detailed_data(selected_stocks, start_date, end_date):
+    data = pd.DataFrame()
+    for sector, file_path in SECTOR_FILES.items():
+        df = load_data(file_path)
+        if not df.empty:
+            for stock in selected_stocks:
+                sector_data = fetch_and_combine_data(stock, file_path, start_date, end_date)
+                if not sector_data.empty:
+                    sector_data['StockSymbol'] = stock
+                    data = pd.concat([data, sector_data])
+    return data
 
 def calculate_VaR(returns, confidence_level=0.95):
     if not isinstance(returns, pd.Series):
@@ -154,6 +172,7 @@ class VN30:
         for symbol in selected_symbols:
             stock_data = self.fetch_data(symbol, start_date, end_date)
             if not stock_data.empty:
+                stock_data['StockSymbol'] = symbol
                 stock_data['Crash Risk'] = self.calculate_crash_risk(stock_data)
                 results.append(stock_data)
         if results:
@@ -501,30 +520,30 @@ if selected_stocks:
                         st.error("Không có giao dịch nào được thực hiện trong khoảng thời gian này.")
                     else:
                         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Biểu đồ", "Danh mục đầu tư"])
-
+                        
                         with tab1:
                             try:
                                 st.markdown("<h2 style='text-align: center; color: #4CAF50;'>Tóm tắt chiến lược</h2>", unsafe_allow_html=True)
-
+                                
                                 indicator_name = ", ".join(strategies)
                                 win_rate = portfolio.stats()['Win Rate [%]']
                                 win_rate_color = "#4CAF50" if win_rate > 50 else "#FF5733"
-
+                        
                                 st.markdown(f"<div style='text-align: center; margin-bottom: 20px;'><span style='color: {win_rate_color}; font-size: 24px; font-weight: bold;'>Tỷ lệ thắng: {win_rate:.2f}%</span><br><span style='font-size: 18px;'>Sử dụng chỉ báo: {indicator_name}</span></div>", unsafe_allow_html=True)
-
+                        
                                 cumulative_return = portfolio.stats()['Total Return [%]']
                                 annualized_return = portfolio.stats().get('Annual Return [%]', 0)
                                 st.markdown("<div style='background-color: #f0f2f6; padding: 10px; border-radius: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
                                 st.markdown(f"<p style='text-align: center; margin: 0;'><strong>Hiệu suất trên các mã chọn: {', '.join(selected_stocks)}</strong></p>", unsafe_allow_html=True)
                                 st.markdown(f"<p style='text-align: center; margin: 0;'><strong>Tổng lợi nhuận: {cumulative_return:.2f}%</strong> | <strong>Lợi nhuận hàng năm: {annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
                                 st.markdown("</div>", unsafe_allow_html=True)
-
+                        
                                 price_data = df_filtered['close']
                                 crash_df = df_filtered[df_filtered['Crash']]
                                 fig = go.Figure()
                                 fig.add_trace(go.Scatter(x=price_data.index, y=price_data, mode='lines', name='Giá', line=dict(color='#1f77b4')))
                                 fig.add_trace(go.Scatter(x=crash_df.index, y=crash_df['close'], mode='markers', marker=dict(color='orange', size=8, symbol='triangle-down'), name='Điểm sụt giảm'))
-
+                        
                                 fig.update_layout(
                                     title="Biểu đồ Giá cùng Điểm Sụt Giảm",
                                     xaxis_title="Ngày",
@@ -533,18 +552,18 @@ if selected_stocks:
                                     template="plotly_white"
                                 )
                                 st.plotly_chart(fig, use_container_width=True)
-
+                        
                                 crash_details = crash_df[['close']]
                                 crash_details.reset_index(inplace=True)
                                 crash_details.rename(columns={'Datetime': 'Ngày Sụt Giảm', 'close': 'Giá'}, inplace=True)
-
+                                
                                 if st.button('Xem Chi Tiết'):
                                     st.markdown("**Danh sách các điểm sụt giảm:**")
                                     st.dataframe(crash_details.style.format(subset=['Giá'], formatter="{:.2f}"), height=300)
-
+                        
                             except Exception as e:
                                 st.error(f"Đã xảy ra lỗi: {e}")
-
+                        
                         with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
                             st.markdown("Tab này hiển thị hiệu suất tổng thể của chiến lược giao dịch đã chọn. \
