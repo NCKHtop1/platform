@@ -292,7 +292,7 @@ class PortfolioOptimizer:
             w = np.linalg.solve(Sigma, ones)
             w /= np.sum(w)
 
-        if leverage is not None và leverage < np.inf:
+        if leverage is not None and leverage < np.inf:
             w = leverage * w / np.sum(np.abs(w))
 
         return w
@@ -591,8 +591,8 @@ if selected_stocks:
                             st.markdown("Tab này cung cấp danh sách chi tiết của tất cả các lệnh mua/bán được thực hiện bởi chiến lược. \
                                         Bạn có thể phân tích các điểm vào và ra của từng giao dịch, cùng với lợi nhuận hoặc lỗ.")
                             trades_df = portfolio.trades.records_readable
-                            trades_df là trades_df.round(2)
-                            trades_df.index.name là 'Số giao dịch'
+                            trades_df = trades_df.round(2)
+                            trades_df.index.name = 'Số giao dịch'
                             trades_df.drop(trades_df.columns[[0, 1]], axis=1, inplace=True)
                             st.dataframe(trades_df, width=800, height=600)
 
@@ -648,15 +648,15 @@ if selected_stocks:
 
                         if crash_likelihoods:
                             st.markdown("**Xác suất sụt giảm:**")
-                            crash_likelihoods_df là pd.DataFrame(list(crash_likelihoods.items()), columns=['Stock', 'Crash Likelihood'])
+                            crash_likelihoods_df = pd.DataFrame(list(crash_likelihoods.items()), columns=['Stock', 'Crash Likelihood'])
                             crash_likelihoods_df.set_index('Stock', inplace=True)
-                            fig, ax là plt.subplots(figsize=(10, len(crash_likelihoods_df) / 2))
+                            fig, ax = plt.subplots(figsize=(10, len(crash_likelihoods_df) / 2))
                             sns.heatmap(crash_likelihoods_df, annot=True, cmap='RdYlGn_r', ax=ax)
                             st.pyplot(fig)
             except KeyError as e:
                 st.error(f"Key error: {e}")
             except Exception as e:
-                if 'tuple index out of range' không nằm trong str(e):
+                if 'tuple index out of range' not in str(e):
                     st.error(f"An unexpected error occurred: {e}")
 
 else:
