@@ -48,9 +48,7 @@ def load_data(file_path):
     if not os.path.exists(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
-    df = pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
-    st.write(f"Loaded data from {file_path} with {len(df)} rows.")  # Debug statement
-    return df
+    return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
 
 def ensure_datetime_compatibility(start_date, end_date, df):
     df = df[~df.index.duplicated(keep='first')]  # Ensure unique indices
@@ -70,10 +68,9 @@ def ensure_datetime_compatibility(start_date, end_date, df):
 def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
     # Đọc dữ liệu lịch sử từ file CSV
     historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
-    st.write(f"Loaded historical data for {symbol} from {historical_path} with {len(historical_data)} rows.")  # Debug statement
     # Ngày cuối cùng có trong dữ liệu lịch sử
     latest_historical_date = historical_data.index.max()
-
+    
     if latest_historical_date < pd.Timestamp(start_date):
         # Chỉ truy vấn dữ liệu từ vnstock nếu ngày bắt đầu yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
         fetched_data = stock_historical_data(
@@ -86,15 +83,14 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
             decor=False, 
             source='DNSE'
         )
-        if fetched_data:
+        if not fetched_data.empty:
             fetched_data_df = pd.DataFrame(fetched_data)
             fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
             fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
             fetched_data_df.set_index('Datetime', inplace=True)
-            st.write(f"Fetched {len(fetched_data_df)} rows of new data for {symbol}.")  # Debug statement
             return fetched_data_df
         return pd.DataFrame()
-
+    
     # Kiểm tra nếu ngày kết thúc yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
     if end_date > latest_historical_date:
         # Truy vấn dữ liệu từ ngày sau ngày cuối trong file đến ngày kết thúc yêu cầu
@@ -109,12 +105,11 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
             source='DNSE'
         )
         # Nếu có dữ liệu được trả về
-        if fetched_data:
+        if not fetched_data.empty:
             fetched_data_df = pd.DataFrame(fetched_data)
             fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
             fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
             fetched_data_df.set_index('Datetime', inplace=True)
-            st.write(f"Fetched {len(fetched_data_df)} rows of new data for {symbol}.")  # Debug statement
 
             # Kết hợp dữ liệu lịch sử và dữ liệu mới truy vấn được
             combined_data = pd.concat([historical_data.loc[:latest_historical_date], fetched_data_df])
@@ -122,18 +117,6 @@ def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
 
     # Trường hợp không cần truy vấn dữ liệu mới, trả về dữ liệu lịch sử
     return historical_data.loc[start_date:end_date]
-
-def load_detailed_data(selected_stocks, start_date, end_date):
-    data = pd.DataFrame()
-    for sector, file_path in SECTOR_FILES.items():
-        df = load_data(file_path)
-        if not df.empty:
-            for stock in selected_stocks:
-                sector_data = fetch_and_combine_data(stock, file_path, start_date, end_date)
-                if not sector_data.empty:
-                    sector_data['StockSymbol'] = stock
-                    data = pd.concat([data, sector_data])
-    return data
 
 def calculate_VaR(returns, confidence_level=0.95):
     if not isinstance(returns, pd.Series):
@@ -172,7 +155,6 @@ class VN30:
         for symbol in selected_symbols:
             stock_data = self.fetch_data(symbol, start_date, end_date)
             if not stock_data.empty:
-                stock_data['StockSymbol'] = symbol
                 stock_data['Crash Risk'] = self.calculate_crash_risk(stock_data)
                 results.append(stock_data)
         if results:
@@ -475,6 +457,18 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
     trailing_stop_loss_percentage = st.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
 
     strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
+
+def load_detailed_data(selected_stocks, start_date, end_date):
+    result_data = []
+    for stock in selected_stocks:
+        file_path = SECTOR_FILES.get(stock)
+        if file_path:
+            sector_data = fetch_and_combine_data(stock, file_path, start_date, end_date)
+            if not sector_data.empty:
+                result_data.append(sector_data)
+    if result_data:
+        return pd.concat(result_data)
+    return pd.DataFrame()
 
 if selected_stocks:
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
