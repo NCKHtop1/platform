@@ -5,7 +5,6 @@ import os
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import seaborn as sns
-import matplotlib.pyplot as plt
 import vectorbt as vbt
 import pandas_ta as ta
 from vnstock import stock_historical_data
@@ -171,6 +170,39 @@ class VN30:
                 else:
                     col.empty()  
 
+def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
+    # Đọc dữ liệu lịch sử từ file CSV
+    historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
+    # Ngày cuối cùng có trong dữ liệu lịch sử
+    latest_historical_date = historical_data.index.max()
+    
+    # Kiểm tra nếu ngày kết thúc yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
+    if end_date > latest_historical_date:
+        # Truy vấn dữ liệu từ ngày sau ngày cuối trong file đến ngày kết thúc yêu cầu
+        fetched_data = stock_historical_data(
+            symbol=symbol, 
+            start_date=latest_historical_date + pd.Timedelta(days=1), 
+            end_date=end_date, 
+            resolution='1D', 
+            type='stock', 
+            beautify=True, 
+            decor=False, 
+            source='DNSE'
+        )
+        # Nếu có dữ liệu được trả về
+        if fetched_data:
+            fetched_data_df = pd.DataFrame(fetched_data)
+            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
+            fetched_data_df.set_index('Datetime', inplace=True)
+
+            # Kết hợp dữ liệu lịch sử và dữ liệu mới truy vấn được
+            combined_data = pd.concat([historical_data.loc[:latest_historical_date], fetched_data_df])
+            return combined_data
+
+    # Trường hợp không cần truy vấn dữ liệu mới, trả về dữ liệu lịch sử
+    return historical_data
+
 # Usage in Streamlit (main application flow)
 st.title('Bảng Phân Tích Cổ Phiếu Trong Danh Mục VN30')
 vn30 = VN30()
@@ -178,7 +210,6 @@ selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplic
 
 # Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
-    vn30 = VN30()
     selected_stocks = []
     portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'], key='portfolio_options')
 
@@ -209,7 +240,15 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     """, unsafe_allow_html=True)
 
 if st.sidebar.button('Kết Quả', key='result_button'):
-    vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+    if display_vn30:
+        vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+    else:
+        vn30_stocks = load_detailed_data(selected_stocks)
+        # Fetch and combine data for selected stocks
+        for symbol in selected_stocks:
+            sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+            vn30_stocks = pd.concat([vn30_stocks, sector_data])
+    
     if not vn30_stocks.empty:
         st.write("Hiển thị kết quả sự sụt giảm cổ phiếu trong danh mục VN30 ngày hôm nay.")
         st.write("""
@@ -330,7 +369,6 @@ st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu
 
 # Sidebar for Portfolio Selection
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
-    vn30 = VN30()
     selected_stocks = []
     portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'], key='portfolio_options_main')
 
