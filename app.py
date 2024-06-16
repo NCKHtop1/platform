@@ -65,7 +65,7 @@ def ensure_datetime_compatibility(start_date, end_date, df):
     return df.loc[start_date:end_date]
 
 # Load and filter detailed data
-def load_detailed_data(selected_stocks, start_date, end_date):
+def load_detailed_data(selected_stocks):
     data = pd.DataFrame()
     for sector, file_path in SECTOR_FILES.items():
         df = load_data(file_path)
@@ -73,39 +73,6 @@ def load_detailed_data(selected_stocks, start_date, end_date):
             sector_data = df[df['StockSymbol'].isin(selected_stocks)]
             data = pd.concat([data, sector_data])
     return data
-
-def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
-    # Đọc dữ liệu lịch sử từ file CSV
-    historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
-    # Ngày cuối cùng có trong dữ liệu lịch sử
-    latest_historical_date = historical_data.index.max()
-    
-    # Kiểm tra nếu ngày kết thúc yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
-    if end_date > latest_historical_date:
-        # Truy vấn dữ liệu từ ngày sau ngày cuối trong file đến ngày kết thúc yêu cầu
-        fetched_data = stock_historical_data(
-            symbol=symbol, 
-            start_date=latest_historical_date + pd.Timedelta(days=1), 
-            end_date=end_date, 
-            resolution='1D', 
-            type='stock', 
-            beautify=True, 
-            decor=False, 
-            source='DNSE'
-        )
-        # Nếu có dữ liệu được trả về
-        if fetched_data:
-            fetched_data_df = pd.DataFrame(fetched_data)
-            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['time'], unit='ms')
-            fetched_data_df.set_index('Datetime', inplace=True)
-            fetched_data_df = fetched_data_df[['close', 'open', 'high', 'low', 'volume']]  # Giả sử các cột này có sẵn
-
-            # Kết hợp dữ liệu lịch sử và dữ liệu mới truy vấn được
-            combined_data = pd.concat([historical_data.loc[:latest_historical_date], fetched_data_df])
-            return combined_data
-
-    # Trường hợp không cần truy vấn dữ liệu mới, trả về dữ liệu lịch sử
-    return historical_data
 
 def calculate_VaR(returns, confidence_level=0.95):
     """
@@ -141,9 +108,8 @@ class VN30:
         )
         df = pd.DataFrame(data)
         if not df.empty:
-            df.rename(columns={'time': 'Datetime'}, inplace=True)
+            df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
             df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce')
-            df['StockSymbol'] = symbol  # Ensure StockSymbol column exists
             return df.set_index('Datetime', drop=True)
         return pd.DataFrame()  # Handle case where no data is returned
 
@@ -161,10 +127,6 @@ class VN30:
             return pd.DataFrame()  # Handle case where no data is returned
 
     def calculate_crash_risk(self, df):
-        if 'StockSymbol' not in df.columns:
-            st.error("Data is missing 'StockSymbol' column.")
-            return df
-
         df['returns'] = df['close'].pct_change()
         df['VaR'] = df.groupby('StockSymbol')['returns'].transform(lambda x: calculate_VaR(x))
         conditions = [
@@ -218,19 +180,19 @@ selected_symbols = vn30.symbols  # Assuming all symbols are selected for simplic
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     vn30 = VN30()
     selected_stocks = []
-    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'], key='portfolio_options_main')
+    portfolio_options = st.multiselect('Chọn danh mục', ['VN30', 'Chọn mã theo ngành'], key='portfolio_options')
 
     display_vn30 = 'VN30' in portfolio_options  # Set to True only if VN30 is selected
 
     if 'VN30' in portfolio_options:
-        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols, key='vn30_symbols_main')
+        selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols, key='vn30_symbols')
         
     if 'Chọn mã theo ngành' in portfolio_options:
-        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()), key='sector_selection_main')
+        selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()), key='sector_selection')
         if selected_sector:
             df_full = load_data(SECTOR_FILES[selected_sector])
             available_symbols = df_full['StockSymbol'].unique().tolist()
-            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols, key='sector_symbols_main')
+            sector_selected_symbols = st.multiselect('Chọn mã cổ phiếu trong ngành', available_symbols, key='sector_symbols')
             selected_stocks.extend(sector_selected_symbols)
             display_vn30 = False  # Disable VN30 display if sector is selected
 
@@ -418,13 +380,12 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 # Ensure that the date range is within the available data
 if selected_stocks:
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
-        sector_data = load_detailed_data(selected_stocks, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
+        sector_data = load_detailed_data(selected_stocks)
         combined_data = pd.concat([vn30_stocks, sector_data])
     elif 'VN30' in portfolio_options:
         combined_data = vn30_stocks
     elif 'Chọn mã theo ngành' in portfolio_options:
-        sector_data = load_detailed_data(selected_stocks, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
-        combined_data = sector_data
+        combined_data = load_detailed_data(selected_stocks)
     else:
         combined_data = pd.DataFrame()
 
