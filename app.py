@@ -484,7 +484,7 @@ if selected_stocks:
                     # Run backtest
                     portfolio = run_backtest(df_filtered, init_cash, fees, direction, t_plus)
 
-                    if portfolio is None hoặc len(portfolio.orders.records) == 0:
+                    if portfolio is None or len(portfolio.orders.records) == 0:
                         st.error("Không có giao dịch nào được thực hiện trong khoảng thời gian này.")
                     else:
                         # Create tabs for different views on the main screen
