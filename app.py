@@ -125,32 +125,32 @@ class VN30:
         else:
             return pd.DataFrame()  # Handle case where no data is returned
 
-def calculate_crash_risk(self, df):
-    if 'close' not in df.columns:
-        print("Error: 'close' column is missing from the DataFrame.")
-        return pd.Series([np.nan] * len(df), index=df.index, name='Crash Risk')  # Return a NaN series if 'close' column is missing
+    def calculate_crash_risk(self, df):
+        if 'close' not in df.columns:
+            print("Error: 'close' column is missing from the DataFrame.")
+            return pd.Series([np.nan] * len(df), index=df.index, name='Crash Risk')  # Return a NaN series if 'close' column is missing
 
-    try:
-        # Ensure 'close' data is float for calculations
-        df['close'] = pd.to_numeric(df['close'], errors='coerce')
-        df['returns'] = df['close'].pct_change()
-        # Calculate VaR only if there are enough data points
-        if df['returns'].dropna().shape[0] > 1:
-            df['VaR'] = df['returns'].rolling(window=30, min_periods=2).apply(lambda x: np.percentile(x.dropna(), 5))
-            conditions = [
-                (df['VaR'] < -0.02),
-                (df['VaR'].between(-0.02, -0.01)),
-                (df['VaR'] > -0.01)
-            ]
-            choices = ['High', 'Medium', 'Low']
-            crash_risk_series = np.select(conditions, choices, default='Unknown')
-        else:
-            crash_risk_series = ['Unknown'] * len(df)
-        
-        return pd.Series(crash_risk_series, index=df.index, name='Crash Risk')
-    except Exception as e:
-        print(f"Error processing crash risk calculation: {e}")
-        return pd.Series(['Error'] * len(df), index=df.index, name='Crash Risk')
+        try:
+            # Ensure 'close' data is float for calculations
+            df['close'] = pd.to_numeric(df['close'], errors='coerce')
+            df['returns'] = df['close'].pct_change()
+            # Calculate VaR only if there are enough data points
+            if df['returns'].dropna().shape[0] > 1:
+                df['VaR'] = df['returns'].rolling(window=30, min_periods=2).apply(lambda x: np.percentile(x.dropna(), 5))
+                conditions = [
+                    (df['VaR'] < -0.02),
+                    (df['VaR'].between(-0.02, -0.01)),
+                    (df['VaR'] > -0.01)
+                ]
+                choices = ['High', 'Medium', 'Low']
+                crash_risk_series = np.select(conditions, choices, default='Unknown')
+            else:
+                crash_risk_series = ['Unknown'] * len(df)
+            
+            return pd.Series(crash_risk_series, index=df.index, name='Crash Risk')
+        except Exception as e:
+            print(f"Error processing crash risk calculation: {e}")
+            return pd.Series(['Error'] * len(df), index=df.index, name='Crash Risk')
 
     def display_stock_status(self, df):
         if df.empty:
@@ -185,58 +185,48 @@ def calculate_crash_risk(self, df):
                 else:
                     col.empty()  
 
-def fetch_and_combine_data(symbol, historical_path, start_date, end_date):
-    # Đọc dữ liệu lịch sử từ file CSV
-    historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
-    # Ngày cuối cùng có trong dữ liệu lịch sử
-    latest_historical_date = historical_data.index.max()
-    
-    if latest_historical_date < pd.Timestamp(start_date):
-        # Chỉ truy vấn dữ liệu từ vnstock nếu ngày bắt đầu yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
+def fetch_and_combine_data(symbol, historical_path, start_date, end_date, source='DNSE', data_type='stock'):
+    if os.path.exists(historical_path):
+        historical_data = pd.read_csv(historical_path, parse_dates=['Datetime']).set_index('Datetime')
+        latest_historical_date = historical_data.index.max()
+        if start_date < historical_data.index.min() or end_date > latest_historical_date:
+            # Fetch additional data if outside the range of historical data
+            fetched_data = stock_historical_data(
+                symbol=symbol,
+                start_date=start_date,
+                end_date=end_date,
+                resolution='1D',
+                type=data_type,
+                beautify=True,
+                decor=False,
+                source=source
+            )
+            if not fetched_data.empty:
+                fetched_df = pd.DataFrame(fetched_data)
+                fetched_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+                fetched_df['Datetime'] = pd.to_datetime(fetched_df['Datetime'], errors='coerce')
+                fetched_df.set_index('Datetime', inplace=True)
+                return pd.concat([historical_data, fetched_df])
+        return historical_data.loc[start_date:end_date]
+    else:
+        # Fetch data if no historical data file exists
         fetched_data = stock_historical_data(
-            symbol=symbol, 
-            start_date=start_date, 
-            end_date=end_date, 
-            resolution='1D', 
-            type='stock', 
-            beautify=True, 
-            decor=False, 
-            source='DNSE'
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date,
+            resolution='1D',
+            type=data_type,
+            beautify=True,
+            decor=False,
+            source=source
         )
         if not fetched_data.empty:
-            fetched_data_df = pd.DataFrame(fetched_data)
-            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
-            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
-            fetched_data_df.set_index('Datetime', inplace=True)
-            return fetched_data_df
+            fetched_df = pd.DataFrame(fetched_data)
+            fetched_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
+            fetched_df['Datetime'] = pd.to_datetime(fetched_df['Datetime'], errors='coerce')
+            fetched_df.set_index('Datetime', inplace=True)
+            return fetched_df
         return pd.DataFrame()
-    
-    # Kiểm tra nếu ngày kết thúc yêu cầu lớn hơn ngày cuối trong dữ liệu lịch sử
-    if end_date > latest_historical_date:
-        # Truy vấn dữ liệu từ ngày sau ngày cuối trong file đến ngày kết thúc yêu cầu
-        fetched_data = stock_historical_data(
-            symbol=symbol, 
-            start_date=latest_historical_date + pd.Timedelta(days=1), 
-            end_date=end_date, 
-            resolution='1D', 
-            type='stock', 
-            beautify=True, 
-            decor=False, 
-            source='DNSE'
-        )
-        # Nếu có dữ liệu được trả về
-        if not fetched_data.empty:
-            fetched_data_df = pd.DataFrame(fetched_data)
-            fetched_data_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
-            fetched_data_df['Datetime'] = pd.to_datetime(fetched_data_df['Datetime'], errors='coerce')
-            fetched_data_df.set_index('Datetime', inplace=True)
-
-            # Kết hợp dữ liệu lịch sử và dữ liệu mới truy vấn được
-            combined_data = pd.concat([historical_data.loc[:latest_historical_date], fetched_data_df])
-            return combined_data
-
-    # Trường hợp không cần truy vấn dữ liệu mới, trả về dữ liệu lịch sử
-    return historical_data.loc[start_date:end_date]
 
 # Usage in Streamlit (main application flow)
 st.title('Bảng Phân Tích Cổ Phiếu Trong Danh Mục VN30')
@@ -278,29 +268,16 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
 if st.sidebar.button('Kết Quả', key='result_button'):
     combined_df = pd.DataFrame()
     
-    # Modify fetching of VNINDEX to ensure 'close' column exists
-    # Fetching VNINDEX data
     if display_vnindex:
-        vnindex_data = stock_historical_data("VNINDEX", "2000-06-01", pd.Timestamp.today().strftime('%Y-%m-%d'), "1D", "index", source='TCBS')
-        vnindex_df = pd.DataFrame(vnindex_data)
-        if vnindex_df.empty:
-            print("No data retrieved for VNINDEX.")
-        else:
-            vnindex_df.rename(columns={'time': 'Datetime', 'close': 'close'}, inplace=True)
-            vnindex_df['Datetime'] = pd.to_datetime(vnindex_df['Datetime'], errors='coerce')
-            vnindex_df.set_index('Datetime', inplace=True)
-    
-            if 'close' in vnindex_df.columns:
-                vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)
-            else:
-                print("Data fetched does not contain 'close' column:", vnindex_df.columns)
-    
-            combined_df = pd.concat([combined_df, vnindex_df]) if 'combined_df' in locals() else vnindex_df
+        vnindex_data = fetch_and_combine_data("VNINDEX", SECTOR_FILES['VNINDEX'], '2000-06-01', pd.Timestamp.today().strftime('%Y-%m-%d'), 'TCBS', 'index')
+        if not vnindex_data.empty:
+            vnindex_df = vnindex_data
+            vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)
+            combined_df = pd.concat([combined_df, vnindex_df]) if not combined_df.empty else vnindex_df
 
-    
     if display_vn30:
         vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
-        combined_df = pd.concat([combined_df, vn30_stocks])
+        combined_df = pd.concat([combined_df, vn30_stocks]) if not combined_df.empty else vn30_stocks
     
     if 'Chọn mã theo ngành' in portfolio_options:
         for symbol in selected_stocks:
@@ -488,13 +465,11 @@ if selected_stocks or display_vnindex:
             sector_data = fetch_and_combine_data(symbol, SECTOR_FILES[selected_sector], '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
             combined_data = pd.concat([combined_data, sector_data])
     elif display_vnindex:
-        vnindex_data = stock_historical_data("VNINDEX", "2000-06-01", pd.Timestamp.today().strftime('%Y-%m-%d'), "1D", "index", source='TCBS')
-        vnindex_df = pd.DataFrame(vnindex_data)
-        vnindex_df.rename(columns={'time': 'Datetime', 'ticker': 'StockSymbol'}, inplace=True)
-        vnindex_df['Datetime'] = pd.to_datetime(vnindex_df['Datetime'], errors='coerce')
-        vnindex_df.set_index('Datetime', inplace=True)
-        vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)
-        combined_data = vnindex_df
+        vnindex_data = fetch_and_combine_data("VNINDEX", SECTOR_FILES['VNINDEX'], '2000-06-01', pd.Timestamp.today().strftime('%Y-%m-%d'), 'TCBS', 'index')
+        if not vnindex_data.empty:
+            vnindex_df = vnindex_data
+            vnindex_df['Crash Risk'] = VN30().calculate_crash_risk(vnindex_df)
+            combined_data = vnindex_df
 
     if not combined_data.empty:
         combined_data = combined_data[~combined_data.index.duplicated(keep='first')]  # Ensure unique indices
