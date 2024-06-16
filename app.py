@@ -437,7 +437,7 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 # Ensure that the date range is within the available data
 if selected_stocks:
     combined_data = pd.DataFrame()
-    if 'VN30' in portfolio_options and 'Chọn mã theo ngành' trong portfolio_options:
+    if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
         sector_data = load_detailed_data(selected_stocks)
         vn30_stocks = vn30.analyze_stocks(selected_symbols, '2024-01-25', pd.Timestamp.today().strftime('%Y-%m-%d'))
         combined_data = pd.concat([vn30_stocks, sector_data])
