@@ -29,7 +29,7 @@ st.markdown("""
 
 # Sector and Portfolio files mapping
 SECTOR_FILES = {
-    'Ngân hàng': 'Banking.csv',
+    'Ngân hàng': 'Banking2.csv',
     'Vật liệu xây dựng': 'Building Material.csv',
     'Hóa chất': 'Chemical.csv',
     'Dịch vụ tài chính': 'Financial Services.csv',
@@ -39,7 +39,7 @@ SECTOR_FILES = {
     'Khoáng sản': 'Mineral.csv',
     'Dầu khí': 'Oil and Gas.csv',
     'Bất động sản': 'Real Estate.csv',
-    'VNINDEX': 'Vnindex.csv'
+    'VNINDEX': 'VNINDEX2.csv'
 }
 
 # Load data function
@@ -136,7 +136,7 @@ class VN30:
     def analyze_stocks(self, selected_symbols, start_date, end_date):
         results = []
         for symbol in selected_symbols:
-            stock_data = fetch_and_combine_data(symbol, 'Vnindex.csv', start_date, end_date)
+            stock_data = fetch_and_combine_data(symbol, 'VNINDEX2.csv', start_date, end_date)
             if not stock_data.empty:
                 stock_data['Crash Risk'] = self.calculate_crash_risk(stock_data)
                 results.append(stock_data)
