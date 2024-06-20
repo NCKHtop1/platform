@@ -29,7 +29,7 @@ st.markdown("""
 
 # Sector and Portfolio files mapping
 SECTOR_FILES = {
-    'Ngân hàng': 'Banking2.csv',
+    'Ngân hàng': 'Banking2.csv.csv',
     'Vật liệu xây dựng': 'Building Material.csv',
     'Hóa chất': 'Chemical.csv',
     'Dịch vụ tài chính': 'Financial Services.csv',
