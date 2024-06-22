@@ -11,6 +11,24 @@ import vectorbt as vbt
 import pandas_ta as ta
 from vnstock import stock_historical_data
 
+# Ensure compatible version of numpy and vectorbt
+required_numpy_version = "1.21.0"
+required_vectorbt_version = "0.20.0"
+
+def check_and_install_packages():
+    import subprocess
+    import sys
+
+    installed_numpy_version = np.__version__
+    if installed_numpy_version != required_numpy_version:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", f"numpy=={required_numpy_version}"])
+    
+    installed_vectorbt_version = vbt.__version__
+    if installed_vectorbt_version != required_vectorbt_version:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", f"vectorbt=={required_vectorbt_version}"])
+
+check_and_install_packages()
+
 # Check if the image file exists
 image_path = 'image.png'
 if not os.path.exists(image_path):
