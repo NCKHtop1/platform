@@ -11,7 +11,7 @@ import vectorbt as vbt
 import pandas_ta as ta
 from vnstock import stock_historical_data
 
-# Ensure compatible version of numpy and vectorbt
+# Ensure compatible versions of numpy and vectorbt
 required_numpy_version = "1.21.0"
 required_vectorbt_version = "0.20.0"
 
@@ -601,7 +601,7 @@ if selected_stocks:
 
                         with tab5:
                             fig = portfolio.plot()
-                            crash_df = df_filtered[df_filtered['Crash']]
+                            crash_df = df_filtered[df.filtered['Crash']]
                             fig.add_scatter(
                                 x=crash_df.index,
                                 y=crash_df['close'],
