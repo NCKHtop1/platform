@@ -1,3 +1,4 @@
+import vectorbt as vbt
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -7,13 +8,8 @@ from scipy.signal import find_peaks
 import plotly.graph_objects as go
 import seaborn as sns
 import matplotlib.pyplot as plt
-import vectorbt as vbt
 import pandas_ta as ta
 from vnstock import stock_historical_data
-
-# Ensure compatible versions of numpy and vectorbt
-required_numpy_version = "1.21.0"
-required_vectorbt_version = "0.20.0"
 
 def check_and_install_packages():
     import subprocess
