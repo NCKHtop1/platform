@@ -3,27 +3,12 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-from scipy.optimize import minimize
 from scipy.signal import find_peaks
 import plotly.graph_objects as go
-import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas_ta as ta
 from vnstock import stock_historical_data
 
-def check_and_install_packages():
-    import subprocess
-    import sys
-
-    installed_numpy_version = np.__version__
-    if installed_numpy_version != required_numpy_version:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", f"numpy=={required_numpy_version}"])
-    
-    installed_vectorbt_version = vbt.__version__
-    if installed_vectorbt_version != required_vectorbt_version:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", f"vectorbt=={required_vectorbt_version}"])
-
-check_and_install_packages()
 
 # Check if the image file exists
 image_path = 'image.png'
@@ -43,7 +28,7 @@ st.markdown("""
 
 # Sector and Portfolio files mapping
 SECTOR_FILES = {
-    'Ngân hàng': 'Banking2.csv.csv',
+    'Ngân hàng': 'Banking.csv',
     'Vật liệu xây dựng': 'Building Material.csv',
     'Hóa chất': 'Chemical.csv',
     'Dịch vụ tài chính': 'Financial Services.csv',
@@ -53,8 +38,9 @@ SECTOR_FILES = {
     'Khoáng sản': 'Mineral.csv',
     'Dầu khí': 'Oil and Gas.csv',
     'Bất động sản': 'Real Estate.csv',
-    'VNINDEX': 'VNINDEX2.csv'
+    'VNINDEX': 'VNINDEX.csv'
 }
+
 
 # Load data function
 @st.cache_data
@@ -63,6 +49,7 @@ def load_data(file_path):
         st.error(f"File not found: {file_path}")
         return pd.DataFrame()
     return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
+
 
 def ensure_datetime_compatibility(start_date, end_date, df):
     df = df[~df.index.duplicated(keep='first')]  # Ensure unique indices
@@ -78,6 +65,7 @@ def ensure_datetime_compatibility(start_date, end_date, df):
         end_date = df.index[df.index.searchsorted(end_date)]
 
     return df.loc[start_date:end_date]
+
 
 def fetch_and_combine_data(symbol, file_path, start_date, end_date):
     df = load_data(file_path)
@@ -102,6 +90,7 @@ def fetch_and_combine_data(symbol, file_path, start_date, end_date):
                 df = pd.concat([df, fetched_data])
     return df
 
+
 def load_detailed_data(selected_stocks):
     data = pd.DataFrame()
     for sector, file_path in SECTOR_FILES.items():
@@ -111,11 +100,13 @@ def load_detailed_data(selected_stocks):
             data = pd.concat([data, sector_data])
     return data
 
+
 def calculate_VaR(returns, confidence_level=0.95):
     if not isinstance(returns, pd.Series):
         returns = pd.Series(returns)
     var = np.percentile(returns, 100 * (1 - confidence_level))
     return var
+
 
 class VN30:
     def __init__(self):
@@ -204,6 +195,7 @@ class VN30:
                 else:
                     col.empty()
 
+
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)
@@ -226,7 +218,8 @@ class PortfolioOptimizer:
         w = self.solve_QP(Dmat, dvec, Amat, bvec, meq=2)
         return w / np.sum(abs(w))
 
-    def solve_QP(self, Dmat: np.ndarray, dvec: np.ndarray, Amat: np.ndarray, bvec: np.ndarray, meq: int = 0) -> np.ndarray:
+    def solve_QP(self, Dmat: np.ndarray, dvec: np.ndarray, Amat: np.ndarray, bvec: np.ndarray,
+                 meq: int = 0) -> np.ndarray:
         def portfolio_obj(x):
             return 0.5 * np.dot(x, np.dot(Dmat, x)) + np.dot(dvec, x)
 
@@ -253,7 +246,8 @@ class PortfolioOptimizer:
 
         return res.x
 
-    def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit', shortselling: bool = True, leverage: int = None) -> np.ndarray:
+    def GMV_portfolio(self, data: np.ndarray, shrinkage: bool = False, shrinkage_type='ledoit',
+                      shortselling: bool = True, leverage: int = None) -> np.ndarray:
         X = np.diff(np.log(data), axis=0)
         X = X[~np.isnan(X).any(axis=1)]
 
@@ -318,6 +312,7 @@ class PortfolioOptimizer:
 
         return delta * F + (1 - delta) * Sigma
 
+
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
         st.error("No data available for the selected date range.")
@@ -329,8 +324,10 @@ def calculate_indicators_and_crashes(df, strategies):
             if 'MACD_12_26_9' in macd.columns:
                 df['MACD Line'] = macd['MACD_12_26_9']
                 df['Signal Line'] = macd['MACDs_12_26_9']
-                df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
-                df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
+                df['MACD Buy'] = (df['MACD Line'] > df['Signal Line']) & (
+                            df['MACD Line'].shift(1) <= df['Signal Line'].shift(1))
+                df['MACD Sell'] = (df['MACD Line'] < df['Signal Line']) & (
+                            df['MACD Line'].shift(1) >= df['Signal Line'].shift(1))
 
         if "Supertrend" in strategies:
             supertrend = df.ta.supertrend(length=7, multiplier=3, append=True)
@@ -344,8 +341,10 @@ def calculate_indicators_and_crashes(df, strategies):
             if 'STOCHk_14_3_3' in stochastic.columns and 'STOCHd_14_3_3' in stochastic.columns:
                 df['Stochastic K'] = stochastic['STOCHk_14_3_3']
                 df['Stochastic D'] = stochastic['STOCHd_14_3_3']
-                df['Stochastic Buy'] = (df['Stochastic K'] > df['Stochastic D']) & (df['Stochastic K'].shift(1) <= df['Stochastic D'].shift(1))
-                df['Stochastic Sell'] = (df['Stochastic K'] < df['Stochastic D']) & (df['Stochastic K'].shift(1) >= df['Stochastic D'].shift(1))
+                df['Stochastic Buy'] = (df['Stochastic K'] > df['Stochastic D']) & (
+                            df['Stochastic K'].shift(1) <= df['Stochastic D'].shift(1))
+                df['Stochastic Sell'] = (df['Stochastic K'] < df['Stochastic D']) & (
+                            df['Stochastic K'].shift(1) >= df['Stochastic D'].shift(1))
 
         if "RSI" in strategies:
             df['RSI'] = ta.rsi(df['close'], length=14)
@@ -362,15 +361,19 @@ def calculate_indicators_and_crashes(df, strategies):
         df['Crash'] = drawdowns >= crash_threshold
         df['Crash'] = df['Crash'] & (df.index.weekday == 4)
 
-        df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get('Stochastic Sell', False) | df.get('RSI Sell', False)) &
-                                (~df['Crash'].shift(1).fillna(False)))
-        df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy', False) | df.get('RSI Buy', False)) &
+        df['Adjusted Sell'] = ((df.get('MACD Sell', False) | df.get('Supertrend Sell', False) | df.get(
+            'Stochastic Sell', False) | df.get('RSI Sell', False)) &
                                (~df['Crash'].shift(1).fillna(False)))
+        df['Adjusted Buy'] = ((df.get('MACD Buy', False) | df.get('Supertrend Buy', False) | df.get('Stochastic Buy',
+                                                                                                    False) | df.get(
+            'RSI Buy', False)) &
+                              (~df['Crash'].shift(1).fillna(False)))
     except KeyError as e:
         st.error(f"KeyError: {e}")
     except Exception as e:
         st.error(f"An error occurred: {e}")
     return df
+
 
 def apply_t_plus(df, t_plus):
     t_plus_days = int(t_plus)
@@ -383,6 +386,7 @@ def apply_t_plus(df, t_plus):
         df['Adjusted Sell'] = df['Adjusted Sell'] & (df.index > df['Earliest Sell Date'])
 
     return df
+
 
 def run_backtest(df, init_cash, fees, direction, t_plus):
     df = apply_t_plus(df, t_plus)
@@ -402,14 +406,17 @@ def run_backtest(df, init_cash, fees, direction, t_plus):
     )
     return portfolio
 
+
 def calculate_crash_likelihood(df):
     crash_counts = df['Crash'].resample('W').sum()
     total_weeks = len(crash_counts)
     crash_weeks = crash_counts[crash_counts > 0].count()
     return crash_weeks / total_weeks if total_weeks > 0 else 0
 
+
 st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
-st.write('Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
+st.write(
+    'Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     vn30 = VN30()
@@ -420,7 +427,7 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
 
     if 'VN30' in portfolio_options:
         selected_symbols = st.multiselect('Chọn mã cổ phiếu trong VN30', vn30.symbols, default=vn30.symbols)
-        
+
     if 'Chọn mã theo ngành' in portfolio_options:
         selected_sector = st.selectbox('Chọn ngành để lấy dữ liệu', list(SECTOR_FILES.keys()))
         if selected_sector:
@@ -442,7 +449,8 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     """, unsafe_allow_html=True)
 
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
-    init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000, step=1_000_000)
+    init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000,
+                                step=1_000_000)
     fees = st.number_input('Phí giao dịch (%):', min_value=0.0, max_value=10.0, value=0.1, step=0.01) / 100
     direction_vi = st.selectbox("Vị thế", ["Mua", "Bán"], index=0)
     direction = "longonly" if direction_vi == "Mua" else "shortonly"
@@ -450,10 +458,13 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
     take_profit_percentage = st.number_input('Take Profit (%)', min_value=0.0, max_value=100.0, value=10.0, step=0.1)
     stop_loss_percentage = st.number_input('Stop Loss (%)', min_value=0.0, max_value=100.0, value=5.0, step=0.1)
-    trailing_take_profit_percentage = st.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0, value=2.0, step=0.1)
-    trailing_stop_loss_percentage = st.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5, step=0.1)
+    trailing_take_profit_percentage = st.number_input('Trailing Take Profit (%)', min_value=0.0, max_value=100.0,
+                                                      value=2.0, step=0.1)
+    trailing_stop_loss_percentage = st.number_input('Trailing Stop Loss (%)', min_value=0.0, max_value=100.0, value=1.5,
+                                                    step=0.1)
 
-    strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"], default=["MACD", "Supertrend", "Stochastic", "RSI"])
+    strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"],
+                                default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
 if selected_stocks:
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
@@ -498,31 +509,45 @@ if selected_stocks:
                     if portfolio is None or len(portfolio.orders.records) == 0:
                         st.error("Không có giao dịch nào được thực hiện trong khoảng thời gian này.")
                     else:
-                        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị", "Biểu đồ", "Danh mục đầu tư"])
-                        
+                        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+                            ["Tóm tắt", "Chi tiết kết quả kiểm thử", "Tổng hợp lệnh mua/bán", "Đường cong giá trị",
+                             "Biểu đồ", "Danh mục đầu tư"])
+
                         with tab1:
                             try:
-                                st.markdown("<h2 style='text-align: center; color: #4CAF50;'>Tóm tắt chiến lược</h2>", unsafe_allow_html=True)
-                                
+                                st.markdown("<h2 style='text-align: center; color: #4CAF50;'>Tóm tắt chiến lược</h2>",
+                                            unsafe_allow_html=True)
+
                                 indicator_name = ", ".join(strategies)
                                 win_rate = portfolio.stats()['Win Rate [%]']
                                 win_rate_color = "#4CAF50" if win_rate > 50 else "#FF5733"
-                        
-                                st.markdown(f"<div style='text-align: center; margin-bottom: 20px;'><span style='color: {win_rate_color}; font-size: 24px; font-weight: bold;'>Tỷ lệ thắng: {win_rate:.2f}%</span><br><span style='font-size: 18px;'>Sử dụng chỉ báo: {indicator_name}</span></div>", unsafe_allow_html=True)
-                        
+
+                                st.markdown(
+                                    f"<div style='text-align: center; margin-bottom: 20px;'><span style='color: {win_rate_color}; font-size: 24px; font-weight: bold;'>Tỷ lệ thắng: {win_rate:.2f}%</span><br><span style='font-size: 18px;'>Sử dụng chỉ báo: {indicator_name}</span></div>",
+                                    unsafe_allow_html=True)
+
                                 cumulative_return = portfolio.stats()['Total Return [%]']
                                 annualized_return = portfolio.stats().get('Annual Return [%]', 0)
-                                st.markdown("<div style='background-color: #f0f2f6; padding: 10px; border-radius: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='text-align: center; margin: 0;'><strong>Hiệu suất trên các mã chọn: {', '.join(selected_stocks)}</strong></p>", unsafe_allow_html=True)
-                                st.markdown(f"<p style='text-align: center; margin: 0;'><strong>Tổng lợi nhuận: {cumulative_return:.2f}%</strong> | <strong>Lợi nhuận hàng năm: {annualized_return:.2f}%</strong></p>", unsafe_allow_html=True)
+                                st.markdown(
+                                    "<div style='background-color: #f0f2f6; padding: 10px; border-radius: 10px; margin-bottom: 20px;'>",
+                                    unsafe_allow_html=True)
+                                st.markdown(
+                                    f"<p style='text-align: center; margin: 0;'><strong>Hiệu suất trên các mã chọn: {', '.join(selected_stocks)}</strong></p>",
+                                    unsafe_allow_html=True)
+                                st.markdown(
+                                    f"<p style='text-align: center; margin: 0;'><strong>Tổng lợi nhuận: {cumulative_return:.2f}%</strong> | <strong>Lợi nhuận hàng năm: {annualized_return:.2f}%</strong></p>",
+                                    unsafe_allow_html=True)
                                 st.markdown("</div>", unsafe_allow_html=True)
-                        
+
                                 price_data = df_filtered['close']
                                 crash_df = df_filtered[df_filtered['Crash']]
                                 fig = go.Figure()
-                                fig.add_trace(go.Scatter(x=price_data.index, y=price_data, mode='lines', name='Giá', line=dict(color='#1f77b4')))
-                                fig.add_trace(go.Scatter(x=crash_df.index, y=crash_df['close'], mode='markers', marker=dict(color='orange', size=8, symbol='triangle-down'), name='Điểm sụt giảm'))
-                        
+                                fig.add_trace(go.Scatter(x=price_data.index, y=price_data, mode='lines', name='Giá',
+                                                         line=dict(color='#1f77b4')))
+                                fig.add_trace(go.Scatter(x=crash_df.index, y=crash_df['close'], mode='markers',
+                                                         marker=dict(color='orange', size=8, symbol='triangle-down'),
+                                                         name='Điểm sụt giảm'))
+
                                 fig.update_layout(
                                     title="Biểu đồ Giá cùng Điểm Sụt Giảm",
                                     xaxis_title="Ngày",
@@ -531,18 +556,20 @@ if selected_stocks:
                                     template="plotly_white"
                                 )
                                 st.plotly_chart(fig, use_container_width=True)
-                        
+
                                 crash_details = crash_df[['close']]
                                 crash_details.reset_index(inplace=True)
-                                crash_details.rename(columns={'Datetime': 'Ngày Sụt Giảm', 'close': 'Giá'}, inplace=True)
-                                
+                                crash_details.rename(columns={'Datetime': 'Ngày Sụt Giảm', 'close': 'Giá'},
+                                                     inplace=True)
+
                                 if st.button('Xem Chi Tiết'):
                                     st.markdown("**Danh sách các điểm sụt giảm:**")
-                                    st.dataframe(crash_details.style.format(subset=['Giá'], formatter="{:.2f}"), height=300)
-                        
+                                    st.dataframe(crash_details.style.format(subset=['Giá'], formatter="{:.2f}"),
+                                                 height=300)
+
                             except Exception as e:
                                 st.error(f"Đã xảy ra lỗi: {e}")
-                        
+
                         with tab2:
                             st.markdown("**Chi tiết kết quả kiểm thử:**")
                             st.markdown("Tab này hiển thị hiệu suất tổng thể của chiến lược giao dịch đã chọn. \
@@ -581,7 +608,8 @@ if selected_stocks:
                         drawdown_data = portfolio.drawdown() * 100
 
                         with tab4:
-                            equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Giá trị', line=dict(color='green'))
+                            equity_trace = go.Scatter(x=equity_data.index, y=equity_data, mode='lines', name='Giá trị',
+                                                      line=dict(color='green'))
                             equity_fig = go.Figure(data=[equity_trace])
                             equity_fig.update_layout(
                                 title='Đường cong giá trị',
@@ -615,7 +643,8 @@ if selected_stocks:
                             st.markdown("Danh sách các mã cổ phiếu theo danh mục.")
                             optimizer = PortfolioOptimizer()
                             df_selected_stocks = df_filtered[df_filtered['StockSymbol'].isin(selected_stocks)]
-                            data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index, columns='StockSymbol').dropna()
+                            data_matrix = df_selected_stocks.pivot_table(values='close', index=df_selected_stocks.index,
+                                                                         columns='StockSymbol').dropna()
                             optimal_weights = optimizer.MSR_portfolio(data_matrix.values)
 
                             st.write("Optimal Weights for Selected Stocks:")
@@ -629,7 +658,8 @@ if selected_stocks:
 
                         if crash_likelihoods:
                             st.markdown("**Xác suất sụt giảm:**")
-                            crash_likelihoods_df = pd.DataFrame(list(crash_likelihoods.items()), columns=['Stock', 'Crash Likelihood'])
+                            crash_likelihoods_df = pd.DataFrame(list(crash_likelihoods.items()),
+                                                                columns=['Stock', 'Crash Likelihood'])
                             crash_likelihoods_df.set_index('Stock', inplace=True)
                             fig, ax = plt.subplots(figsize=(10, len(crash_likelihoods_df) / 2))
                             sns.heatmap(crash_likelihoods_df, annot=True, cmap='RdYlGn_r', ax=ax)
