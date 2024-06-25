@@ -20,25 +20,59 @@ else:
 # Custom CSS for better UI
 st.markdown("""
     <style>
-    .main {background-color: #f0f2f6;}
-    .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
-    .stSidebar {background-color: #f0f2f6;}
+    .main {
+        background-color: #f0f2f6;
+        font-family: 'Arial', sans-serif;
+    }
+    .stButton>button {
+        color: #fff;
+        background-color: #4CAF50;
+        border-radius: 10px;
+        border: none;
+        padding: 8px 16px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    .stButton>button:hover {
+        background-color: #45a049;
+    }
+    .stSidebar {
+        background-color: #f0f2f6;
+        padding: 10px;
+        border-radius: 10px;
+    }
+    .stSidebar h2 {
+        color: #333;
+        font-size: 24px;
+    }
+    .stSidebar .stButton>button {
+        background-color: #4CAF50;
+        color: #fff;
+        border-radius: 5px;
+        border: none;
+        padding: 8px 16px;
+        font-size: 16px;
+    }
+    .stSidebar .stButton>button:hover {
+        background-color: #45a049;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 # Sector and Portfolio files mapping
 SECTOR_FILES = {
-    'Ngân hàng': 'Banking.csv',
-    'Vật liệu xây dựng': 'Building Material.csv',
-    'Hóa chất': 'Chemical.csv',
-    'Dịch vụ tài chính': 'Financial Services.csv',
-    'Thực phẩm và đồ uống': 'Food and Beverage.csv',
-    'Dịch vụ công nghiệp': 'Industrial Services.csv',
-    'Công nghệ thông tin': 'Information Technology.csv',
-    'Khoáng sản': 'Mineral.csv',
-    'Dầu khí': 'Oil and Gas.csv',
-    'Bất động sản': 'Real Estate.csv',
-    'VNINDEX': 'VNINDEX.csv'
+    'Ngân hàng': 'data_nganh/Banking.csv',
+    'Vật liệu xây dựng': 'data_nganh/Building Material.csv',
+    'Hóa chất': 'data_nganh/Chemical.csv',
+    'Dịch vụ tài chính': 'data_nganh/Financial Services.csv',
+    'Thực phẩm và đồ uống': 'data_nganh/Food and Beverage.csv',
+    'Dịch vụ công nghiệp': 'data_nganh/Industrial Services.csv',
+    'Công nghệ thông tin': 'data_nganh/Information Technology.csv',
+    'Khoáng sản': 'data_nganh/Mineral.csv',
+    'Dầu khí': 'data_nganh/Oil and Gas.csv',
+    'Bất động sản': 'data_nganh/Real Estate.csv',
+    'VNINDEX': 'data_nganh/Vnindex.csv'
 }
 
 
@@ -466,6 +500,11 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
     strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"],
                                 default=["MACD", "Supertrend", "Stochastic", "RSI"])
 
+if 'VN30' in portfolio_options:
+    vn30_stocks = vn30.analyze_stocks(selected_symbols, start_date, end_date)
+else:
+    vn30_stocks = pd.DataFrame()
+
 if selected_stocks:
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
         sector_data = load_detailed_data(selected_stocks)
@@ -625,7 +664,7 @@ if selected_stocks:
 
                         with tab5:
                             fig = portfolio.plot()
-                            crash_df = df_filtered[df.filtered['Crash']]
+                            crash_df = df_filtered[df_filtered['Crash']]
                             fig.add_scatter(
                                 x=crash_df.index,
                                 y=crash_df['close'],
