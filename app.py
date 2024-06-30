@@ -9,9 +9,8 @@ import matplotlib.pyplot as plt
 import pandas_ta as ta
 from vnstock import stock_historical_data
 
-
 # Check if the image file exists
-image_path = 'image.png'
+image_path = 'data_nganh/image.png'
 if not os.path.exists(image_path):
     st.error(f"Image file not found: {image_path}")
 else:
@@ -20,49 +19,15 @@ else:
 # Custom CSS for better UI
 st.markdown("""
     <style>
-    .main {
-        background-color: #f0f2f6;
-        font-family: 'Arial', sans-serif;
-    }
-    .stButton>button {
-        color: #fff;
-        background-color: #4CAF50;
-        border-radius: 10px;
-        border: none;
-        padding: 8px 16px;
-        font-size: 16px;
-        cursor: pointer;
-        transition: background-color 0.3s;
-    }
-    .stButton>button:hover {
-        background-color: #45a049;
-    }
-    .stSidebar {
-        background-color: #f0f2f6;
-        padding: 10px;
-        border-radius: 10px;
-    }
-    .stSidebar h2 {
-        color: #333;
-        font-size: 24px;
-    }
-    .stSidebar .stButton>button {
-        background-color: #4CAF50;
-        color: #fff;
-        border-radius: 5px;
-        border: none;
-        padding: 8px 16px;
-        font-size: 16px;
-    }
-    .stSidebar .stButton>button:hover {
-        background-color: #45a049;
-    }
+    .main {background-color: #f0f2f6;}
+    .stButton>button {color: #fff; background-color: #4CAF50; border-radius: 10px; border: none;}
+    .stSidebar {background-color: #f0f2f6;}
     </style>
     """, unsafe_allow_html=True)
 
 # Sector and Portfolio files mapping
 SECTOR_FILES = {
-    'Ngân hàng': 'data_nganh/Banking.csv',
+    'Ngân hàng': 'data_nganh/Banking2.csv.csv',
     'Vật liệu xây dựng': 'data_nganh/Building Material.csv',
     'Hóa chất': 'data_nganh/Chemical.csv',
     'Dịch vụ tài chính': 'data_nganh/Financial Services.csv',
@@ -72,9 +37,8 @@ SECTOR_FILES = {
     'Khoáng sản': 'data_nganh/Mineral.csv',
     'Dầu khí': 'data_nganh/Oil and Gas.csv',
     'Bất động sản': 'data_nganh/Real Estate.csv',
-    'VNINDEX': 'data_nganh/Vnindex.csv'
+    'VNINDEX': 'data_nganh/Vnindex (2).csv'
 }
-
 
 # Load data function
 @st.cache_data
@@ -84,7 +48,7 @@ def load_data(file_path):
         return pd.DataFrame()
     return pd.read_csv(file_path, parse_dates=['Datetime'], dayfirst=True).set_index('Datetime')
 
-
+# Ensure datetime compatibility in dataframes
 def ensure_datetime_compatibility(start_date, end_date, df):
     df = df[~df.index.duplicated(keep='first')]  # Ensure unique indices
     if not isinstance(start_date, pd.Timestamp):
@@ -97,9 +61,7 @@ def ensure_datetime_compatibility(start_date, end_date, df):
         start_date = df.index[df.index.searchsorted(start_date)]
     if end_date not in df.index:
         end_date = df.index[df.index.searchsorted(end_date)]
-
     return df.loc[start_date:end_date]
-
 
 def fetch_and_combine_data(symbol, file_path, start_date, end_date):
     df = load_data(file_path)
@@ -124,7 +86,6 @@ def fetch_and_combine_data(symbol, file_path, start_date, end_date):
                 df = pd.concat([df, fetched_data])
     return df
 
-
 def load_detailed_data(selected_stocks):
     data = pd.DataFrame()
     for sector, file_path in SECTOR_FILES.items():
@@ -134,13 +95,11 @@ def load_detailed_data(selected_stocks):
             data = pd.concat([data, sector_data])
     return data
 
-
 def calculate_VaR(returns, confidence_level=0.95):
     if not isinstance(returns, pd.Series):
         returns = pd.Series(returns)
     var = np.percentile(returns, 100 * (1 - confidence_level))
     return var
-
 
 class VN30:
     def __init__(self):
@@ -172,12 +131,12 @@ class VN30:
             return df.set_index('Datetime', drop=True)
         return pd.DataFrame()
 
-    def analyze_stocks(self, selected_symbols, start_date, end_date):
+    def analyze_stocks(self, selected_symbols):
         results = []
         for symbol in selected_symbols:
-            stock_data = fetch_and_combine_data(symbol, 'VNINDEX2.csv', start_date, end_date)
+            stock_data = self.fetch_data(symbol)
             if not stock_data.empty:
-                stock_data['Crash Risk'] = self.calculate_crash_risk(stock_data)
+                stock_data = self.calculate_crash_risk(stock_data)
                 results.append(stock_data)
         if results:
             combined_data = pd.concat(results)
@@ -187,7 +146,8 @@ class VN30:
 
     def calculate_crash_risk(self, df):
         df['returns'] = df['close'].pct_change()
-        df['VaR'] = df.groupby('StockSymbol')['returns'].transform(lambda x: calculate_VaR(x))
+        df['VaR'] = df['returns'].rolling(window=252).quantile(0.05)
+        df['VaR'].fillna(0, inplace=True)  # Ensure no NaN values
         conditions = [
             (df['VaR'] < -0.02),
             (df['VaR'].between(-0.02, -0.01)),
@@ -195,6 +155,7 @@ class VN30:
         ]
         choices = ['High', 'Medium', 'Low']
         df['Crash Risk'] = np.select(conditions, choices, default='Low')
+        df['StockSymbol'] = df.index.map(lambda x: x)
         return df
 
     def display_stock_status(self, df):
@@ -228,7 +189,6 @@ class VN30:
                     )
                 else:
                     col.empty()
-
 
 class PortfolioOptimizer:
     def MSR_portfolio(self, data: np.ndarray) -> np.ndarray:
@@ -346,7 +306,6 @@ class PortfolioOptimizer:
 
         return delta * F + (1 - delta) * Sigma
 
-
 def calculate_indicators_and_crashes(df, strategies):
     if df.empty:
         st.error("No data available for the selected date range.")
@@ -408,7 +367,6 @@ def calculate_indicators_and_crashes(df, strategies):
         st.error(f"An error occurred: {e}")
     return df
 
-
 def apply_t_plus(df, t_plus):
     t_plus_days = int(t_plus)
 
@@ -420,7 +378,6 @@ def apply_t_plus(df, t_plus):
         df['Adjusted Sell'] = df['Adjusted Sell'] & (df.index > df['Earliest Sell Date'])
 
     return df
-
 
 def run_backtest(df, init_cash, fees, direction, t_plus):
     df = apply_t_plus(df, t_plus)
@@ -440,18 +397,17 @@ def run_backtest(df, init_cash, fees, direction, t_plus):
     )
     return portfolio
 
-
 def calculate_crash_likelihood(df):
     crash_counts = df['Crash'].resample('W').sum()
     total_weeks = len(crash_counts)
     crash_weeks = crash_counts[crash_counts > 0].count()
     return crash_weeks / total_weeks if total_weeks > 0 else 0
 
-
 st.title('Mô hình cảnh báo sớm cho các chỉ số và cổ phiếu')
 st.write(
     'Ứng dụng này phân tích các cổ phiếu với các tín hiệu mua/bán và cảnh báo sớm trước khi có sự sụt giảm giá mạnh của thị trường chứng khoán trên sàn HOSE và chỉ số VNINDEX.')
 
+# In the main part of your code
 with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     vn30 = VN30()
     selected_stocks = []
@@ -482,6 +438,56 @@ with st.sidebar.expander("Danh mục đầu tư", expanded=True):
     </div>
     """, unsafe_allow_html=True)
 
+# Analyze VN30 stocks if selected
+vn30_stocks = pd.DataFrame()
+if 'VN30' in portfolio_options:
+    vn30_stocks = vn30.analyze_stocks(selected_symbols)
+    if not vn30_stocks.empty:
+        st.subheader('Cảnh báo sớm cho Danh mục VN30')
+        vn30.display_stock_status(vn30_stocks)
+else:
+    st.write("Please select a portfolio or sector to view data.")
+
+# Tải Dữ liệu Người Dùng
+uploaded_file = st.sidebar.file_uploader("Tải tệp dữ liệu của bạn lên", type=['csv', 'xlsx'])
+if uploaded_file is not None:
+    try:
+        # Read user uploaded file
+        df_uploaded = pd.read_csv(uploaded_file)
+        st.write('Tệp đã tải lên:', df_uploaded.head())
+
+        # Check for necessary columns
+        if 'Datetime' in df_uploaded.columns and 'close' in df_uploaded.columns:
+            # Process for backtesting
+            df_uploaded['Datetime'] = pd.to_datetime(df_uploaded['Datetime'])
+            df_uploaded.set_index('Datetime', inplace=True)
+
+            # Allow user to specify parameters
+            start_date = st.date_input("Chọn ngày bắt đầu", value=df_uploaded.index.min())
+            end_date = st.date_input("Chọn ngày kết thúc", value=df_uploaded.index.max())
+            init_cash = st.number_input("Nhập vốn đầu tư", value=100000000)
+
+            # Run backtest
+            portfolio = run_backtest(df_uploaded.loc[start_date:end_date], init_cash=init_cash, fees=0.001,
+                                     direction='longonly')
+
+            if portfolio is not None:
+                st.write("Kết quả Backtest:")
+                st.write(portfolio.stats())
+            else:
+                st.error("Không có giao dịch nào được thực hiện.")
+        else:
+            st.error("Dữ liệu tải lên không đầy đủ để thực hiện backtest.")
+    except Exception as e:
+        st.error(f"Không thể xử lý tệp tải lên: {e}")
+
+# Hiển thị Cấu trúc Cột cho Tệp Ngành
+if st.sidebar.checkbox('Hiển thị Cấu trúc Cột Dữ liệu Ngành'):
+    selected_sector = st.sidebar.selectbox('Chọn Ngành', list(SECTOR_FILES.keys()))
+    if selected_sector:
+        df = pd.read_csv(SECTOR_FILES[selected_sector])
+        st.write(f'Cột trong {selected_sector}:', df.columns)
+
 with st.sidebar.expander("Thông số kiểm tra", expanded=True):
     init_cash = st.number_input('Vốn đầu tư (VNĐ):', min_value=100_000_000, max_value=1_000_000_000, value=100_000_000,
                                 step=1_000_000)
@@ -499,11 +505,6 @@ with st.sidebar.expander("Thông số kiểm tra", expanded=True):
 
     strategies = st.multiselect("Các chỉ báo", ["MACD", "Supertrend", "Stochastic", "RSI"],
                                 default=["MACD", "Supertrend", "Stochastic", "RSI"])
-
-if 'VN30' in portfolio_options:
-    vn30_stocks = vn30.analyze_stocks(selected_symbols, start_date, end_date)
-else:
-    vn30_stocks = pd.DataFrame()
 
 if selected_stocks:
     if 'VN30' in portfolio_options and 'Chọn mã theo ngành' in portfolio_options:
