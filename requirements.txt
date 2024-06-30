@@ -1,9 +1,11 @@
 vnstock
 streamlit
-vectorbt
+vectorbt==0.22.3
 pandas
-numpy
+numpy==1.21.2
 scipy
 plotly
 matplotlib
 pandas_ta
+pandas
+streamlit
