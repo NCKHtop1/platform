@@ -8,7 +8,9 @@ import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import pandas_ta as ta
 from vnstock import stock_historical_data
-
+git add requirements.txt
+git commit -m "Update requirements with compatible versions"
+git push origin main
 # Check if the image file exists
 image_path = 'data_nganh/image.png'
 if not os.path.exists(image_path):
