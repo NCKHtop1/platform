@@ -1,6 +1,6 @@
 vnstock
 streamlit
-vectorbt==24.1.1
+vectorbt
 pandas
 numpy
 scipy
