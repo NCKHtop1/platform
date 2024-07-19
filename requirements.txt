@@ -1,6 +1,5 @@
 vnstock
 streamlit
-vectorbt
 pandas
 numpy
 scipy
@@ -8,4 +7,4 @@ plotly
 matplotlib
 pandas_ta
 pandas
-streamlit
+vectorbt
